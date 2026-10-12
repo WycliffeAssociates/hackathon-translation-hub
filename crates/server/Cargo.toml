@@ -1,0 +1,41 @@
+[package]
+name = "hub-server"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "hub-server"
+path = "src/main.rs"
+
+[dependencies]
+hub-ingest.workspace = true
+hub-store.workspace = true
+hub-checks.workspace = true
+hub-repo-read.workspace = true
+hub-biel.workspace = true
+hub-proof.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+rayon.workspace = true
+axum = "0.8"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "gzip"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "time", "sync"] }
+tower-http = { version = "0.6", features = ["trace", "fs", "compression-gzip", "compression-br", "request-id", "util"] }
+utoipa = { version = "5", features = ["axum_extras"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
+# Rotating log files: one per day, the oldest dropped past HUB_LOG_KEEP.
+tracing-appender = "0.2"
+
+# OpenTelemetry export over OTLP/HTTP, on only when built with `--features otel`
+# AND OTEL_EXPORTER_OTLP_ENDPOINT is set. Without it the same spans still go
+# to the JSON logs.
+opentelemetry = { version = "0.31", optional = true }
+opentelemetry_sdk = { version = "0.31", optional = true, features = ["rt-tokio"] }
+opentelemetry-otlp = { version = "0.31", optional = true, default-features = false, features = ["http-proto", "reqwest-blocking-client", "trace"] }
+tracing-opentelemetry = { version = "0.32", optional = true }
+
+[features]
+otel = ["dep:opentelemetry", "dep:opentelemetry_sdk", "dep:opentelemetry-otlp", "dep:tracing-opentelemetry"]
+mariadb = ["hub-ingest/mariadb"]

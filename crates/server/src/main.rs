@@ -1,0 +1,137 @@
+//! hub-server: the Translation Hub's API, its soft poll, and (optionally) the
+//! built web app, in one process.
+//!
+//!     hub-server              serve (configuration: see config.rs / AGENTS.md)
+//!     hub-server --openapi    print the OpenAPI document and exit
+//!
+//! Observability is wide events: one JSON line per request (`event:"request"`),
+//! per poll round (`event:"poll"`) and per catalog refresh (`event:"catalog"`),
+//! each carrying its duration and everything needed to explain a slow one.
+
+mod api;
+mod config;
+mod poll;
+mod proof;
+mod telemetry;
+
+use std::sync::Arc;
+use std::time::Instant;
+
+use axum::extract::{MatchedPath, Request};
+use axum::middleware::{self, Next};
+use axum::response::Response;
+use hub_ingest::Scanner;
+use hub_store::Store;
+use tower_http::compression::CompressionLayer;
+use tower_http::services::{ServeDir, ServeFile};
+use tracing::{Instrument, field::Empty, info, info_span};
+use utoipa::OpenApi;
+
+#[tokio::main]
+async fn main() {
+    if std::env::args().any(|a| a == "--openapi") {
+        println!(
+            "{}",
+            api::ApiDoc::openapi()
+                .to_pretty_json()
+                .expect("serialize OpenAPI")
+        );
+        return;
+    }
+    let _guard = telemetry::init();
+    let config = config::Config::from_env();
+    info!(?config, "starting");
+
+    let store = Arc::new(Store::open(&config.db).expect("open the hub's SQLite (HUB_DB)"));
+    let scanner = Arc::new(Scanner::new(hub_ingest::Config {
+        root: config.repo_root.clone(),
+        base_url: config.base_url.clone(),
+    }));
+    assert!(
+        config.repo_root.is_dir(),
+        "HUB_REPO_ROOT {} is not a directory",
+        config.repo_root.display()
+    );
+
+    let poller = Arc::new(poll::Poller {
+        config: config.clone(),
+        store: store.clone(),
+        scanner: scanner.clone(),
+    });
+    tokio::spawn(poller.clone().run_repos());
+    tokio::spawn(poller.run_catalog());
+
+    let mut app = api::router(api::AppState { store, scanner });
+    if let Some(dir) = &config.web_dir {
+        // The web app is a single page: unknown paths get index.html.
+        let index = dir.join("index.html");
+        app = app.fallback_service(ServeDir::new(dir).fallback(ServeFile::new(index)));
+    }
+    let app = app
+        .layer(middleware::from_fn(wide_event))
+        .layer(CompressionLayer::new());
+
+    let listener = tokio::net::TcpListener::bind(config.listen)
+        .await
+        .expect("bind HUB_LISTEN");
+    info!(listen = %config.listen, "listening");
+    axum::serve(listener, app)
+        .with_graceful_shutdown(async {
+            let _ = tokio::signal::ctrl_c().await;
+            info!("shutting down");
+        })
+        .await
+        .expect("server");
+}
+
+/// One wide event per request. Handlers add to the span (`db_ms`, `rows`);
+/// the event at the end carries the span's fields with the outcome, so one
+/// line answers "what was slow, for whom, and why".
+async fn wide_event(req: Request, next: Next) -> Response {
+    let started = Instant::now();
+    // Everything read from the request is owned before the await: a borrow of
+    // it would make this future non-Send (the body is not Sync).
+    let (route, traceparent, page) = {
+        let header = |name: &str| {
+            req.headers()
+                .get(name)
+                .and_then(|v| v.to_str().ok())
+                .unwrap_or("")
+                .to_owned()
+        };
+        let route = req
+            .extensions()
+            .get::<MatchedPath>()
+            .map_or("static".to_owned(), |p| p.as_str().to_owned());
+        (route, header("traceparent"), header("x-hub-page"))
+    };
+    let span = info_span!(
+        "request",
+        method = %req.method(),
+        route = %route,
+        path = %req.uri().path(),
+        query = %req.uri().query().unwrap_or(""),
+        traceparent = %traceparent,
+        // Set by the web app: which page made the call.
+        page = %page,
+        db_ms = Empty,
+        rows = Empty,
+    );
+    telemetry::link_parent(&span, req.headers());
+    let res = next.run(req).instrument(span.clone()).await;
+    let bytes = res
+        .headers()
+        .get(axum::http::header::CONTENT_LENGTH)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.parse::<u64>().ok());
+    span.in_scope(|| {
+        info!(
+            event = "request",
+            status = res.status().as_u16(),
+            duration_ms = started.elapsed().as_secs_f64() * 1000.0,
+            bytes,
+            "request"
+        )
+    });
+    res
+}
