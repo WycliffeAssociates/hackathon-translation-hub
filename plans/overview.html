@@ -1,0 +1,201 @@
+<title>WACS Dashboard Rebuild</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Public+Sans:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one reading column, ~68ch, with wide blocks (flow, tables) allowed to break out to 960px. */
+:root {
+  --bg: #f6f8f9;
+  --surface: #ffffff;
+  --ink: #17232b;
+  --muted: #5a6a74;
+  --line: #d8e0e5;
+  --accent: #1c5d7c;
+  --accent-soft: #e3eff5;
+  --ok: #23774f;
+  --ok-soft: #e4f2ea;
+  --warn: #9a5b0b;
+  --warn-soft: #fbf0de;
+  --code-bg: #eef2f4;
+  --f-display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --f-body: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11181d; --surface: #182229; --ink: #e3eaee; --muted: #93a4ae; --line: #2a3943;
+    --accent: #7fc0de; --accent-soft: #1b3442; --ok: #6fcf9f; --ok-soft: #173126;
+    --warn: #e8b46a; --warn-soft: #36290f; --code-bg: #1f2b33; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11181d; --surface: #182229; --ink: #e3eaee; --muted: #93a4ae; --line: #2a3943;
+  --accent: #7fc0de; --accent-soft: #1b3442; --ok: #6fcf9f; --ok-soft: #173126;
+  --warn: #e8b46a; --warn-soft: #36290f; --code-bg: #1f2b33; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 16px/1.6 var(--f-body); }
+.page { max-width: 960px; margin: 0 auto; padding-inline: 20px; padding-block: 48px 80px; display: grid; gap: 56px; }
+.prose { max-width: 68ch; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; line-height: 1.15; }
+h1 { font-size: clamp(2rem, 5vw, 2.9rem); font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: 1.55rem; font-weight: 700; }
+h3 { font-size: 1.05rem; font-weight: 700; }
+p { margin: 0; }
+section { display: grid; gap: 18px; }
+.eyebrow { font: 600 12px/1 var(--f-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+.lede { font-size: 1.15rem; color: var(--ink); max-width: 62ch; }
+.meta { color: var(--muted); font-size: 0.9rem; display: flex; flex-wrap: wrap; gap: 6px 18px; }
+code, .mono { font-family: var(--f-mono); font-size: 0.86em; }
+code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+a { color: var(--accent); }
+ul.plain { margin: 0; padding-left: 1.1em; display: grid; gap: 6px; }
+.muted { color: var(--muted); }
+
+/* the flow */
+.flow { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; align-items: center; gap: 14px; }
+.col { display: grid; gap: 10px; min-width: 0; }
+.node { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; min-width: 0; }
+.node b { display: block; font-family: var(--f-display); font-size: 1rem; }
+.node span { color: var(--muted); font-size: 0.85rem; display: block; }
+.node .tag { display: inline-block; margin-top: 6px; font: 600 11px/1 var(--f-mono); padding: 4px 6px; border-radius: 4px; background: var(--code-bg); color: var(--muted); }
+.node.core { border-color: var(--accent); background: var(--accent-soft); }
+.arrow { color: var(--muted); font: 600 20px/1 var(--f-mono); text-align: center; }
+@media (max-width: 720px) {
+  .flow { grid-template-columns: 1fr; }
+  .arrow { transform: rotate(90deg); }
+}
+
+/* decisions */
+.decisions { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+.card .choice { font-family: var(--f-mono); font-size: 0.82rem; color: var(--accent); }
+.card p { font-size: 0.93rem; color: var(--muted); }
+.card p strong { color: var(--ink); font-weight: 600; }
+
+/* tables */
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.92rem; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 9px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 600 12px/1.3 var(--f-mono); color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+tr:last-child td { border-bottom: 0; }
+td.num { text-align: right; white-space: nowrap; }
+.note { font-size: 0.88rem; color: var(--muted); }
+
+/* port / drop */
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 640px) { .split { grid-template-columns: 1fr; } }
+.list { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; display: grid; gap: 8px; }
+.list h3 { display: flex; align-items: center; gap: 8px; }
+.pill { font: 600 11px/1 var(--f-mono); padding: 4px 7px; border-radius: 99px; }
+.pill.ok { background: var(--ok-soft); color: var(--ok); }
+.pill.warn { background: var(--warn-soft); color: var(--warn); }
+.list ul { margin: 0; padding-left: 1.1em; display: grid; gap: 4px; font-size: 0.92rem; }
+
+/* increments */
+.steps { display: grid; gap: 0; border-left: 2px solid var(--line); margin-left: 6px; }
+.step { position: relative; padding: 0 0 22px 22px; display: grid; gap: 4px; }
+.step::before { content: ""; position: absolute; left: -7px; top: 6px; width: 12px; height: 12px; border-radius: 50%; background: var(--bg); border: 2px solid var(--line); }
+.step.now::before { background: var(--accent); border-color: var(--accent); }
+.step .when { font: 600 12px/1 var(--f-mono); color: var(--muted); }
+.step.now .when { color: var(--accent); }
+.step p { color: var(--muted); font-size: 0.94rem; max-width: 64ch; }
+
+/* questions */
+.qs { display: grid; gap: 10px; counter-reset: q; }
+.q { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 16px; display: grid; gap: 4px; }
+.q b { font-weight: 600; }
+.q span { color: var(--muted); font-size: 0.92rem; }
+
+pre { margin: 0; background: var(--code-bg); border-radius: 8px; padding: 14px 16px; overflow-x: auto; font: 13px/1.6 var(--f-mono); }
+footer { color: var(--muted); font-size: 0.88rem; border-top: 1px solid var(--line); padding-top: 18px; }
+</style>
+
+<div class="page">
+
+<header style="display:grid;gap:16px">
+  <div class="eyebrow">wacs-dashboard-2</div>
+  <h1>WACS Dashboard Rebuild</h1>
+  <p class="lede">A small service that sits next to Forgejo's files and answers high-level questions about the whole Bible translation catalog, through an HTTP API and a dashboard on top of it.</p>
+</header>
+
+<section class="prose">
+  <div class="eyebrow">The idea</div>
+  <h2>Forgejo stores the code shape. We store the Bible shape.</h2>
+  <p>WACS hosts thousands of translation repos on Forgejo. Forgejo sees them as git repos: files, commits, branches. The questions people ask are about Bibles: which languages have a New Testament, which books exist, which projects are healthy, who is actively working.</p>
+  <p>The best way to get that high-level view is to sit right next to the files and read them for a different purpose. <strong>We are not recreating git or Forgejo.</strong> We read the same repos, read-only, and index what they mean as scripture: languages, books, manifests, lint health.</p>
+</section>
+
+<section>
+  <div class="eyebrow">Shape</div>
+  <h2>How data flows</h2>
+  <div class="flow" role="img" aria-label="Forgejo's repos and database feed a sync job, which writes a SQLite index, which a Rust API serves to the dashboard and other apps.">
+    <div class="col">
+      <div class="node"><b>Forgejo's repos</b><span>Read-only, straight off disk</span></div>
+      <div class="node"><b>Forgejo's database</b><span>What exists and what's public</span></div>
+      <div class="node"><b>Public data API</b><span>Which project is the primary one</span></div>
+    </div>
+    <div class="arrow" aria-hidden="true">→</div>
+    <div class="col">
+      <div class="node core"><b>Sync</b><span>Polls for changes every few minutes</span></div>
+      <div class="node core"><b>SQLite</b><span>The Bible shape of every repo</span></div>
+    </div>
+    <div class="arrow" aria-hidden="true">→</div>
+    <div class="col">
+      <div class="node core"><b>HTTP API</b><span>Rust, documented, the main product</span></div>
+      <div class="node"><b>Dashboard</b><span>One client of the API</span></div>
+      <div class="node"><b>Other apps</b><span>Sefer, BIEL, scripts</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="prose">
+  <div class="eyebrow">How it works</div>
+  <h2>In a few lines</h2>
+  <ul class="plain">
+    <li><strong>Public repos only</strong>, to be safe.</li>
+    <li><strong>A soft poll, not events.</strong> It checks Forgejo's database every few minutes for changed repos, so a missed event or a restart never leaves it out of date. It's fast because the files are right there.</li>
+    <li><strong>Bible-shaped queries.</strong> By language, by book, by resource type, by activity. Maybe a heat map later.</li>
+    <li><strong>Keyed by git SHA.</strong> Results like lint counts are stored against the exact content they came from, so nothing is recomputed until the text changes.</li>
+    <li><strong>One Bible per language.</strong> A consolidated view of the many BTT Writer projects for a language, built from the primary ones.</li>
+    <li><strong>Rendered on demand.</strong> Opening a repo shows its current text, never a stale pre-render.</li>
+    <li><strong>Rust</strong>, because the USFM parsing and linting it builds on (<a href="https://github.com/WycliffeAssociates/scripture-kitchen">scripture-kitchen</a>) is Rust. It's pinned by git tag.</li>
+  </ul>
+  <p class="note">Indexing the entire catalog from scratch takes well under a minute in early tests.</p>
+</section>
+
+<section>
+  <div class="eyebrow">Order of work</div>
+  <h2>Increments</h2>
+  <div class="steps">
+    <div class="step now"><span class="when">1 · first</span><h3>Catalog API</h3><p>Index every public repo's manifest and books. Filter by language, subject, book and owner. No UI yet.</p></div>
+    <div class="step"><span class="when">2</span><h3>Health</h3><p>Lint counts and manifest problems, so you can ask "which projects need attention?"</p></div>
+    <div class="step"><span class="when">3</span><h3>One Bible per language</h3><p>Stitch the primary BTT Writer projects into one view per language.</p></div>
+    <div class="step"><span class="when">4</span><h3>Dashboard</h3><p>A repo page with rendered text, lint findings in place, and releases.</p></div>
+  </div>
+</section>
+
+<section>
+  <div class="eyebrow">Out of scope</div>
+  <h2>What this is not</h2>
+  <ul class="plain prose">
+    <li>Not a replacement for Forgejo, and it never writes to it.</li>
+    <li>Not a reader, an editor or a new linter.</li>
+    <li>Not full-text search across Bibles.</li>
+  </ul>
+</section>
+
+<section>
+  <div class="eyebrow">Getting started</div>
+  <h2>Dev environment</h2>
+  <p class="prose">The repo ships a MariaDB with 32,575 public repo rows and 1,441 real bare repos copied from the dev server, including the full <code>wa-catalog</code> and complete NT <code>_text_reg</code> sets.</p>
+  <pre>docker compose up -d db
+export DATABASE_URL=mysql://dashboard_ro:dev@127.0.0.1:3306/gitea
+export REPO_ROOT=./dev-data/repositories
+scripts/pull-more.sh 50 'regex'   # more repos from wacsdev</pre>
+</section>
+
+<footer>A detailed plan, with schemas and code sketches, is in <code>plans/architecture.html</code> in the repo.</footer>
+
+</div>

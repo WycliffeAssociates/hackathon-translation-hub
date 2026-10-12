@@ -1,0 +1,677 @@
+<title>Translation Hub Proposal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;0,7..72,700;1,7..72,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F6F7F4; --paper-2:#ECEFEA; --ink:#18212B; --muted:#56616C; --rule:#D3D9D4;
+  --lapis:#23507A; --official:#2F7A57; --draft:#C08A1E; --conflict:#A8445A; --empty:#DEE3DF;
+  --wf-bg:#FFFFFF; --wf-ink:#2A333C; --wf-line:#C9D0CB; --wf-fill:#F1F3F0;
+  --serif:"Literata", Georgia, "Times New Roman", serif;
+  --ui:"Atkinson Hyperlegible", "Segoe UI", system-ui, -apple-system, sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#12171C; --paper-2:#1A2128; --ink:#E4E9E5; --muted:#9AA6AF; --rule:#2C363F;
+    --lapis:#7FAEDB; --official:#5FB58A; --draft:#E0AE48; --conflict:#D9788C; --empty:#27313A;
+    --wf-bg:#182027; --wf-ink:#D7DEE2; --wf-line:#33404A; --wf-fill:#202A32;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#12171C; --paper-2:#1A2128; --ink:#E4E9E5; --muted:#9AA6AF; --rule:#2C363F;
+  --lapis:#7FAEDB; --official:#5FB58A; --draft:#E0AE48; --conflict:#D9788C; --empty:#27313A;
+  --wf-bg:#182027; --wf-ink:#D7DEE2; --wf-line:#33404A; --wf-fill:#202A32;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%; scroll-padding-top:env(safe-area-inset-top,0px); scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto} }
+body{margin:0; background:var(--paper); color:var(--ink); font-family:var(--serif); font-size:1.0625rem; line-height:1.65; -webkit-font-smoothing:antialiased}
+img,svg{max-width:100%}
+a{color:var(--lapis); text-underline-offset:.18em}
+a:focus-visible,button:focus-visible,[tabindex]:focus-visible{outline:3px solid var(--lapis); outline-offset:2px; border-radius:2px}
+
+/* ---------- layout ---------- */
+.shell{display:grid; grid-template-columns:minmax(0,1fr); max-width:1180px; margin:0 auto; padding:0 1.25rem}
+@media (min-width:1080px){ .shell{grid-template-columns:200px minmax(0,1fr); column-gap:3.5rem} }
+nav.toc{display:none}
+@media (min-width:1080px){
+  nav.toc{display:block; position:sticky; top:calc(env(safe-area-inset-top,0px) + 2rem); align-self:start; padding-top:3rem; font-family:var(--ui); font-size:.875rem}
+  nav.toc ol{list-style:none; margin:0; padding:0; border-left:1px solid var(--rule)}
+  nav.toc li a{display:block; padding:.3rem 0 .3rem .9rem; color:var(--muted); text-decoration:none}
+  nav.toc li a:hover{color:var(--ink)}
+  nav.toc .toc-title{font-weight:700; margin:0 0 .6rem; color:var(--ink)}
+}
+main{min-width:0; padding-bottom:5rem}
+.prose{max-width:68ch}
+section{padding-top:3.5rem}
+h1,h2,h3{font-family:var(--serif); line-height:1.2; font-weight:600; letter-spacing:-.01em}
+h1{font-size:clamp(2.1rem,5vw,3.4rem); margin:.2rem 0 1rem; font-weight:700; letter-spacing:-.02em; max-width:16ch}
+h2{font-size:1.75rem; margin:0 0 1rem}
+h3{font-size:1.2rem; margin:2rem 0 .5rem}
+p{margin:0 0 1rem}
+.lede{font-size:1.2rem; color:var(--muted); max-width:56ch}
+.small{font-family:var(--ui); font-size:.875rem; color:var(--muted)}
+hr.section-rule{border:0; border-top:1px solid var(--rule); margin:0}
+
+/* ---------- hero ---------- */
+.hero{padding-top:3rem}
+.hero .kicker{font-family:var(--ui); color:var(--muted); font-size:.95rem; margin-bottom:.25rem}
+.shelf{display:flex; flex-wrap:wrap; gap:.85rem .7rem; margin:2rem 0 .75rem; padding:1.25rem; background:var(--paper-2); border-radius:6px}
+.book{display:flex; flex-direction:column; align-items:flex-start; gap:4px}
+.book .cells{display:grid; gap:2px}
+.book .cells i{display:block; width:7px; height:7px; border-radius:1.5px; background:var(--empty)}
+.book .cells i.o{background:var(--official)} .book .cells i.d{background:var(--draft)} .book .cells i.c{background:var(--conflict)}
+.book b{font-family:var(--ui); font-weight:400; font-size:.65rem; color:var(--muted); line-height:1}
+.testament-break{flex-basis:100%; height:0}
+.legend{display:flex; flex-wrap:wrap; gap:.5rem 1.25rem; font-family:var(--ui); font-size:.85rem; color:var(--muted); margin:0 0 .5rem}
+.legend span{display:inline-flex; align-items:center; gap:.45rem}
+.legend i{display:inline-block; width:11px; height:11px; border-radius:2px}
+.shelf.animate .cells i{opacity:0; transform:scale(.4); animation:pop .35s ease-out forwards}
+@keyframes pop{to{opacity:1; transform:none}}
+@media (prefers-reduced-motion: reduce){ .shelf.animate .cells i{animation:none; opacity:1; transform:none} }
+
+/* ---------- evidence ---------- */
+.evidence{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:0; border-top:2px solid var(--ink); margin:1.5rem 0 1.5rem; max-width:860px}
+.evidence div{padding:1rem 1rem 1rem 0; border-bottom:1px solid var(--rule)}
+.evidence strong{display:block; font-size:2rem; font-weight:600; line-height:1.1}
+.evidence span{font-family:var(--ui); font-size:.9rem; color:var(--muted)}
+
+/* ---------- glossary / tables ---------- */
+dl.terms{display:grid; grid-template-columns:minmax(0,1fr); gap:0; max-width:820px; margin:1rem 0}
+@media (min-width:640px){ dl.terms{grid-template-columns:11rem minmax(0,1fr)} }
+dl.terms dt{font-weight:600; padding:.75rem 1rem .1rem 0; border-top:1px solid var(--rule)}
+dl.terms dd{margin:0; padding:.1rem 0 .75rem; border-top:1px solid var(--rule)}
+@media (max-width:639px){ dl.terms dd{border-top:0} }
+.table-wrap{overflow-x:auto; max-width:100%; margin:1rem 0 1.5rem}
+table{border-collapse:collapse; font-family:var(--ui); font-size:.92rem; min-width:620px; width:100%; max-width:900px}
+th,td{text-align:left; vertical-align:top; padding:.6rem .9rem .6rem 0; border-bottom:1px solid var(--rule)}
+th{font-weight:700; border-bottom:2px solid var(--ink)}
+
+/* ---------- model diagram ---------- */
+.model{font-family:var(--ui); display:grid; gap:.9rem; max-width:900px; margin:1.5rem 0}
+.model .node{border:1.5px solid var(--ink); border-radius:6px; padding:.7rem .9rem; background:var(--paper)}
+.model .node h4{margin:0 0 .2rem; font-size:1rem}
+.model .node p{margin:0; font-size:.85rem; color:var(--muted); line-height:1.45}
+.model .row{display:grid; gap:.9rem; grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.model .arrow{font-size:.85rem; color:var(--muted); padding-left:1rem; border-left:2px solid var(--rule); margin-left:1.2rem}
+.model .node.official{border-color:var(--official); box-shadow:inset 4px 0 0 var(--official)}
+.model .node.draft{border-color:var(--draft); box-shadow:inset 4px 0 0 var(--draft)}
+.model .node.gl{border-color:var(--lapis); box-shadow:inset 4px 0 0 var(--lapis)}
+.model .node.dashed{border-style:dashed}
+
+/* ---------- journeys ---------- */
+ol.journeys{counter-reset:j; list-style:none; padding:0; margin:1rem 0; max-width:820px}
+ol.journeys li{counter-increment:j; position:relative; padding:0 0 1.1rem 2.6rem}
+ol.journeys li::before{content:counter(j); position:absolute; left:0; top:.1rem; width:1.75rem; height:1.75rem; border-radius:50%; border:1.5px solid var(--ink); font-family:var(--ui); font-size:.85rem; display:grid; place-items:center}
+ol.journeys li strong{font-weight:600}
+
+/* ---------- wireframes ---------- */
+.wf{margin:1.75rem 0 2.5rem; max-width:1000px}
+.wf figcaption{font-family:var(--ui); font-size:.9rem; color:var(--muted); margin-top:.6rem; max-width:70ch}
+.frame{background:var(--wf-bg); color:var(--wf-ink); border:1.5px solid var(--wf-line); border-radius:10px; overflow:hidden; font-family:var(--ui); font-size:.9rem; line-height:1.45}
+.frame .bar{display:flex; align-items:center; gap:.5rem; padding:.55rem .9rem; border-bottom:1.5px solid var(--wf-line); background:var(--wf-fill)}
+.frame .bar .dots{display:flex; gap:5px} .frame .bar .dots i{width:9px; height:9px; border-radius:50%; background:var(--wf-line)}
+.frame .bar .url{flex:1; text-align:center; font-size:.8rem; color:var(--muted)}
+.frame .appnav{display:flex; flex-wrap:wrap; align-items:center; gap:1.1rem; padding:.6rem 1.1rem; border-bottom:1px solid var(--wf-line)}
+.frame .appnav .brand{font-weight:700}
+.frame .appnav .spacer{flex:1}
+.frame .body{padding:1.1rem}
+.wf-scroll{overflow-x:auto}
+.ph{background:var(--wf-fill); border-radius:4px}
+.btn{display:inline-flex; align-items:center; gap:.35rem; font:inherit; font-size:.85rem; padding:.4rem .75rem; border-radius:6px; border:1.5px solid var(--wf-ink); background:transparent; color:var(--wf-ink); cursor:pointer}
+.btn.primary{background:var(--wf-ink); color:var(--wf-bg)}
+.btn[disabled]{opacity:.45; cursor:not-allowed}
+.pill{display:inline-block; font-size:.75rem; padding:.1rem .5rem; border-radius:999px; border:1px solid var(--wf-line)}
+.pill.ok{border-color:var(--official); color:var(--official)} .pill.warn{border-color:var(--draft); color:var(--draft)} .pill.bad{border-color:var(--conflict); color:var(--conflict)}
+.tabs{display:flex; gap:1.2rem; border-bottom:1px solid var(--wf-line); margin:0 -1.1rem 1rem; padding:0 1.1rem}
+.tabs span{padding:.5rem 0; color:var(--muted)} .tabs span.on{color:var(--wf-ink); font-weight:700; border-bottom:2.5px solid var(--wf-ink)}
+.wf-grid{display:grid; gap:1.1rem; grid-template-columns:minmax(0,1fr)}
+@media (min-width:760px){ .wf-grid.home{grid-template-columns:minmax(0,1.6fr) minmax(0,1fr)} .wf-grid.bring{grid-template-columns:minmax(0,1.7fr) minmax(0,1fr)} .wf-grid.two{grid-template-columns:1fr 1fr} }
+.panel{border-top:1px solid var(--wf-line); padding-top:.7rem}
+.panel h5{margin:0 0 .5rem; font-size:.95rem}
+.panel ul{list-style:none; margin:0; padding:0}
+.panel li{display:flex; justify-content:space-between; gap:.75rem; padding:.35rem 0; border-bottom:1px dashed var(--wf-line)}
+.panel li:last-child{border-bottom:0}
+.panel li .sub{color:var(--muted); font-size:.8rem}
+.meter{height:8px; border-radius:4px; background:var(--wf-fill); overflow:hidden; display:flex; margin:.35rem 0 .2rem}
+.meter i{display:block; height:100%}
+.title-row{display:flex; flex-wrap:wrap; gap:.75rem 1.25rem; align-items:flex-end; justify-content:space-between; margin-bottom:.9rem}
+.title-row h4{margin:0; font-size:1.35rem; font-family:var(--serif); font-weight:600}
+.title-row .crumb{color:var(--muted); font-size:.8rem}
+.actions{display:flex; flex-wrap:wrap; gap:.5rem}
+
+/* bring-in matrix */
+.mx{display:grid; grid-template-columns:4.5rem minmax(0,1fr); gap:.45rem .6rem; align-items:start}
+.mx .bk{font-weight:700; padding-top:.15rem}
+.mx .row{display:flex; flex-wrap:wrap; gap:3px}
+.mx button.ch{width:24px; height:24px; border-radius:4px; border:1.5px solid var(--wf-line); background:transparent; color:var(--wf-ink); font:inherit; font-size:.62rem; cursor:pointer; padding:0}
+.mx button.ch.o{background:var(--official); border-color:var(--official); color:#fff; cursor:default}
+.mx button.ch.avail{border-color:var(--draft); border-style:dashed}
+.mx button.ch.sel{background:var(--draft); border-color:var(--draft); border-style:solid; color:#fff}
+.mx button.ch.c{border-color:var(--conflict); border-style:dashed}
+.mx button.ch.c.sel{background:var(--conflict); border-color:var(--conflict); border-style:solid; color:#fff}
+.mx button.ch:disabled{opacity:.35; cursor:default}
+.mx button.ch.o:disabled{opacity:1}
+.source-pick{display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; margin-bottom:.9rem}
+.source-pick select{font:inherit; padding:.35rem .5rem; border-radius:6px; border:1.5px solid var(--wf-line); background:var(--wf-bg); color:var(--wf-ink); max-width:100%}
+.req{border:1.5px solid var(--wf-ink); border-radius:8px; padding:.9rem}
+.req h5{margin:0 0 .4rem; font-size:1rem}
+.req .count{font-size:1.6rem; font-weight:700; line-height:1.1}
+.req textarea{width:100%; font:inherit; font-size:.85rem; border:1.5px solid var(--wf-line); border-radius:6px; padding:.5rem; min-height:4.5rem; background:var(--wf-bg); color:var(--wf-ink); resize:vertical}
+.toast{margin-top:.6rem; font-size:.85rem; color:var(--official); min-height:1.2em}
+
+/* bulletin */
+.bulletin{border-left:4px solid var(--lapis); padding:.6rem .9rem; background:var(--wf-fill); border-radius:0 6px 6px 0; margin-bottom:.75rem}
+.bulletin .from{font-size:.8rem; color:var(--muted)}
+.bulletin h6{margin:.2rem 0 .35rem; font-size:.95rem}
+.diff{font-family:var(--serif); font-size:.9rem; line-height:1.55; margin:.4rem 0}
+.diff del{background:color-mix(in srgb, var(--conflict) 18%, transparent); text-decoration:line-through; text-decoration-color:var(--conflict)}
+.diff ins{background:color-mix(in srgb, var(--official) 20%, transparent); text-decoration:none}
+.field{display:block; margin-bottom:.6rem}
+.field span{display:block; font-size:.8rem; color:var(--muted); margin-bottom:.2rem}
+.field .ph{height:2rem}
+.field .ph.tall{height:4.5rem}
+
+/* language picker */
+.chips{display:flex; flex-wrap:wrap; gap:.4rem}
+.chip{font:inherit; font-size:.82rem; padding:.3rem .65rem; border-radius:999px; border:1.5px solid var(--wf-line); background:transparent; color:var(--wf-ink); cursor:pointer}
+.chip[aria-pressed="true"]{border-color:var(--wf-ink); background:var(--wf-ink); color:var(--wf-bg)}
+.region{margin-bottom:.8rem}
+.region h6{margin:0 0 .4rem; font-size:.85rem; color:var(--muted); font-weight:400}
+
+/* phases */
+.phases{display:grid; gap:0; max-width:900px; margin:1rem 0; border-top:2px solid var(--ink)}
+.phase{display:grid; grid-template-columns:minmax(0,1fr); gap:.2rem 1.5rem; padding:1rem 0; border-bottom:1px solid var(--rule)}
+@media (min-width:700px){ .phase{grid-template-columns:9rem minmax(0,1fr)} }
+.phase h4{margin:0; font-size:1.05rem}
+.phase .when{font-family:var(--ui); font-size:.85rem; color:var(--muted)}
+.phase p{margin:0}
+
+ul.qs{max-width:70ch; padding-left:1.2rem}
+ul.qs li{margin-bottom:.6rem}
+.spine{display:grid; gap:0; max-width:900px; margin:1rem 0; border-top:2px solid var(--ink)}
+.spine div{display:grid; grid-template-columns:minmax(0,1fr); gap:.2rem 1.5rem; padding:.9rem 0; border-bottom:1px solid var(--rule)}
+@media (min-width:700px){ .spine div{grid-template-columns:13rem minmax(0,1fr)} }
+.spine b{font-weight:600}
+.spine p{margin:0}
+.ask{border:1.5px solid var(--lapis); border-radius:8px; padding:1rem 1.2rem; max-width:820px; margin:1rem 0}
+.ask h3{margin:0 0 .4rem; font-size:1.05rem}
+.ask p{margin:0 0 .6rem}
+.ask p:last-child{margin:0}
+.slice{background:var(--paper-2); border-radius:6px; padding:1rem 1.2rem; max-width:900px; margin:1rem 0}
+.slice h4{margin:0 0 .5rem}
+.slice ul{margin:0; padding-left:1.2rem}
+pre.sdk{font:.85rem/1.6 ui-monospace, Menlo, monospace; background:var(--paper-2); border-radius:6px; padding:.8rem 1rem; overflow-x:auto; max-width:820px; margin:.5rem 0 1rem}
+footer{font-family:var(--ui); font-size:.85rem; color:var(--muted); padding:2.5rem 0 0; border-top:1px solid var(--rule); margin-top:4rem}
+</style>
+<div class="shell">
+<nav class="toc" aria-label="Contents">
+  <p class="toc-title">Contents</p>
+  <ol>
+    <li><a href="#problem">The problem</a></li>
+    <li><a href="#vocabulary">Vocabulary</a></li>
+    <li><a href="#people">Who it's for</a></li>
+    <li><a href="#model">How it fits together</a></li>
+    <li><a href="#journeys">Core journeys</a></li>
+    <li><a href="#wireframes">Wireframes</a></li>
+    <li><a href="#gateway">Gateway to heart</a></li>
+    <li><a href="#publishing">Publishing</a></li>
+    <li><a href="#foundation">What we build on</a></li>
+    <li><a href="#runs">How it runs</a></li>
+    <li><a href="#phases">Phasing</a></li>
+    <li><a href="#hackathon">Hackathon slice</a></li>
+    <li><a href="#questions">Open questions</a></li>
+  </ol>
+</nav>
+
+<main>
+<header class="hero">
+  <p class="kicker">Proposal · Translation Hub · combined draft</p>
+  <h1>One language, 346 catalog entries. Which one is the Bible?</h1>
+  <p class="lede">A web application on top of WACS that gives every Bible version a home: one official repo per version, a clear view of every draft that could feed it, and a live connection to the gateway sources it was translated from.</p>
+
+  <div class="shelf" id="shelf" role="img" aria-label="Illustration: all 1,189 chapters of a hypothetical heart-language Bible, grouped by book. Most of the New Testament is official, scattered chapters exist only in draft repos, a few chapters exist in more than one draft, and most of the Old Testament is not started."></div>
+  <div class="legend" aria-hidden="true">
+    <span><i style="background:var(--official)"></i>In the official repo</span>
+    <span><i style="background:var(--draft)"></i>Only in a draft repo</span>
+    <span><i style="background:var(--conflict)"></i>In two or more draft repos</span>
+    <span><i style="background:var(--empty)"></i>Not started</span>
+  </div>
+  <p class="small">Every square is one chapter. This is the picture a translation lead should be able to see for their version in a single glance — today it has to be assembled by hand.</p>
+</header>
+
+<section id="problem">
+  <h2>The problem</h2>
+  <div class="prose">
+    <p>WACS holds the work, but not the relationships between pieces of work. A translation team's Bible is spread across single-book BTT-Writer repos, consolidated repos, staging copies and personal mirrors, and nothing in the system says which of them is the version people should read, print or build on.</p>
+    <p>A quick look at the public catalog API for one gateway language, Khmer, shows the shape of it:</p>
+  </div>
+  <div class="evidence">
+    <div><strong>346</strong><span>catalog entries for Khmer</span></div>
+    <div><strong>2</strong><span>owners each holding a repo named <em>km_ulb</em></span></div>
+    <div><strong>2×</strong><span>Isaiah and Haggai, each in Staging and in a personal mirror</span></div>
+    <div><strong>18</strong><span>heart languages that depend on Khmer as a gateway</span></div>
+  </div>
+  <div class="prose">
+    <p>The "primary" flag in our internal tracker tries to paper over this, but because single-book Writer repos need to be primary too, and nothing prevents two consolidated repos from both being flagged, it can't give a single answer. Consolidation is a manual staff task, which makes it a bottleneck at exactly the point where we want work to flow in from many places.</p>
+    <p>Meanwhile the gateway-language strategy creates a dependency graph — English alone is a gateway for 1,774 languages in the catalog, French for 1,103 — but when a gateway text changes, there's no channel to tell the teams downstream what changed or why it matters.</p>
+  </div>
+</section>
+
+<section id="vocabulary">
+  <h2>Vocabulary</h2>
+  <div class="prose">
+    <p>"Translation" means both a process and a product, which makes conversations slippery. The public already has a word for the product: the V in NIV, ESV and KJV stands for <em>Version</em>. The proposal uses these terms:</p>
+  </div>
+  <dl class="terms">
+    <dt>Version</dt><dd>A distinct, named translation of Scripture in one language with its own methodology and team — what this document has been calling a "translation effort." A language can have several, and each is keyed by its resource type, such as <em>reg</em> or <em>ulb</em>.</dd>
+    <dt>Track</dt><dd>One modality of a version: text or audio. Oral-only languages have only an audio track.</dd>
+    <dt>Official repo</dt><dd>The single repo the hub treats as the version's canonical content for a track, kept in a hub-managed Forgejo organization. Exactly one per track.</dd>
+    <dt>Draft source</dt><dd>Any repo that can contribute chapters to the official repo: BTT-Writer projects, other translators' repos, Orature projects, AI drafts.</dd>
+    <dt>Gateway source</dt><dd>A gateway-language text the version is translated from, pinned to a specific commit. One of them is the structural source that fixes versification.</dd>
+    <dt>Reference text</dt><dd>An extra text a person adds for their own reading, based on the languages on their profile. Personal, not part of the version.</dd>
+    <dt>Release</dt><dd>A published, numbered snapshot of a track, with rendered outputs.</dd>
+    <dt>Contribution request</dt><dd>A proposal to bring specific chapters from a draft source into the official repo, approved by the translation lead.</dd>
+    <dt>Bulletin</dt><dd>A note from a gateway-language team to every heart-language team that depends on them.</dd>
+  </dl>
+</section>
+
+<section id="people">
+  <h2>Who it's for</h2>
+  <div class="prose">
+    <p>The primary user is the <strong>translation lead</strong> — often a pastor or church leader — who is responsible for a version but is not a software person. Every screen should make sense to them first. Translators are welcome and may work directly in the hub on a shared computer, but most will simply keep pushing from BTT-Writer, Sefer or Orature, and the hub picks up their work as draft sources.</p>
+    <p>Developers are not the primary users, but every screen is backed by the same public API, so other apps and agents get the same answers the lead sees.</p>
+  </div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Role</th><th>What they come to do</th><th>Can approve</th></tr></thead>
+    <tbody>
+      <tr><td>Translation lead</td><td>See where the version stands, bring in chapters, respond to gateway changes, open Sefer or Orature</td><td>Contribution requests, release candidates</td></tr>
+      <tr><td>Translator</td><td>See their own work on the coverage map, propose chapters, launch their editing tool</td><td>—</td></tr>
+      <tr><td>Gateway language team</td><td>Publish bulletins and changelogs to dependent teams; see which teams are on which gateway release</td><td>Their own version's requests</td></tr>
+      <tr><td>Scripture Accessibility team (WA)</td><td>Review release candidates, check formatting and outputs, publish and distribute</td><td>Publication</td></tr>
+      <tr><td>WA staff / admins</td><td>Create versions, assign leads, resolve which repo is official during migration, request AI drafts</td><td>Version setup, official-repo changes</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section id="model">
+  <h2>How it fits together</h2>
+  <div class="prose">
+    <p>The hub's real contribution is a small data model that makes relationships explicit. Forgejo still stores the content; the hub stores what the content means.</p>
+  </div>
+  <div class="model" aria-label="Data model">
+    <div class="node"><h4>Language</h4><p>From the catalog API: names, region, gateway relationships, oral-only flag.</p></div>
+    <div class="arrow">has one or more</div>
+    <div class="node"><h4>Version</h4><p>Name, methodology, translation lead, team, structural gateway source.</p></div>
+    <div class="arrow">has a text track and/or an audio track, each with</div>
+    <div class="row">
+      <div class="node official"><h4>Official repo</h4><p>Exactly one per track, in the hub's Forgejo org. Consolidated layout with RC and Scripture Burrito metadata (text) or chapter files via git-lfs (audio).</p></div>
+      <div class="node draft"><h4>Draft sources</h4><p>Writer, Sefer, Orature and AI-draft repos in the same language. Never written to by the hub.</p></div>
+      <div class="node gl"><h4>Gateway sources</h4><p>Pinned to a commit. The hub watches for new commits and bulletins.</p></div>
+    </div>
+    <div class="arrow">every chapter in the official repo records its provenance</div>
+    <div class="row">
+      <div class="node dashed"><h4>Provenance</h4><p>Which draft source and commit a chapter came from, who approved it, and when. <em>Open: see the first question below.</em></p></div>
+      <div class="node dashed"><h4>Releases</h4><p>Tag, rendered outputs, catalog registration, approval trail.</p></div>
+      <div class="node dashed"><h4>Checks</h4><p>Lint, versification against the structural source, alignment, AI review.</p></div>
+    </div>
+  </div>
+  <div class="prose">
+    <p>Two consequences follow. First, "multiple primaries" becomes impossible by construction rather than by policy. Second, provenance makes "updates available" work the same way in both directions: a gateway source moved past its pinned commit, or a draft source has newer work on a chapter that was already brought in.</p>
+  </div>
+</section>
+
+<section id="journeys">
+  <h2>Core journeys</h2>
+  <ol class="journeys">
+    <li><strong>Set up my languages.</strong> On first sign-in, a person picks the languages they speak, grouped by region, and marks which are gateway languages to them. The whole hub filters and suggests from this list.</li>
+    <li><strong>Find my version's home.</strong> The lead lands on the version homepage: coverage, gateway sources, new draft work, checks, releases, and buttons to open Sefer or Orature on the official repo.</li>
+    <li><strong>Bring in chapters.</strong> From the coverage map, the lead (or a translator) selects chapters from a draft source and sends a contribution request. Behind the scenes it's a branch and a Forgejo pull request; on screen it's a side-by-side read and an Approve button.</li>
+    <li><strong>Respond to a gateway change.</strong> A bulletin arrives from the gateway team with the affected chapters listed. The lead reviews the diff, marks it reviewed or flags chapters for revision, and the version's pin moves forward.</li>
+    <li><strong>Prepare a release.</strong> The lead proposes a release candidate. Checks run, the Scripture Accessibility team reviews outputs, and approval publishes it to the catalog.</li>
+    <li><strong>Request an AI draft.</strong> Once the New Testament is complete, staff or the lead request an Old Testament draft. It arrives as a new draft source and goes through the same review as human work.</li>
+  </ol>
+</section>
+
+<section id="wireframes">
+  <h2>Wireframes</h2>
+  <div class="prose">
+    <p>Low-fidelity sketches for the four screens that carry the idea. Languages and repo names are illustrative. The second wireframe is clickable.</p>
+  </div>
+
+  <figure class="wf">
+    <div class="frame">
+      <div class="bar"><span class="dots"><i></i><i></i><i></i></span><span class="url">hub.wacs / cja / western-cham-bible</span></div>
+      <div class="appnav"><span class="brand">Translation Hub</span><span>My versions</span><span>Languages</span><span>Bulletins <span class="pill warn">2</span></span><span class="spacer"></span><span class="small">Pastor Ahmad</span></div>
+      <div class="body">
+        <div class="title-row">
+          <div><div class="crumb">Western Cham · cja</div><h4>Western Cham Bible</h4></div>
+          <div class="actions"><button class="btn primary" type="button">Open in Sefer</button><button class="btn" type="button">Open in Orature</button></div>
+        </div>
+        <div class="tabs"><span class="on">Text</span><span>Audio</span><span>Releases</span><span>Team</span></div>
+        <div class="wf-grid home">
+          <div>
+            <div class="panel">
+              <h5>Coverage</h5>
+              <div class="meter" aria-hidden="true"><i style="width:22%;background:var(--official)"></i><i style="width:9%;background:var(--draft)"></i><i style="width:1%;background:var(--conflict)"></i></div>
+              <p class="small" style="margin:0 0 .6rem">New Testament 214 of 260 chapters official · Old Testament 41 of 929 · 103 chapters waiting in draft repos</p>
+              <div class="ph" style="height:110px; display:grid; place-items:center; color:var(--muted); font-size:.8rem">book-by-book coverage map</div>
+            </div>
+            <div class="panel" style="margin-top:1rem">
+              <h5>New work in draft repos</h5>
+              <ul>
+                <li><span>Romans 9–16<br><span class="sub">BTT-Writer · cja_rom_text_reg · Hasan</span></span><button class="btn" type="button">Review</button></li>
+                <li><span>Genesis 1–12<br><span class="sub">Sefer · cja_bible_draft · Mariam</span></span><button class="btn" type="button">Review</button></li>
+                <li><span>Revelation 1–3 <span class="pill bad">2 drafts</span><br><span class="sub">two Writer repos have this chapter</span></span><button class="btn" type="button">Compare</button></li>
+              </ul>
+            </div>
+          </div>
+          <div>
+            <div class="panel">
+              <h5>Gateway sources</h5>
+              <ul>
+                <li><span>Khmer ULB<br><span class="sub">structure source · pinned v4</span></span><span class="pill warn">2 updates</span></li>
+                <li><span>English ULB<br><span class="sub">pinned v28</span></span><span class="pill ok">current</span></li>
+              </ul>
+              <button class="btn" type="button" style="margin-top:.5rem">Add a reference text</button>
+            </div>
+            <div class="panel" style="margin-top:1rem">
+              <h5>Checks</h5>
+              <ul>
+                <li><span>Versification vs Khmer ULB</span><span class="pill ok">pass</span></li>
+                <li><span>USFM lint</span><span class="pill warn">6 warnings</span></li>
+                <li><span>Word alignment</span><span class="pill">not run</span></li>
+              </ul>
+            </div>
+            <div class="panel" style="margin-top:1rem">
+              <h5>Resources</h5>
+              <ul>
+                <li><span>Translation Notes<br><span class="sub">Khmer · English</span></span><span></span></li>
+                <li><span>Translation Questions<br><span class="sub">Khmer · English</span></span><span></span></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption>Version homepage. Everything the lead needs is visible without knowing what a repo is. The editing tools launch from here against the official repo.</figcaption>
+  </figure>
+
+  <figure class="wf">
+    <div class="frame">
+      <div class="bar"><span class="dots"><i></i><i></i><i></i></span><span class="url">hub.wacs / cja / western-cham-bible / bring-in</span></div>
+      <div class="body">
+        <div class="title-row"><div><div class="crumb">Western Cham Bible · Text</div><h4>Bring in chapters</h4></div></div>
+        <div class="source-pick">
+          <label for="src">From draft source</label>
+          <select id="src">
+            <option value="a">cja_rom_text_reg · Hasan · BTT-Writer</option>
+            <option value="b">cja_rev_text_reg · Yusuf · BTT-Writer</option>
+          </select>
+        </div>
+        <div class="wf-grid bring">
+          <div class="wf-scroll"><div class="mx" id="mx"></div>
+            <p class="small" style="margin-top:.8rem">Solid green: already official. Dashed: available from this source — click to select. Red dashed: another draft also has this chapter.</p>
+          </div>
+          <div class="req" aria-live="polite">
+            <h5>Contribution request</h5>
+            <div class="count" id="selCount">0</div>
+            <div class="small" id="selList">chapters selected</div>
+            <label class="field" style="margin-top:.8rem"><span>Note to the translation lead</span><textarea id="note" placeholder="What changed, who checked it"></textarea></label>
+            <button class="btn primary" type="button" id="sendReq" disabled>Send for approval</button>
+            <div class="toast" id="toast"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption>Bringing chapters in from a draft source. For audio the same screen works with whole-chapter recordings and a play button in place of the side-by-side read.</figcaption>
+  </figure>
+
+  <figure class="wf">
+    <div class="frame">
+      <div class="bar"><span class="dots"><i></i><i></i><i></i></span><span class="url">hub.wacs / km / khmer-ulb / bulletins</span></div>
+      <div class="body">
+        <div class="wf-grid two">
+          <div>
+            <p class="small" style="margin-top:0">Gateway team view</p>
+            <h5 style="margin:.2rem 0 .7rem; font-size:1rem">New bulletin to 18 dependent teams</h5>
+            <label class="field"><span>Title</span><div class="ph"></div></label>
+            <label class="field"><span>What to consider</span><div class="ph tall"></div></label>
+            <div class="field"><span>Linked changes</span>
+              <div class="chips"><span class="pill">Romans 3</span><span class="pill">Romans 4</span><span class="pill">Galatians 2</span><span class="pill">+ from commit</span></div>
+            </div>
+            <div class="actions"><button class="btn primary" type="button">Send bulletin</button><button class="btn" type="button">Preview as heart team</button></div>
+          </div>
+          <div>
+            <p class="small" style="margin-top:0">Heart language team view</p>
+            <div class="bulletin">
+              <div class="from">Khmer ULB team · v5 · affects 3 of your chapters</div>
+              <h6>Revised rendering of "righteousness" in Paul's letters</h6>
+              <p style="margin:0 0 .3rem">We now distinguish God's righteousness from human uprightness. Consider whether your rendering follows the old wording.</p>
+              <div class="diff">Romans 3:21 — … <del>ភាពសុចរិត</del> <ins>សេចក្ដីសុចរិតរបស់ព្រះ</ins> …</div>
+              <div class="actions"><button class="btn" type="button">Mark reviewed</button><button class="btn" type="button">Flag chapters for revision</button></div>
+            </div>
+            <div class="bulletin" style="border-left-color:var(--muted)">
+              <div class="from">English ULB team · v28</div>
+              <h6>Typo fixes only — no action needed</h6>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption>Gateway bulletins. The gateway-to-heart graph already exists in the catalog, so every bulletin reaches the right teams automatically, and the hub can list exactly which chapters each team should revisit.</figcaption>
+  </figure>
+
+  <figure class="wf">
+    <div class="frame">
+      <div class="bar"><span class="dots"><i></i><i></i><i></i></span><span class="url">hub.wacs / profile / languages</span></div>
+      <div class="body">
+        <h5 style="margin:0 0 .3rem; font-size:1rem">Languages I speak</h5>
+        <p class="small" style="margin:0 0 1rem">We'll show these first everywhere and suggest reference texts and resources in them.</p>
+        <div class="region"><h6>Asia</h6><div class="chips" data-chips>
+          <button class="chip" type="button" aria-pressed="true">Khmer</button><button class="chip" type="button" aria-pressed="true">Western Cham</button><button class="chip" type="button" aria-pressed="false">Lao</button><button class="chip" type="button" aria-pressed="false">Thai</button><button class="chip" type="button" aria-pressed="false">Vietnamese</button></div></div>
+        <div class="region"><h6>Europe and global</h6><div class="chips" data-chips>
+          <button class="chip" type="button" aria-pressed="true">English</button><button class="chip" type="button" aria-pressed="false">French</button><button class="chip" type="button" aria-pressed="false">Russian</button></div></div>
+        <div class="ph" style="height:2rem; margin-top:.6rem; display:flex; align-items:center; padding:0 .6rem; color:var(--muted); font-size:.8rem">Search 7,000+ languages by name or code</div>
+      </div>
+    </div>
+    <figcaption>Profile languages, grouped by the catalog's world regions. Try toggling a language.</figcaption>
+  </figure>
+</section>
+
+<section id="gateway">
+  <h2>Gateway to heart</h2>
+  <div class="prose">
+    <p>Pinning each version's gateway sources to a commit turns the gateway strategy into something the hub can act on. When a gateway team publishes a release, the hub can compute which chapters changed, cross that with each heart-language version's coverage, and show every lead a short, specific list rather than a vague "the source was updated."</p>
+    <p>Bulletins add the human layer: the gateway team explains <em>why</em> something changed and what heart teams should think about. Over time this becomes a shared record of translation decisions that heart teams can learn from, and it gives gateway teams visibility into which dependent teams have reviewed their changes.</p>
+  </div>
+</section>
+
+<section id="publishing">
+  <h2>Publishing</h2>
+  <div class="prose">
+    <p>A release moves through three states. <strong>Candidate</strong>: the lead tags the official repo and checks run. <strong>In review</strong>: the Scripture Accessibility team reviews rendered PDF and HTML outputs and formatting. <strong>Published</strong>: the tag is final, outputs are registered in the catalog, and the release becomes visible to the public and to the version's dependents if it is a gateway.</p>
+    <p>Release numbers belong to the version, not the repo, so "Western Cham Bible 1.0" means the same thing whether someone downloads the PDF, the audio, or the USFM.</p>
+  </div>
+</section>
+
+<section id="foundation">
+  <h2>What we build on</h2>
+  <div class="prose">
+    <p>The hub is a separate web application, not a fork of Forgejo. It adds a small database of its own and leaves storage, accounts and history to the systems that already do them well. It never edits Forgejo's files directly: anything it writes goes through the Forgejo API, like any other client.</p>
+  </div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Already exists</th><th>What the hub uses it for</th></tr></thead>
+    <tbody>
+      <tr><td>Forgejo (WACS)</td><td>Accounts and sign-in (WACS login), repo storage including git-lfs audio, organizations for official repos, branches and pull requests behind contribution requests. The hub reads the repos straight off disk.</td></tr>
+      <tr><td>Catalog API</td><td>Languages, regions, gateway-to-dependent relationships, oral-language flag, current primary flags (to seed official repos), rendered outputs</td></tr>
+      <tr><td>Rendering pipeline</td><td>Rendering release candidates and registering published releases</td></tr>
+      <tr><td>Sefer</td><td>Editing the official repo; its book- and chapter-level merge logic as the engine for bringing in text chapters; its Rust USFM parsing and linting (scripture-kitchen), used directly by the hub</td></tr>
+      <tr><td>BTT-Writer and Orature</td><td>Drafting; their pushes appear automatically as draft sources</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="prose">
+    <p>New in the hub: versions, tracks, official-repo assignments, gateway pins, chapter provenance, contribution requests, bulletins, releases, roles, and profile languages.</p>
+  </div>
+</section>
+
+<section id="runs">
+  <h2>How it runs</h2>
+  <div class="prose">
+    <p>Most technical choices can wait until the product is clear. These few shape everything else, so we want to settle them now.</p>
+  </div>
+  <div class="spine">
+    <div><b>Next to the files</b><p>The hub runs on the same server as Forgejo and reads the repos straight off disk, read-only. No git over the network, so looking across the whole catalog is cheap: indexing every repo takes well under a minute in early tests.</p></div>
+    <div><b>A soft poll, not webhooks</b><p>Every few minutes it asks Forgejo's database which repos changed. Webhooks in our ecosystem have been dropped when services restart or the network hiccups; a poll can't miss anything, and it's fast because everything is local.</p></div>
+    <div><b>Writes through the Forgejo API</b><p>Contribution requests, official-repo orgs and releases go through the API like any other client, so Forgejo stays the source of truth for content and permissions.</p></div>
+    <div><b>Rust API</b><p>The USFM parsing and linting Sefer already uses is written in Rust. The hub uses the same code instead of writing it again.</p></div>
+    <div><b>API first, with generated SDKs</b><p>The API publishes an OpenAPI spec, and we generate typed clients from it for TypeScript and Kotlin. Apps and agents stop needing to know how the WA catalog works or how to decide what counts as a source text.</p></div>
+    <div><b>SQLite</b><p>One database file next to the service, holding the Bible shape of every repo plus the hub's own records. We stay on SQLite until scale shows we can't. It can also be replicated into TypeScript clients.</p></div>
+    <div><b>Web front end</b><p>TypeScript, and not a single-page app. The framework is open.</p></div>
+  </div>
+  <pre class="sdk">// what a client sees instead of raw repo listings
+const versions = await hub.listVersions({ language: "cja" })
+const coverage = await hub.getCoverage({ version: versions[0].id, track: "text" })</pre>
+</section>
+
+<section id="phases">
+  <h2>Phasing</h2>
+  <div class="phases">
+    <div class="phase"><div><h4>1. See</h4><div class="when">read-only</div></div><p>Version homepages, profile languages, coverage maps built from existing repos and the catalog. Staff resolve which repo is official for each version, seeded from the current primary flags. The public API and generated SDKs ship here. No writes to content yet, so the risk is low and the value is immediate.</p></div>
+    <div class="phase"><div><h4>2. Gather</h4><div class="when">contribution</div></div><p>Hub-managed organization for official repos, contribution requests for text and audio, provenance tracking, "open in Sefer / Orature."</p></div>
+    <div class="phase"><div><h4>3. Connect</h4><div class="when">gateway graph</div></div><p>Gateway pins, update detection, bulletins, reference texts and resources.</p></div>
+    <div class="phase"><div><h4>4. Publish</h4><div class="when">releases</div></div><p>Release candidates, check gates, Scripture Accessibility review, catalog registration.</p></div>
+    <div class="phase"><div><h4>5. Extend</h4><div class="when">AI and analysis</div></div><p>AI Old Testament drafting requests, alignment and AI review reports.</p></div>
+  </div>
+</section>
+
+<section id="hackathon">
+  <h2>Hackathon slice</h2>
+  <div class="prose">
+    <p>A small, real piece of phase 1, built against about 1,500 real repos copied from the WACS dev server.</p>
+  </div>
+  <div class="slice">
+    <h4>Goal: one version homepage, read-only, from real data</h4>
+    <ul>
+      <li>Index the repos next to the files: language, resource type, books and chapters present.</li>
+      <li>Group repos into versions by language and resource type.</li>
+      <li>Build the chapter coverage map for a version from what's on disk.</li>
+      <li>Serve it through the API, with an OpenAPI spec.</li>
+      <li>One page: the version homepage with the coverage map, its draft repos, and lint counts.</li>
+    </ul>
+  </div>
+  <p class="small">Out of the slice: sign-in, writes, bulletins and releases.</p>
+</section>
+
+<section id="questions">
+  <h2>Open questions</h2>
+  <div class="ask">
+    <h3>Is chapter-level provenance redundant?</h3>
+    <p>BTT-Writer already works in books, and Sefer already works on the whole repo. If the official repo is the one place chapters land, its git history (the commit, the pull request that merged it, and its author) may already record where each chapter came from.</p>
+    <p>Does provenance mean something beyond that? For example, Orature's chapter recordings, chapters pulled from many repos at once, or the person who did the work when that isn't the Forgejo user who pushed it?</p>
+  </div>
+  <ul class="qs">
+    <li>How far do we aim the framing at the start: a home for versions, or the place most people use instead of the Forgejo web UI?</li>
+    <li>Which TypeScript framework for the front end, given that it isn't a single-page app? Solid 2 is a release candidate.</li>
+    <li>Who decides which repo becomes official for each version during migration, and what happens where two teams disagree?</li>
+    <li>Does a version always belong to one team, or can a lead hand it over? Who can create a new version in a language that already has one?</li>
+    <li>How should "Open in Sefer / Orature" work — a custom URL handler that opens the desktop app on the official repo, or a web build of Sefer?</li>
+    <li>When two drafts have the same chapter, is the lead's side-by-side comparison enough, or do we need verse-level picking from Sefer's merge code?</li>
+    <li>Should translators working on a shared computer each sign in, or can the lead record who did the work when bringing it in?</li>
+    <li>Do audio and text tracks of the same version share release numbers, or release independently?</li>
+    <li>What check results, if any, should block a release rather than just inform it?</li>
+    <li>Does any of the hub's own data belong in the catalog API too, so existing consumers can see it?</li>
+  </ul>
+</section>
+
+<footer>Combined draft from both proposals, for alignment. Figures in "The problem" come from the public catalog API as of October 2026. Wireframe languages, people and repo names are illustrative.</footer>
+</main>
+</div>
+
+<script>
+(function(){
+  var books=[["Gen",50],["Exo",40],["Lev",27],["Num",36],["Deu",34],["Jos",24],["Jdg",21],["Rut",4],["1Sa",31],["2Sa",24],["1Ki",22],["2Ki",25],["1Ch",29],["2Ch",36],["Ezr",10],["Neh",13],["Est",10],["Job",42],["Psa",150],["Pro",31],["Ecc",12],["Sng",8],["Isa",66],["Jer",52],["Lam",5],["Ezk",48],["Dan",12],["Hos",14],["Jol",3],["Amo",9],["Oba",1],["Jon",4],["Mic",7],["Nam",3],["Hab",3],["Zep",3],["Hag",2],["Zec",14],["Mal",4],
+  ["Mat",28],["Mrk",16],["Luk",24],["Jhn",21],["Act",28],["Rom",16],["1Co",16],["2Co",13],["Gal",6],["Eph",6],["Php",4],["Col",4],["1Th",5],["2Th",3],["1Ti",6],["2Ti",4],["Tit",3],["Phm",1],["Heb",13],["Jas",5],["1Pe",5],["2Pe",3],["1Jn",5],["2Jn",1],["3Jn",1],["Jud",1],["Rev",22]];
+  function state(b,c,n){
+    var off={Mat:1,Mrk:1,Luk:1,Jhn:1,Act:1,"1Co":1,"2Co":1,Gal:1,Eph:1,Php:1,Col:1,"1Th":1,"2Th":1,Jas:1,"1Pe":1,"2Pe":1,"1Jn":1,"2Jn":1,"3Jn":1,Jud:1,Rut:1,Jon:1,Phm:1};
+    if(b==="Rom") return c<=8?"o":"d";
+    if(b==="Heb") return c<=6?"o":"";
+    if(b==="Rev") return c<=3?"c":(c<=10?"d":"");
+    if(["1Ti","2Ti","Tit"].indexOf(b)>-1) return "d";
+    if(off[b]) return "o";
+    if(b==="Gen") return c<=12?"d":"";
+    if(b==="Psa") return (c<=23)?"o":(c%9===0?"d":"");
+    if(b==="Isa") return (c>=40&&c<=55)?"d":"";
+    if(b==="Hag") return "c";
+    if(b==="Est") return "o";
+    return "";
+  }
+  var shelf=document.getElementById("shelf");
+  var reduce=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if(!reduce) shelf.classList.add("animate");
+  var idx=0, frag=document.createDocumentFragment();
+  books.forEach(function(bk){
+    if(bk[0]==="Mat"){var br=document.createElement("div"); br.className="testament-break"; frag.appendChild(br);}
+    var wrap=document.createElement("div"); wrap.className="book";
+    var cells=document.createElement("div"); cells.className="cells";
+    cells.style.gridTemplateColumns="repeat("+Math.min(bk[1],10)+",7px)";
+    for(var c=1;c<=bk[1];c++){
+      var i=document.createElement("i"); var s=state(bk[0],c,bk[1]); if(s) i.className=s;
+      if(!reduce) i.style.animationDelay=(idx*1.1)+"ms";
+      idx++; cells.appendChild(i);
+    }
+    var lab=document.createElement("b"); lab.textContent=bk[0];
+    wrap.appendChild(cells); wrap.appendChild(lab); frag.appendChild(wrap);
+  });
+  shelf.appendChild(frag);
+
+  /* bring-in wireframe */
+  var sources={
+    a:{label:"Romans and 1 Timothy from Hasan's repo",rows:[["Rom",16,function(c){return c<=8?"o":"avail";}],["1Ti",6,function(){return "avail";}],["Rev",22,function(){return "";}]]},
+    b:{label:"Revelation from Yusuf's repo",rows:[["Rom",16,function(c){return c<=8?"o":"";}],["1Ti",6,function(){return "";}],["Rev",22,function(c){return c<=3?"c":(c<=10?"avail":"");}]]}
+  };
+  var mx=document.getElementById("mx"), cnt=document.getElementById("selCount"), list=document.getElementById("selList"), send=document.getElementById("sendReq"), toast=document.getElementById("toast"), sel={};
+  function update(){
+    var keys=Object.keys(sel).filter(function(k){return sel[k];});
+    cnt.textContent=keys.length;
+    list.textContent=keys.length? keys.join(", ") : "chapters selected";
+    send.disabled=!keys.length; toast.textContent="";
+  }
+  function render(key){
+    mx.innerHTML=""; sel={};
+    sources[key].rows.forEach(function(r){
+      var bk=document.createElement("div"); bk.className="bk"; bk.textContent=r[0];
+      var row=document.createElement("div"); row.className="row";
+      for(var c=1;c<=r[1];c++){
+        var b=document.createElement("button"); b.type="button"; b.className="ch"; b.textContent=c;
+        var s=r[2](c); var id=r[0]+" "+c;
+        if(s==="o"){b.classList.add("o"); b.disabled=true; b.setAttribute("aria-label",id+", already official");}
+        else if(s==="avail"||s==="c"){
+          b.classList.add(s==="c"?"c":"avail"); b.setAttribute("aria-pressed","false");
+          b.setAttribute("aria-label",id+(s==="c"?", also in another draft":", available"));
+          (function(btn,cid){btn.addEventListener("click",function(){sel[cid]=!sel[cid]; btn.classList.toggle("sel",sel[cid]); btn.setAttribute("aria-pressed",String(!!sel[cid])); update();});})(b,id);
+        } else {b.disabled=true; b.setAttribute("aria-label",id+", not in this source");}
+        row.appendChild(b);
+      }
+      mx.appendChild(bk); mx.appendChild(row);
+    });
+    update();
+  }
+  document.getElementById("src").addEventListener("change",function(e){render(e.target.value);});
+  send.addEventListener("click",function(){
+    var n=Object.keys(sel).filter(function(k){return sel[k];}).length;
+    toast.textContent="Sent for approval: "+n+" chapter"+(n===1?"":"s")+". The lead will see it on the version homepage.";
+  });
+  render("a");
+
+  document.querySelectorAll("[data-chips] .chip").forEach(function(ch){
+    ch.addEventListener("click",function(){ch.setAttribute("aria-pressed", ch.getAttribute("aria-pressed")==="true"?"false":"true");});
+  });
+})();
+</script>

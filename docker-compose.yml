@@ -1,0 +1,18 @@
+# Local stand-in for the WACS Forgejo database. Same MariaDB version as prod (wacs2-db-1).
+# First `docker compose up -d db` loads dev-data/sql/*.sql.gz and creates the read-only user.
+# To reload after replacing the dumps: docker compose down -v && docker compose up -d db
+services:
+  db:
+    image: mariadb:10.11
+    environment:
+      MARIADB_ROOT_PASSWORD: dev
+      MARIADB_DATABASE: gitea
+    ports:
+      - "${DB_PORT:-3306}:3306"
+    volumes:
+      - ./dev/db-init:/docker-entrypoint-initdb.d:ro
+      - ./dev-data/sql:/dumps:ro
+      - db_data:/var/lib/mysql
+
+volumes:
+  db_data:

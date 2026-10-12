@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>WACS Dashboard Plan</title>
+<link rel="stylesheet" href="/Users/willkelly/.claude/plugins/cache/claude-community/html-plan/1.0.0/skills/html-plan/runtime/htmlplan.css">
+<script src="/Users/willkelly/.claude/plugins/cache/claude-community/html-plan/1.0.0/skills/html-plan/runtime/htmlplan.js" defer></script>
+<style data-mock-shared>
+  .ui { font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #1d2320; background: #fff; border: 1px solid #d5dbd6; border-radius: 10px; overflow: hidden; }
+  .ui .hd { padding: 9px 14px; border-bottom: 1px solid #e6ebe7; font-weight: 650; display: flex; gap: 8px; align-items: baseline; } .ui .hd small { color: #7b857f; font-weight: 400; }
+  .ui table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .ui th { text-align: left; font-weight: 600; color: #7b857f; padding: 6px 14px; border-bottom: 1px solid #e6ebe7; font-size: 12px; }
+  .ui td { padding: 6px 14px; border-bottom: 1px solid #f1f4f1; }
+  .ui .r { text-align: right; } .ui .bad { color: #b42318; font-weight: 650; } .ui .warn { color: #a15c07; } .ui .ok { color: #1f7a52; font-weight: 650; } .ui .dim { color: #7b857f; }
+  .ui .chip { display: inline-block; font-size: 11.5px; padding: 1px 7px; border-radius: 99px; border: 1px solid #d5dbd6; color: #4a544e; }
+  .ui .chip.p { background: #e7f4ec; border-color: #b9dcc7; color: #1f7a52; }
+  .ui .chip.x { background: #f4f1ec; color: #7b857f; }
+  .ui .books { display: flex; flex-wrap: wrap; gap: 4px; padding: 10px 14px; }
+  .ui .bk { font: 11px/1 ui-monospace, Menlo, monospace; padding: 5px 6px; border-radius: 5px; background: #e7f4ec; color: #1f7a52; }
+  .ui .bk.a { background: #fdf3e2; color: #a15c07; } .ui .bk.n { background: #f1f4f1; color: #aab3ad; }
+  .ui .ft { padding: 9px 14px; border-top: 1px solid #e6ebe7; background: #f8faf8; color: #4a544e; font-size: 13px; }
+  .ui .tabs { display: flex; gap: 16px; padding: 0 14px; border-bottom: 1px solid #e6ebe7; font-size: 13px; } .ui .tabs span { padding: 8px 0; color: #7b857f; } .ui .tabs .on { color: #1d2320; border-bottom: 2px solid #1d2320; font-weight: 600; }
+  .ui .txt { padding: 12px 14px; font-family: Georgia, serif; font-size: 15px; line-height: 1.6; }
+  .ui .v { font: 10px/1 ui-monospace, Menlo, monospace; color: #7b857f; vertical-align: super; margin-right: 2px; }
+  .ui .hit { background: #fde8e6; border-bottom: 2px solid #b42318; }
+</style>
+<body>
+
+<header>
+  <h1>A Forgejo Sidecar for WACS</h1>
+  <doc-changes new="16" changed="1"></doc-changes>
+  <details class="thread"><summary>Why · 6 requests</summary>
+    <doc-quote via="doc" from="HANDOFF.md">Rebuild the WACS ecosystem dashboard as a sidecar next to Forgejo … with an HTTP API as a first-class product, and the UI is one consumer of that API.</doc-quote>
+    <doc-quote via="prompt" from="Will">This is entirely intended to be query interface to start with.</doc-quote>
+    <doc-quote via="prompt" from="Will">I don't want to thrash the DB every minute or every thrash the file system comparing Shah's every minute if I don't have to.</doc-quote>
+    <doc-quote via="prompt" from="Will">Everything is computable sub second with the files right there, it's what do you want to see high level that I need to capture I think.</doc-quote>
+    <doc-quote via="prompt" from="Will">the only ones that you should really call a new testament together are probably the primary ones</doc-quote>
+    <doc-quote via="prompt" from="Will">I would want this repo to eventually look a lot like Sephirot probably and adopt Effect4 as well on the front end</doc-quote>
+  </details>
+</header>
+
+<main>
+<doc-plan>
+
+<!-- ═════ 1 ═════ -->
+<doc-claim>
+  <p>A client can filter all public repos by language, subject and book.</p>
+  <doc-mock frame="terminal" title="wacs-dashboard" w="480"><template><span class="dim">$</span> curl 'localhost:8080/v1/repos?language=bwc&amp;subject=Bible'
+{ <b>"total"</b>: 3, <b>"repos"</b>: [
+  { "owner": "Moffat_chola", "name": "bwc_1jn_text_reg",
+    "manifest": <span class="g">"ts"</span>, "books": ["1JN"],
+    "head": "9f2c41e", "content": <span class="g">"ok"</span> },
+  { "owner": "dan", "name": "aac_rom_text_reg",
+    "manifest": <span class="g">"ts"</span>, "books": [],
+    "head": null, "content": <span class="y">"empty"</span> }, … ] }</template></doc-mock>
+  <doc-note tone="info"><strong>Increment 1</strong> is claims 1 and 2: the catalog API with no UI.</doc-note>
+  <doc-ask id="prefix">
+    <p>Do public routes start with a version prefix?</p>
+    <label><input type="radio" name="prefix" value="v1" checked> Yes, <code>/v1/…</code> <small>other apps can depend on it</small></label>
+    <label><input type="radio" name="prefix" value="api"> No, <code>/api/…</code> as in the old repo</label>
+  </doc-ask>
+
+  <doc-claim>
+    <p>A sync reads Forgejo rows and HEAD manifests into one SQLite file.</p>
+    <doc-calls title="Sync one repo" caption="The MariaDB row gives the name. The disk gives the content.">
+<script type="text/plain">
++ **sync_repos**(rows)                              @ crates/dashboard/src/sync.rs:1
++   **forgejo::changed_rows**(watermark)            @ crates/dashboard/src/forgejo.rs:1   -- SELECT on repository
++   **disk::head_sha**(owner, name)                 @ crates/dashboard/src/disk.rs:1      -- packed-refs or loose ref, no git2
++   **disk::read_manifest**(repo, sha)              @ crates/dashboard/src/disk.rs:1      -- git2, read-only
++     **wacs_manifest::parse_any**(path, bytes)     @ crates/manifest/src/lib.rs:1
++   **store::upsert_repo**(row, manifest)           @ crates/dashboard/src/store.rs:1
+</script>
+    </doc-calls>
+    <doc-claim at="crates/dashboard/src/sync.rs:1">
+      <p><b>sync.rs:1</b> · sync_repos()</p>
+      <doc-code title="sync.rs · sketch" lang="rust">
+<script type="text/plain">
+pub fn sync_repo(root: &Path, row: &ForgejoRow, store: &Store) -> Result<()> {
+    if row.is_private {
+        return store.delete_repo(row.id); // public-only rule
+    }
+    let Some(sha) = disk::head_sha(root, row)? else {
+        return store.upsert_repo(row, Content::Missing); // row, no dir
+    };
+    if store.head_sha(row.id)?.as_deref() == Some(sha.as_str()) {
+        return Ok(()); // tag push or no change
+    }
+    let manifest = disk::read_manifest(root, row, &sha)?; // None for empty repo
+    store.upsert_repo(row, Content::Ok { sha, manifest })
+}
+</script>
+      </doc-code>
+    </doc-claim>
+  </doc-claim>
+
+  <doc-claim>
+    <p>The manifest parsers come from gitea-dashboard. The poller and cache go.</p>
+    <doc-tree caption="Green ports. Red does not come across.">
+<script type="text/plain">
+gitea-dashboard/backend/src/
+  + manifest/            # becomes crates/manifest
+  + render.rs            # later, render on demand
+  + lint.rs              # later, re-pointed at scripture-kitchen onion
+  + usfm_source.rs       # later, tS chunks → one USFM book
+  + proportionality.rs   # later; compare with sous-core first
+  ~ api/                 # route shapes only, as a start for /v1
+  - gitea.rs             # API poller
+  - cache.rs             # clone LRU
+  - kv_cache.rs
+  - git_transport.rs
+  - api/webhook.rs
+  - migrations/          # content-cache, head_sha
+</script>
+    </doc-tree>
+    <doc-note tone="warn"><strong>BOM</strong> 8 wa-catalog RC manifests start with a UTF-8 BOM. serde_yaml rejects them. The parser must strip it.</doc-note>
+    <doc-claim at="backend/src/manifest/mod.rs:67">
+      <p><b>manifest/mod.rs:67</b> · NormalizedManifest</p>
+      <doc-code src="backend/src/manifest/mod.rs" lines="67-90"></doc-code>
+    </doc-claim>
+  </doc-claim>
+
+  <doc-claim>
+    <p>One binary runs the API, the cron jobs and the nightly sweep.</p>
+    <doc-tree caption="Two crates. The parser stays pure so tests need no disk.">
+<script type="text/plain">
++ Cargo.toml               # workspace; scripture-kitchen by git tag
++ crates/
++   manifest/              # wacs-manifest: pure parsers, no I/O
++   dashboard/             # bin: axum API, sync, cron, render later
++     src/forgejo.rs       # MariaDB, read-only user
++     src/disk.rs          # bare repos, read-only mount
++     src/store.rs         # SQLite
++     schema.sql
++ Dockerfile
+~ docker-compose.yml       # add the dashboard service
++ web/                     # later: Solid 2 + Effect 4
+</script>
+    </doc-tree>
+  </doc-claim>
+</doc-claim>
+
+<!-- ═════ 2 ═════ -->
+<doc-claim>
+  <p>A push shows in the index within one cron period.</p>
+  <doc-machine name="repo" caption="One row per Forgejo repo. Private rows never enter.">
+<script type="text/plain">
+machine repo initial absent
+state absent          # Not in the index.
+state indexed         # Row, manifest and HEAD SHA stored.
+state stale           # HEAD on disk differs from the stored SHA.
+state gone    final   # Deleted, or now private. The row goes.
+
+| absent | indexed | stale |
+| .      | gone    | .     |
+
+absent  -seen->    indexed : new row
+indexed -push->    stale   : SHA differs
+stale   -reindex-> indexed : sync
+indexed -drop->    gone    : private / deleted
+stale   -drop->    gone    : private / deleted
+</script>
+  </doc-machine>
+
+  <doc-claim>
+    <p>Each tick reads only rows that Forgejo changed after the watermark.</p>
+    <doc-code title="forgejo.rs · sketch" lang="sql">
+<script type="text/plain">
+SELECT id, owner_name, lower_name, default_branch,
+       is_private, is_empty, updated_unix
+FROM repository
+WHERE updated_unix > ?   -- stored watermark
+ORDER BY updated_unix;
+</script>
+    </doc-code>
+    <doc-note tone="info"><strong>Source read, not tested</strong> Forgejo <code>pushUpdates</code> calls <code>UpdateRepositoryUpdatedTime</code> for each push, tags too. We did not test this on the prod version.</doc-note>
+    <doc-ask id="tick">
+      <p>How often does the watermark tick run?</p>
+      <div class="opts-row">
+        <label><input type="radio" name="tick" value="60"> 1 min</label>
+        <label><input type="radio" name="tick" value="300" checked> 5 min</label>
+        <label><input type="radio" name="tick" value="900"> 15 min</label>
+      </div>
+    </doc-ask>
+  </doc-claim>
+
+  <doc-claim>
+    <p>A nightly sweep finds deleted repos, which the watermark cannot see.</p>
+    <doc-calls title="Nightly reconcile" caption="All 32k rows, then one ref read for each repo.">
+<script type="text/plain">
++ **reconcile**()                                   @ crates/dashboard/src/sync.rs:1
++   **forgejo::all_rows**()                         @ crates/dashboard/src/forgejo.rs:1
++   **store::delete_missing**(ids)                  @ crates/dashboard/src/store.rs:1   -- ids not in Forgejo
++   **sync_repos**(rows)                            @ crates/dashboard/src/sync.rs:1    -- SHA compare skips most
+</script>
+    </doc-calls>
+  </doc-claim>
+
+  <doc-claim>
+    <p>A full rebuild of 32k repos takes less than one minute.</p>
+    <doc-mock frame="terminal" title="bench · 1,441 dev repos · 10 cores" w="480"><template>phase        warm     first   <b>× 32.5k est.</b>
+head sweep   0.55 s   1.5 s   ~12 s
+manifests    0.55 s   0.7 s   ~12 s
+lint (USFM)  0.95 s   1.4 s   ~21 s
+<span class="dim">raw ref read: 0.20 s · git2 ref only: 0.37 s</span>
+<span class="dim">git tree walk + inflate ≈ 5× lint CPU</span>
+<span class="y">Mac open() ≈ 400 µs (Sophos). Linux not measured.</span></template></doc-mock>
+  </doc-claim>
+</doc-claim>
+
+<!-- ═════ 3 ═════ -->
+<doc-claim>
+  <p>A user can rank repos by lint errors and manifest health.</p>
+  <doc-mock frame="none" w="460"><template>
+<div class="ui">
+  <div class="hd">Most lint errors <small>Bible · per chapter</small></div>
+  <table>
+    <tr><th>Repo</th><th>Manifest</th><th class="r">Err / ch</th><th class="r">Warn</th></tr>
+    <tr data-ref="row"><td>wa-catalog/fr_f10</td><td>rc</td><td class="r bad">9.4</td><td class="r warn">812</td></tr>
+    <tr><td>dcs-mirror/str_or_glt</td><td>rc</td><td class="r bad">2.1</td><td class="r warn">96</td></tr>
+    <tr><td>wa-catalog/bn_ulb</td><td><span class="bad">parse error</span></td><td class="r dim">–</td><td class="r dim">–</td></tr>
+    <tr><td>wa-catalog/el-x-koine_ugnt</td><td>rc</td><td class="r ok">0</td><td class="r">0</td></tr>
+  </table>
+</div></template>
+    <doc-pin ref="row" anchor="r" title="Sums over the HEAD blobs"></doc-pin>
+  </doc-mock>
+  <doc-ask id="rank">
+    <p>Which number ranks repos by lint?</p>
+    <label><input type="radio" name="rank" value="per_chapter" checked> Errors for each chapter <small>big books do not win</small></label>
+    <label><input type="radio" name="rank" value="per_kb"> Errors for each KB</label>
+    <label><input type="radio" name="rank" value="raw"> Raw error count</label>
+  </doc-ask>
+
+  <doc-claim>
+    <p>The index keeps lint counts for each blob and scripture-kitchen tag.</p>
+    <doc-schema id="lint" lang="sql" title="lint_summary" caption="The schema names no lint code. A new tag makes old rows stale.">
+<script type="text/plain">
+CREATE TABLE lint_summary (
+  content_key TEXT NOT NULL,  -- blob SHA; for tS, xxh3 of the chunk SHAs
+  sk_tag      TEXT NOT NULL,  -- scripture-kitchen git tag, e.g. v0.1.10
+  errors      INTEGER NOT NULL,
+  warnings    INTEGER NOT NULL,
+  infos       INTEGER NOT NULL,
+  by_code     TEXT NOT NULL,  -- JSON {code: count}
+  PRIMARY KEY (content_key, sk_tag)
+);
+</script>
+    </doc-schema>
+  </doc-claim>
+
+  <doc-claim>
+    <p>Only onion structural lint is ranked. Sous-chef proofreading stays on the repo page.</p>
+    <doc-calls title="What feeds the ranking" caption="Most proofreading output is info. It is not a verdict on the text.">
+<script type="text/plain">
++ **lint_blob**(text)                               @ crates/dashboard/src/lint.rs:1
++   usfm_onion::lex(text)                           @ crates/dashboard/src/lint.rs:1
++   usfm_onion::cst::build(tokens)                  @ crates/dashboard/src/lint.rs:1
++   usfm_onion::lint::lint(bytes, tokens, cst)      @ crates/dashboard/src/lint.rs:1
+?   sous-chef length and verse checks               @ crates/dashboard/src/lint.rs:1   -- later, if they prove certain
+</script>
+    </doc-calls>
+  </doc-claim>
+
+  <doc-claim>
+    <p>The repo page computes the full findings again from disk on each request.</p>
+    <doc-calls title="GET /v1/repos/{owner}/{name}/lint" caption="Worst repo in the bench: 260 ms. The index keeps no findings.">
+<script type="text/plain">
++ **repo_lint**(owner, name)                        @ crates/dashboard/src/api.rs:1
++   disk::usfm_blobs(repo, head)                    @ crates/dashboard/src/disk.rs:1
++   lint_blob(text)                                 @ crates/dashboard/src/lint.rs:1
+</script>
+    </doc-calls>
+  </doc-claim>
+</doc-claim>
+
+<!-- ═════ 4 ═════ -->
+<doc-claim>
+  <p>A user sees one Bible for each language, built from the Primary repos.</p>
+  <doc-mock frame="none" w="460"><template>
+<div class="ui">
+  <div class="hd">Bwile · Bible <small>text_reg · 14 repos</small></div>
+  <div class="books">
+    <span class="bk">MAT</span><span class="bk">MRK</span><span class="bk a" data-ref="active">LUK</span><span class="bk">JHN</span><span class="bk">ACT</span><span class="bk">ROM</span><span class="bk n">1CO</span><span class="bk">1JN</span><span class="bk">2JN</span><span class="bk">3JN</span><span class="bk">JUD</span><span class="bk n">REV</span>
+  </div>
+  <div class="ft" data-ref="others"><span class="chip p">Primary 9</span> <span class="chip">Active 3</span> <span class="chip x">Inactive 2</span> · also has 5 other candidates</div>
+</div></template>
+    <doc-pin ref="active" title="No Primary: newest Active"></doc-pin>
+    <doc-pin ref="others" anchor="tr" title="Inactive never fills a book"></doc-pin>
+  </doc-mock>
+  <doc-ask id="tslint">
+    <p>When does lint for stitched tS books start?</p>
+    <label><input type="radio" name="tslint" value="inc3" checked> With claim 4 <small>after the catalog and lint ranking</small></label>
+    <label><input type="radio" name="tslint" value="inc2"> With the lint ranking, before stitching</label>
+  </doc-ask>
+
+  <doc-claim>
+    <p>A slow cron reads content status and language data from the public data API.</p>
+    <doc-code title="public data API query · sketch" lang="graphql">
+<script type="text/plain">
+query {
+  content {
+    resource_type
+    wa_content_metadata { status show_on_biel }
+    git_repo { username repo_url }   # join key to our repo row
+  }
+  language { ietf_code english_name }  # also alternate names, countries, gateway links
+}
+</script>
+    </doc-code>
+    <doc-note tone="info">Port puts this data into the API. If it is late, only the status is late. The text always comes from disk.</doc-note>
+  </doc-claim>
+
+  <doc-claim>
+    <p>Each book uses the same default rule as Sefer.</p>
+    <doc-code src="src/core/migrate/candidate.ts" lines="216-245" hl="241">
+      <doc-pin line="241" title="Inactive never wins"></doc-pin>
+    </doc-code>
+  </doc-claim>
+</doc-claim>
+
+<!-- ═════ 5 ═════ -->
+<doc-claim>
+  <p>A user opens a repo and reads rendered text with lint marks in place.</p>
+  <doc-mock frame="browser" url="dashboard.wacs/fr_f10" w="480"><template>
+<div class="ui" style="border:0;border-radius:0">
+  <div class="hd">wa-catalog/fr_f10 <small>rc · 9f2c41e</small></div>
+  <div class="tabs"><span class="on">Text</span><span>Lint 812</span><span>Manifest</span><span>Releases</span></div>
+  <div class="txt"><span class="v">14</span>Et la Parole a été faite chair, <span class="hit" data-ref="hit">\v 15</span> et elle a habité parmi nous…</div>
+</div></template>
+    <doc-pin ref="hit" title="Finding at JHN 1:14"></doc-pin>
+  </doc-mock>
+
+  <doc-claim>
+    <p>The UI uses Solid 2 and Effect 4, as Sefer does.</p>
+    <doc-tree caption="The UI calls only /v1. It gets no private route.">
+<script type="text/plain">
++ web/
++   src/api/        # generated types from the Rust API
++   src/core/       # no Solid or DOM imports, as in Sefer
++   src/app/        # Solid 2 + TanStack Router
+</script>
+    </doc-tree>
+    <doc-ask id="types">
+      <p>How do the Rust API types reach TypeScript?</p>
+      <label><input type="radio" name="types" value="openapi" checked> OpenAPI from utoipa <small>the spec is also the public API documentation</small></label>
+      <label><input type="radio" name="types" value="tsrs"> ts-rs <small>types only, no API document</small></label>
+      <label><input type="radio" name="types" value="specta"> specta</label>
+    </doc-ask>
+  </doc-claim>
+
+  <doc-claim>
+    <p>The server renders USFM to HTML on each request. It keeps no rendered files.</p>
+    <doc-calls title="GET /v1/repos/{owner}/{name}/render" caption="render.rs ports from gitea-dashboard.">
+<script type="text/plain">
++ **repo_render**(owner, name, book)                @ crates/dashboard/src/api.rs:1
++   disk::book_text(repo, head, book)               @ crates/dashboard/src/disk.rs:1
++   **render::usfm_to_html**(text)                  @ crates/dashboard/src/render.rs:1
+</script>
+    </doc-calls>
+  </doc-claim>
+
+  <doc-claim>
+    <p>Releases come from the Forgejo <code>release</code> table, not from git.</p>
+    <doc-code src="dev/db-init/10-readonly-user.sql" lines="1-8" hl="6-7">
+      <doc-pin line="6" title="Prod needs the same grant"></doc-pin>
+    </doc-code>
+    <doc-note tone="warn">The dev dump has no <code>release</code> rows yet. The query must filter <code>is_draft = 0</code> and keep the <code>is_private = 0</code> rule.</doc-note>
+  </doc-claim>
+</doc-claim>
+
+<!-- ═════ shared ═════ -->
+<doc-claim aux="shared">
+  <p>Shared: one SQLite file. A schema change deletes it and the sync builds it again.</p>
+  <doc-schema id="schema" lang="sql" title="schema.sql · sketch" caption="lint_summary is in claim 3.1. Master HEAD only, no history.">
+<script type="text/plain">
+CREATE TABLE repo (
+  id           INTEGER PRIMARY KEY,   -- Forgejo repository.id
+  owner        TEXT NOT NULL,
+  name         TEXT NOT NULL,
+  head_sha     TEXT,                  -- NULL when empty or missing
+  content      TEXT NOT NULL CHECK (content IN ('ok','empty','missing')),
+  updated_unix INTEGER NOT NULL,
+  UNIQUE (owner, name)
+);
+CREATE TABLE manifest (
+  repo_id     INTEGER PRIMARY KEY REFERENCES repo(id) ON DELETE CASCADE,
+  kind        TEXT CHECK (kind IN ('rc','burrito','ts')),  -- NULL: no manifest
+  parse_error TEXT,
+  language    TEXT, subject TEXT, resource_type TEXT, title TEXT,
+  normalized  TEXT                    -- JSON NormalizedManifest
+);
+CREATE TABLE repo_book (
+  repo_id INTEGER REFERENCES repo(id) ON DELETE CASCADE,
+  book TEXT NOT NULL, content_key TEXT NOT NULL,
+  PRIMARY KEY (repo_id, book)
+);
+CREATE TABLE content_status (         -- from the public data API
+  repo_id INTEGER PRIMARY KEY REFERENCES repo(id) ON DELETE CASCADE,
+  status TEXT CHECK (status IN ('Primary','Active','Inactive')),
+  show_on_biel INTEGER, fetched_unix INTEGER NOT NULL
+);
+CREATE TABLE sync_state (key TEXT PRIMARY KEY, value TEXT);  -- watermark
+</script>
+  </doc-schema>
+</doc-claim>
+
+<!-- ═════ scope ═════ -->
+<doc-claim aux="scope">
+  <p>Not changing: Forgejo, its data, Sefer, and the public data API.</p>
+  <ul>
+    <li>No writes to the Forgejo volume or database. The mount is <code>:ro,z</code>.</li>
+    <li>No private repos. <code>is_private = 0</code> is the rule.</li>
+    <li>No proxy to the Forgejo API. Sefer keeps its own calls for user data and permissions.</li>
+    <li>No webhook, no inotify and no Forgejo HTTP API.</li>
+    <li>No full-text search over Bible text. No FTS5 and no tantivy.</li>
+    <li>No stored lint history. History for one repo can come later, on demand.</li>
+    <li>No crates extracted from Sefer. Sefer keeps its TypeScript manifest code.</li>
+    <li>No editor and no commits from the dashboard.</li>
+    <li>IBM Model 2 alignment from scripture-kitchen comes later, keyed like lint.</li>
+  </ul>
+</doc-claim>
+
+</doc-plan>
+</main>
+</body></html>
