@@ -10,3 +10,7 @@ mise.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 xxhash-rust.workspace = true
+
+[dev-dependencies]
+# The golden sweep lints every book in dev-data in parallel.
+rayon.workspace = true
