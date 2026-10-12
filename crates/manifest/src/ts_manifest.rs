@@ -208,10 +208,13 @@ impl Document {
             other => other.to_string(),
         });
 
-        let raw_subject = self
-            .type_
-            .as_ref()
-            .and_then(|t| t.name())
+        // The type's id is the reliable signal (`text`, `tn`, `tq`); its name is
+        // free text ("Questions" maps to nothing). Without this a `tq` project
+        // with an empty resource falls through to the book hint and reads as Bible.
+        let type_id = self.type_.as_ref().map(|t| t.id().to_string());
+        let raw_subject = type_id
+            .filter(|id| canonical_subject(Some(id), None, None).is_some_and(|s| s != *id))
+            .or_else(|| self.type_.as_ref().and_then(|t| t.name()))
             .or_else(|| self.type_.as_ref().map(|t| t.id().to_string()));
 
         let identifier = self.resource.as_ref().map(|r| r.id().to_string());
