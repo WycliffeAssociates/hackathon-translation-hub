@@ -368,7 +368,12 @@ mod tests {
 
     #[test]
     fn find_manifest_ignores_lookalikes_and_follows_precedence() {
-        let files = ["README.md", "manifest (2).json", "org-manifest.json", "manifest.json"];
+        let files = [
+            "README.md",
+            "manifest (2).json",
+            "org-manifest.json",
+            "manifest.json",
+        ];
         assert_eq!(
             find_manifest(&files),
             Some(("manifest.json", ContainerFormat::TsManifest))
@@ -401,7 +406,9 @@ projects:
 ---
 junk: true
 ";
-        let n = parse_by_filename("manifest.yaml", yaml).unwrap().normalize();
+        let n = parse_by_filename("manifest.yaml", yaml)
+            .unwrap()
+            .normalize();
         assert_eq!(n.subject.as_deref(), Some("Bible"));
         assert_eq!(n.domain, Some(Domain::Scripture));
         assert_eq!(n.version.as_deref(), Some("3"));
@@ -427,7 +434,9 @@ junk: true
             "source_translations": {"x": {"language_id": "id", "resource_id": "ayt", "version": 13}},
             "finished_chunks": ["front-title", "01-01", 7]
         }"#;
-        let n = parse_by_filename("manifest.json", json).unwrap().normalize();
+        let n = parse_by_filename("manifest.json", json)
+            .unwrap()
+            .normalize();
         assert_eq!(n.book_ids(), vec!["heb"]);
         assert_eq!(n.subject.as_deref(), Some("Bible"));
         assert_eq!(n.content_format.as_deref(), Some("text/usfm"));
@@ -456,7 +465,9 @@ junk: true
             "localizedNames": {"MAT": {"short": {"fr": "Matthieu"}}},
             "relationships": [{"type": "source", "target": "some-opaque-id"}]
         }"#;
-        let n = parse_by_filename("metadata.json", json).unwrap().normalize();
+        let n = parse_by_filename("metadata.json", json)
+            .unwrap()
+            .normalize();
         assert_eq!(n.flavor, None);
         assert_eq!(n.subject.as_deref(), Some("Bible"));
         assert_eq!(n.content_format.as_deref(), Some("text/usfm"));

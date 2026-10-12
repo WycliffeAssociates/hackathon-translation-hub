@@ -32,7 +32,9 @@ fn repos(root: &Path) -> Vec<PathBuf> {
     let mut out = Vec::new();
     let mut stack = vec![(root.to_path_buf(), 0)];
     while let Some((dir, depth)) = stack.pop() {
-        let Ok(entries) = std::fs::read_dir(&dir) else { continue };
+        let Ok(entries) = std::fs::read_dir(&dir) else {
+            continue;
+        };
         for entry in entries.flatten() {
             let path = entry.path();
             if !path.is_dir() {
@@ -107,9 +109,17 @@ fn golden_sweep() {
     };
     let root = PathBuf::from(root);
 
-    let all: Vec<_> = repos(&root).par_iter().flat_map_iter(|r| books(r)).collect();
+    let all: Vec<_> = repos(&root)
+        .par_iter()
+        .flat_map_iter(|r| books(r))
+        .collect();
     let bytes: usize = all.iter().map(|(_, _, t)| t.len()).sum();
-    eprintln!("{} books, {:.1} MB from {}", all.len(), bytes as f64 / 1e6, root.display());
+    eprintln!(
+        "{} books, {:.1} MB from {}",
+        all.len(),
+        bytes as f64 / 1e6,
+        root.display()
+    );
 
     let start = Instant::now();
     let summaries: Vec<LintSummary> = all.par_iter().map(|(_, _, text)| lint_book(text)).collect();
@@ -152,13 +162,20 @@ fn golden_sweep() {
     // Sanity: a tS ULB target against en_ulb's same book.
     let target = root.join("dcs-mirror/alexandre_brazil_pt-br_ezk_text_ulb.git");
     let source = all.iter().find(|(repo, name, _)| {
-        repo.to_string_lossy().to_ascii_lowercase().ends_with("wa-catalog/en_ulb.git")
+        repo.to_string_lossy()
+            .to_ascii_lowercase()
+            .ends_with("wa-catalog/en_ulb.git")
             && name.ends_with("EZK.usfm")
     });
     if let (Some(stitched), Some((_, _, source))) = (stitch_ts(&target, "EZK"), source) {
         let cov = coverage(&verses_by_chapter(&stitched), &verses_by_chapter(source));
         eprintln!("pt-br EZK (tS) vs en_ulb EZK: {:?}", cov.total);
-        let short: Vec<_> = cov.chapters.iter().filter(|c| !c.missing.is_empty()).take(5).collect();
+        let short: Vec<_> = cov
+            .chapters
+            .iter()
+            .filter(|c| !c.missing.is_empty())
+            .take(5)
+            .collect();
         eprintln!("  first chapters with gaps: {short:?}");
     }
 }

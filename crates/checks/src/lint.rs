@@ -146,7 +146,11 @@ mod tests {
         );
         let summary = lint_book(&text);
         assert_eq!(summary.by_code.get("verse-gap"), Some(&1), "{summary:#?}");
-        assert_eq!(summary.by_code.get("verse-duplicate"), Some(&1), "{summary:#?}");
+        assert_eq!(
+            summary.by_code.get("verse-duplicate"),
+            Some(&1),
+            "{summary:#?}"
+        );
         assert_eq!(summary.warnings, 2);
         assert_eq!(summary.by_chapter.get(&2), Some(&[0, 2, 0]));
         assert!(!summary.by_chapter.contains_key(&1));
@@ -156,7 +160,11 @@ mod tests {
     fn unclosed_note_is_an_error() {
         let text = book("\\c 1\n\\p\n\\v 1 One \\f + \\ft a note.\n\\v 2 Two.\n");
         let summary = lint_book(&text);
-        assert_eq!(summary.by_code.get("unclosed-note"), Some(&1), "{summary:#?}");
+        assert_eq!(
+            summary.by_code.get("unclosed-note"),
+            Some(&1),
+            "{summary:#?}"
+        );
         assert!(summary.errors >= 1);
         assert!(summary.by_chapter[&1][0] >= 1);
     }
@@ -165,7 +173,10 @@ mod tests {
     fn front_matter_findings_are_chapter_zero() {
         let text = "\\id RUT\n\\h Ruth\n\\zzz odd\n\\c 1\n\\p\n\\v 1 One.\n";
         let summary = lint_book(text);
-        assert!(summary.by_chapter.get(&0).is_some_and(|c| c[1] >= 1), "{summary:#?}");
+        assert!(
+            summary.by_chapter.get(&0).is_some_and(|c| c[1] >= 1),
+            "{summary:#?}"
+        );
     }
 
     #[test]
@@ -180,7 +191,11 @@ mod tests {
         let stray = book("\\c 1\n\\p\n\\v 1 One. \\s5 \\v 2 Two.\n");
         assert!(!uses_s5(&stray));
         let summary = lint_book(&stray);
-        assert_eq!(summary.by_code.get("unknown-marker"), Some(&1), "{summary:#?}");
+        assert_eq!(
+            summary.by_code.get("unknown-marker"),
+            Some(&1),
+            "{summary:#?}"
+        );
 
         // And the same text forced through the \s5 registry is quiet, which
         // is the project-wide switch a caller can make.
@@ -197,7 +212,11 @@ mod tests {
                 let (uses, stray) = (&uses, &stray);
                 scope.spawn(move || {
                     for _ in 0..200 {
-                        let (text, want) = if i % 2 == 0 { (uses, None) } else { (stray, Some(&1)) };
+                        let (text, want) = if i % 2 == 0 {
+                            (uses, None)
+                        } else {
+                            (stray, Some(&1))
+                        };
                         assert_eq!(lint_book(text).by_code.get("unknown-marker"), want);
                     }
                 });

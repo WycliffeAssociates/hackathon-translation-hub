@@ -104,24 +104,40 @@ mod tests {
     fn bridges_and_lists_count_what_they_cover() {
         let text = "\\id RUT\n\\c 1\n\\p\n\\v 1 a\n\\v 2-4 b\n\\v 6,8 c\n\\v 9a d\n\\v 9b e\n\\c 2\n\\p\n\\v 1 f\n";
         let verses = verses_by_chapter(text);
-        assert_eq!(verses[&1].iter().copied().collect::<Vec<_>>(), [1, 2, 3, 4, 6, 8, 9]);
+        assert_eq!(
+            verses[&1].iter().copied().collect::<Vec<_>>(),
+            [1, 2, 3, 4, 6, 8, 9]
+        );
         assert_eq!(verses[&2].iter().copied().collect::<Vec<_>>(), [1]);
     }
 
     #[test]
     fn coverage_reports_missing_and_extra() {
-        let source = verses_by_chapter("\\id RUT\n\\c 1\n\\p\n\\v 1 a\n\\v 2 b\n\\v 3 c\n\\v 4 d\n\\c 2\n\\p\n\\v 1 e\n\\v 2 f\n");
+        let source = verses_by_chapter(
+            "\\id RUT\n\\c 1\n\\p\n\\v 1 a\n\\v 2 b\n\\v 3 c\n\\v 4 d\n\\c 2\n\\p\n\\v 1 e\n\\v 2 f\n",
+        );
         // Target bridges 1-3, skips 4, adds a verse 5, and has no chapter 2.
         let target = verses_by_chapter("\\id RUT\n\\c 1\n\\p\n\\v 1-3 abc\n\\v 5 x\n");
         let cov = coverage(&target, &source);
         assert_eq!(
             cov.chapters[0],
-            ChapterCoverage { chapter: 1, source_verses: 4, present: 3, missing: vec![4], extra: 1 }
+            ChapterCoverage {
+                chapter: 1,
+                source_verses: 4,
+                present: 3,
+                missing: vec![4],
+                extra: 1
+            }
         );
         assert_eq!(cov.chapters[1].missing, [1, 2]);
         assert_eq!(
             cov.total,
-            CoverageTotal { source_verses: 6, present: 3, missing: 3, extra: 1 }
+            CoverageTotal {
+                source_verses: 6,
+                present: 3,
+                missing: 3,
+                extra: 1
+            }
         );
     }
 }

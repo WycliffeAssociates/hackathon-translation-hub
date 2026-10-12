@@ -44,7 +44,10 @@ mod tests {
     #[test]
     fn blob_key_is_the_sha() {
         assert_eq!(content_key_for_blob("abc123"), "abc123");
-        assert_eq!(cache_key("abc123"), format!("abc123@{}", crate::KITCHEN_TAG));
+        assert_eq!(
+            cache_key("abc123"),
+            format!("abc123@{}", crate::KITCHEN_TAG)
+        );
     }
 
     #[test]

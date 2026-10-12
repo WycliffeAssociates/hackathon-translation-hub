@@ -63,7 +63,9 @@ fn golden_real_repos() {
         match parse_as(format, &bytes) {
             Ok(parsed) => {
                 let n = parsed.normalize();
-                *counts.entry(format!("{:?}", n.container_format)).or_default() += 1;
+                *counts
+                    .entry(format!("{:?}", n.container_format))
+                    .or_default() += 1;
             }
             Err(e) => failures.push(format!("{name}/{file}: {e}")),
         }
@@ -77,5 +79,9 @@ fn golden_real_repos() {
     for f in &failures {
         println!("  {f}");
     }
-    assert!(failures.is_empty(), "{} manifests failed to parse", failures.len());
+    assert!(
+        failures.is_empty(),
+        "{} manifests failed to parse",
+        failures.len()
+    );
 }
