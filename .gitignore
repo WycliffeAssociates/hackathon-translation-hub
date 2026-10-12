@@ -4,3 +4,8 @@ target/
 *.zip
 spikes/*/node_modules/
 spikes/*/dist/
+web/node_modules/
+web/dist/
+web/smoke-shots/
+*.sqlite
+*.sqlite-*
