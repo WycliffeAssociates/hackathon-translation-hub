@@ -1,18 +1,19 @@
-# Local stand-in for the WACS Forgejo database. Same MariaDB version as prod (wacs2-db-1).
-# First `docker compose up -d db` loads dev-data/sql/*.sql.gz and creates the read-only user.
-# To reload after replacing the dumps: docker compose down -v && docker compose up -d db
+# The hub on dev-data, as the coworker would run it locally:
+#   docker compose up --build      → http://localhost:8787
+# Production differs only in the repo mount (Forgejo's repository root) and
+# HUB_FORGEJO_DB instead of the dump.
 services:
-  db:
-    image: mariadb:10.11
-    environment:
-      MARIADB_ROOT_PASSWORD: dev
-      MARIADB_DATABASE: gitea
-    ports:
-      - "${DB_PORT:-3306}:3306"
+  hub:
+    build: .
+    ports: ["8787:8787"]
     volumes:
-      - ./dev/db-init:/docker-entrypoint-initdb.d:ro
-      - ./dev-data/sql:/dumps:ro
-      - db_data:/var/lib/mysql
-
+      - ./dev-data/repositories:/repos:ro
+      - ./dev-data/sql:/forgejo:ro
+      - hub-data:/data
+      - hub-logs:/logs
+    environment:
+      HUB_FORGEJO_DUMP: /forgejo/repository.sql.gz
+      # OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318   # optional: export spans
 volumes:
-  db_data:
+  hub-data:
+  hub-logs:

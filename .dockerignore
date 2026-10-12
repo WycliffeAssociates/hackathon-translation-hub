@@ -1,0 +1,12 @@
+# Only what the build needs. dev-data is mounted at run time, never baked in.
+target/
+dev-data/
+**/node_modules/
+web/dist/
+web/smoke-shots/
+spikes/*/dist/
+spikes/*/dist-shots/
+proto/
+fixtures/
+*.zip
+.git/
