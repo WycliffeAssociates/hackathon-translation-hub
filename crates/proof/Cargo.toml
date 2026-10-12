@@ -1,0 +1,20 @@
+[package]
+name = "hub-proof"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+
+[dependencies]
+# scripture-kitchen by tag, never by path. galley is where onion and sous meet:
+# it parses a book into the neutral projection sous-core reads (`OnionBook`).
+# Keep both tags equal to `KITCHEN_TAG` in src/lib.rs.
+usfm_galley = { git = "https://github.com/WycliffeAssociates/scripture-kitchen", tag = "v0.1.9" }
+sous-core = { git = "https://github.com/WycliffeAssociates/scripture-kitchen", tag = "v0.1.9" }
+serde.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+# examples/proofread_repo.rs reads a bare repo and stitches a Writer repo.
+hub-repo-read.workspace = true
+hub-synthetic.workspace = true
