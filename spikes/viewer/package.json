@@ -1,0 +1,37 @@
+{
+  "name": "hub-viewer-spike",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4174",
+    "measure": "node tools/measure.mjs",
+    "build:lean": "ENGINE=onion LAYERS=split vite build",
+    "sizes": "node tools/sizes.mjs",
+    "probe": "node tools/probe.mjs",
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@codemirror/commands": "^6.11.1",
+    "@codemirror/lint": "^6.9.7",
+    "@codemirror/state": "^6.7.6",
+    "@codemirror/view": "^6.43.13",
+    "@wycliffeassociates/scripture-kitchen": "github:WycliffeAssociates/scripture-kitchen#v0.1.9",
+    "effect": "4.0.0-rc.112"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vite": "8.3.0",
+    "@types/node": "^24.0.0",
+    "source-map-explorer": "2.5.3"
+  },
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "pnpm": {
+    "ignoredBuiltDependencies": [
+      "msgpackr-extract"
+    ]
+  }
+}

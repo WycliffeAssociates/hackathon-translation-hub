@@ -1,0 +1,270 @@
+/* SPIKE: Sefer src/app/ui/tokens.css (HEAD 50aa9cd) lines 53-300 only — the custom-property layer the editor.css reads. Tailwind bridge, @layer base and utilities dropped. */
+:root {
+  /* Primitives — the ramps. Do not use these directly in a component. */
+  --brand-5: #00102e;
+  --brand-10: #001847;
+  --brand-20: #002c72;
+  --brand-30: #0040a0;
+  --brand-40: #0056d1;
+  --brand-50: #3070ef;
+  --brand-70: #88a9ff;
+  --brand-80: #b2c5ff;
+  --brand-90: #dae2ff;
+  --brand-95: #eef0ff;
+
+  --neutral-0: #000000;
+  --neutral-5: #0e0e0e;
+  --neutral-10: #1f1f1f;
+  --neutral-20: #343434;
+  --neutral-30: #4d4d4d;
+  --neutral-50: #808080;
+  --neutral-60: #999999;
+  --neutral-80: #cccccc;
+  --neutral-90: #e6e6e6;
+  --neutral-95: #f2f2f2;
+  --neutral-100: #ffffff;
+
+  /* Slate: the blue-grey of the projects page, from the
+     designer's mockups. A ramp like the others, so the semantic layer below
+     names a step and never a hex. */
+  --slate-20: #0f2f4c;
+  --slate-45: #516b86;
+  --slate-97: #f4f8fb;
+
+  --error-20: #611a16;
+  --error-30: #922821;
+  --error-40: #c33620;
+  --error-80: #e6aaa9;
+  --error-95: #f9edeb;
+
+  --warning-20: #5c4200;
+  --warning-25: #5c4a15;
+  --warning-30: #8a5e00;
+  --warning-80: #fadf9e;
+  --warning-90: #fbeaa8;
+  --warning-95: #fdf7e8;
+
+  --success-20: #386336;
+  --success-40: #61c76c;
+  --success-80: #b9e8c4;
+  --success-95: #e2f7e7;
+
+  /* Spacing and strokes — theme-independent, and not a Tailwind namespace, so
+     they stay ordinary properties for hand-written CSS. The type scale, the
+     radii, the shadows and the families live in the @theme block below, which
+     emits them onto :root as well. */
+  --font-ui: var(--font-sans);
+
+  --space-none: 0;
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 3rem;
+  --space-xl: 5rem;
+
+  --border-thin: 1px;
+  --border-thick: 2px;
+
+  /* Semantic contract — light. */
+  --brand-base: var(--brand-40);
+  --brand-dark: var(--brand-30);
+  --brand-light: var(--brand-95);
+
+  --surface-primary: var(--neutral-100);
+  --surface-secondary: var(--neutral-95);
+  --surface-tertiary: var(--neutral-90);
+  /* The app background, behind every screen (the shell root in _app.tsx). */
+  --surface-canvas: var(--slate-97);
+  --surface-border: var(--neutral-90);
+  --surface-overlay: rgba(15, 47, 76, 0.8);
+  --on-surface-primary: var(--neutral-5);
+  --on-surface-secondary: var(--slate-45);
+  --on-surface-tertiary: var(--neutral-60);
+
+  --surface-error: var(--error-95);
+  --on-surface-error: var(--error-40);
+  --surface-warning: var(--warning-95);
+  --on-surface-warning: var(--warning-30);
+
+  /* A found match, wherever it is shown: the excerpt cards, the satellite
+     inside one, and the editor's own hit. It is NOT `surface-warning` — a
+     warning is a judgement about the text and a highlight is a place in it,
+     and the two had drifted into the same yellow. */
+  --surface-highlight: var(--warning-90);
+  --on-surface-highlight: var(--warning-20);
+  --surface-success: var(--success-95);
+  --on-surface-success: var(--success-40);
+
+  /* The sidebar is a white panel, not a dark rail
+     (documentation/architecture/design-direction.md). The sidebar names stay
+     so nothing downstream re-decides the theme; they point at the ordinary
+     surface contract, which is why dark needs no sidebar block of its own. */
+  --sidebar-surface: var(--surface-primary);
+  --sidebar-surface-hover: var(--surface-secondary);
+  --sidebar-surface-active: var(--brand-light);
+  --sidebar-border: var(--surface-border);
+  --sidebar-on-surface: var(--on-surface-primary);
+  --sidebar-on-surface-muted: var(--on-surface-tertiary);
+
+  /* The inverted surface: near-black whatever the theme, with white on it —
+     for an overlay that must read the same over any screen (the project
+     panel's drag-to-close hint). Set here only, never overridden in the dark
+     blocks. `muted` is its secondary text. */
+  --surface-invert: var(--neutral-10);
+  --on-surface-invert: var(--neutral-100);
+  --on-surface-invert-muted: var(--neutral-60);
+
+  --button-primary-surface: var(--brand-40);
+  --button-primary-surface-hover: var(--brand-30);
+  --button-primary-on-surface: var(--neutral-100);
+  /* The primary button's gradient (lighter at the top), its pressed fill and
+     text, and its shadow colour. */
+  --button-primary-top: var(--brand-50);
+  --button-primary-bottom: var(--brand-40);
+  --button-primary-pressed: var(--brand-20);
+  --button-primary-pressed-on: var(--neutral-100);
+  --button-primary-shadow: var(--brand-20);
+  --button-secondary-surface: transparent;
+  --button-secondary-surface-hover: var(--neutral-95);
+  --button-secondary-on-surface: var(--neutral-5);
+  --button-secondary-border: var(--neutral-90);
+  --button-tertiary-surface-hover: var(--neutral-95);
+  --button-tertiary-on-surface: var(--neutral-20);
+
+  --kbd-surface: var(--slate-97);
+  --kbd-on-surface: rgba(15, 47, 76, 0.8);
+  --kbd-border: var(--neutral-90);
+
+  --shadow-small: 0 1px 2px 0 rgba(31, 31, 31, 0.12);
+  --shadow-medium: 0 2px 4px 0 rgba(31, 31, 31, 0.16), 0 1px 3px 0 rgba(31, 31, 31, 0.1);
+  --shadow-large: 0 4px 8px 0 rgba(31, 31, 31, 0.2), 0 2px 4px 0 rgba(31, 31, 31, 0.12);
+}
+
+/* Dark, as the token swap. Both selectors carry the same block: the explicit
+   choice must win over the system preference in both directions. */
+:root[data-theme="dark"] {
+  --brand-base: var(--brand-70);
+  --brand-dark: var(--brand-70);
+  --brand-light: var(--brand-5);
+
+  --surface-primary: var(--neutral-20);
+  --surface-secondary: var(--neutral-10);
+  --surface-tertiary: var(--neutral-5);
+  --surface-canvas: color-mix(in srgb, var(--brand-40) 6%, var(--neutral-10));
+  --surface-border: var(--neutral-5);
+  --surface-overlay: rgba(15, 47, 76, 0.8);
+  --on-surface-primary: var(--neutral-90);
+  --on-surface-secondary: var(--neutral-80);
+  --on-surface-tertiary: var(--neutral-50);
+
+  --surface-error: var(--error-20);
+  --on-surface-error: var(--error-80);
+  --surface-warning: var(--warning-20);
+  --on-surface-warning: var(--warning-80);
+  --surface-highlight: var(--warning-25);
+  --on-surface-highlight: var(--warning-80);
+  --surface-success: var(--success-20);
+  --on-surface-success: var(--success-80);
+
+  --button-primary-surface: var(--brand-70);
+  --button-primary-surface-hover: var(--brand-80);
+  --button-primary-on-surface: var(--neutral-10);
+  --button-primary-top: var(--brand-80);
+  --button-primary-bottom: var(--brand-70);
+  --button-primary-pressed: var(--brand-50);
+  --button-primary-pressed-on: var(--neutral-100);
+  --button-primary-shadow: var(--neutral-0);
+  --button-secondary-surface-hover: var(--neutral-10);
+  --button-secondary-on-surface: var(--neutral-90);
+  --button-secondary-border: var(--neutral-5);
+  --button-tertiary-surface-hover: var(--neutral-10);
+  --button-tertiary-on-surface: var(--neutral-80);
+
+  --kbd-surface: var(--neutral-10);
+  --kbd-on-surface: var(--neutral-80);
+  --kbd-border: var(--neutral-5);
+
+  --shadow-small: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+  --shadow-medium: 0 2px 4px 0 rgba(0, 0, 0, 0.5);
+  --shadow-large: 0 4px 8px 0 rgba(0, 0, 0, 0.6);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --brand-base: var(--brand-70);
+    --brand-dark: var(--brand-70);
+    --brand-light: var(--brand-5);
+
+    --surface-primary: var(--neutral-20);
+    --surface-secondary: var(--neutral-10);
+    --surface-tertiary: var(--neutral-5);
+    --surface-canvas: color-mix(in srgb, var(--brand-40) 6%, var(--neutral-10));
+    --surface-border: var(--neutral-5);
+    --surface-overlay: rgba(15, 47, 76, 0.8);
+    --on-surface-primary: var(--neutral-90);
+    --on-surface-secondary: var(--neutral-80);
+    --on-surface-tertiary: var(--neutral-50);
+
+    --surface-error: var(--error-20);
+    --on-surface-error: var(--error-80);
+    --surface-warning: var(--warning-20);
+    --on-surface-warning: var(--warning-80);
+    --surface-highlight: var(--warning-25);
+    --on-surface-highlight: var(--warning-80);
+    --surface-success: var(--success-20);
+    --on-surface-success: var(--success-80);
+
+    --button-primary-surface: var(--brand-70);
+    --button-primary-surface-hover: var(--brand-80);
+    --button-primary-on-surface: var(--neutral-10);
+    --button-primary-top: var(--brand-80);
+    --button-primary-bottom: var(--brand-70);
+    --button-primary-pressed: var(--brand-50);
+    --button-primary-pressed-on: var(--neutral-100);
+    --button-primary-shadow: var(--neutral-0);
+    --button-secondary-surface-hover: var(--neutral-10);
+    --button-secondary-on-surface: var(--neutral-90);
+    --button-secondary-border: var(--neutral-5);
+    --button-tertiary-surface-hover: var(--neutral-10);
+    --button-tertiary-on-surface: var(--neutral-80);
+
+    --kbd-surface: var(--neutral-10);
+    --kbd-on-surface: var(--neutral-80);
+    --kbd-border: var(--neutral-5);
+
+    --shadow-small: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+    --shadow-medium: 0 2px 4px 0 rgba(0, 0, 0, 0.5);
+    --shadow-large: 0 4px 8px 0 rgba(0, 0, 0, 0.6);
+  }
+}
+
+/*
+ * The bridge into Tailwind.
+ *
+ * Colours are `inline` so a utility compiles straight to `var(--surface-primary)`
+ * — one hop, and the dark swap above is the only place a colour is decided.
+ * Everything else is a plain `@theme`, which both mints the utility and emits
+ * the variable onto `:root`, so hand-written CSS (`src/editor/editor.css`) can
+ * keep saying `var(--radius-lg)`.
+ */
+
+/* From the @theme block (lines 360-394): the non-colour tokens editor.css reads. */
+:root {
+  --font-sans: Inter, "Inter var", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-scripture: "Charis SIL", Charis, Cambria, Georgia, serif;
+  --font-mono: "Atkinson Hyperlegible Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --text-h1: 3rem;
+  --text-h2: 2.25rem;
+  --text-h3: 1.5rem;
+  --text-h4: 1.25rem;
+  --text-body: 1rem;
+  --text-small: 0.875rem;
+  --text-smallest: 0.75rem;
+  --spacing-controls: 0.75rem;
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+}

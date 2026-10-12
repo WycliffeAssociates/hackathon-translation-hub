@@ -1,0 +1,1391 @@
+/* ---------------------------------------------------------------------------
+ * The regular projection's palette.
+ *
+ * It is the PRODUCT's palette, not a palette of its own. The page the reader
+ * edits is a white card among white cards
+ * (documentation/architecture/design-direction.md, "Overall layout": "the
+ * editor card, white, generous padding"), so paper is
+ * `--surface-primary`, ink is `--on-surface-primary`, and the numbers are the
+ * brand — which is also why almost nothing here needs a dark value: the
+ * tokens already swap, and one name that follows them cannot disagree with
+ * the toolbar above it.
+ *
+ * This replaces the warm sepia sheet and amber ink the surface was ported
+ * with. Paper and terminal are projection choices, but "warm paper" was a
+ * THEME, made in a file that has no business making one; the terminal below
+ * keeps its own because a terminal is a terminal in both schemes.
+ *
+ * What is left with literal values is the apparatus: a footnote, a
+ * cross-reference and a nested editor are different KINDS of thing, and the
+ * semantic set has no name for that distinction. Those four keep a hue each,
+ * light and dark.
+ *
+ * ## Every rule that paints the PAGE is scoped to a mode
+ *
+ * `.cm-mode-regular` and `.cm-mode-usfm` are on the editor element, written by
+ * `EditorView.editorAttributes` (see `src/app/ui/BookEditor.tsx` for why it is
+ * a facet and not a hand-added class). A `.usfm-*` rule written without one of
+ * those prefixes applies in BOTH projections, and the two projections do not
+ * share a vocabulary: regular mode paints line classes like `usfm-p` and
+ * `usfm-q2`, USFM mode paints `usfm-src-p` and token marks like
+ * `cm-usfm-marker`. An unprefixed rule is therefore always either dead or a
+ * leak — a paragraph indent showing up in the source view.
+ *
+ * The exceptions, and they are the only ones: `.cm-host …` (the frame, which
+ * is not the page), `.cm-excerpt …` (a satellite card, which undoes the page's
+ * chrome on purpose) and `.usfm-attr* ` (the aligned-word popover, which is a
+ * tooltip over either projection). Everything else takes a mode.
+ * ------------------------------------------------------------------------- */
+
+:root {
+  --editor-paper: var(--surface-primary);
+  --editor-ink: var(--on-surface-primary);
+  /* Verse and chapter numbers, and the caret. The mockup's "verse numbers
+     superscript in red/brand"; `--brand-base` is brand-40 in light and
+     brand-70 in dark, so this reads on both. */
+  --editor-accent: var(--brand-base);
+  /* Selection is a brand tint, not the find highlight: two different answers
+     to "what is marked here", and they must not share a colour. */
+  --editor-selection: color-mix(in srgb, var(--brand-base) 22%, transparent);
+  --editor-faint: var(--on-surface-tertiary);
+  --editor-muted: var(--on-surface-secondary);
+  --editor-meta: var(--on-surface-tertiary);
+  --editor-rule: var(--surface-border);
+  --editor-note: var(--on-surface-secondary);
+  --editor-word-line: var(--surface-border);
+  --editor-word-hover: var(--surface-secondary);
+  --editor-note-hover: var(--surface-secondary);
+  --editor-focus-bg: color-mix(in srgb, var(--brand-base) 10%, transparent);
+  --editor-focus-bar: var(--brand-base);
+  /* The paired verse or block. Stronger than the arrival focus it started as,
+     and its own tokens rather than a reuse: this is read ACROSS two panes at
+     once, so it has to be findable at a glance in the one the reader is not
+     looking at. The rule carries it where a wash alone would not — a 16% tint
+     on paper is subtle by design, and the underline is what makes it certain. */
+  --editor-pair-bg: color-mix(in srgb, var(--brand-base) 15%, transparent);
+  --editor-pair-edge: color-mix(in srgb, var(--brand-base) 65%, transparent);
+  --editor-error-bg: var(--surface-error);
+  --editor-error-line: var(--on-surface-error);
+  --editor-warn-bg: var(--surface-warning);
+  --editor-warn-line: var(--on-surface-warning);
+  --editor-slot-line: var(--on-surface-warning);
+  --editor-slot-bg: var(--surface-warning);
+  --editor-chip-bg: var(--brand-light);
+  --editor-chip-bg-hover: color-mix(in srgb, var(--brand-base) 20%, transparent);
+  --editor-open-bg: var(--brand-light);
+  --editor-open-line: color-mix(in srgb, var(--brand-base) 35%, transparent);
+  --editor-open-fg: var(--brand-dark);
+  --editor-pip-bg: var(--surface-secondary);
+  --editor-pip-neutral-bg: var(--surface-secondary);
+  --editor-fr-bg: var(--surface-secondary);
+
+  /* The apparatus, which the tokens do not name. */
+  --editor-link: #0e7490;
+  --editor-link-x: #7c3aed;
+  --editor-nested-fg: #6d28d9;
+  --editor-nested-line: #ddd0f7;
+}
+
+:root[data-theme="dark"] {
+  /* Dark needs MORE tint, not less: `--brand-base` is brand-70 here, so the
+     same percentage over a near-black ground reads as almost nothing. */
+  --editor-pair-bg: color-mix(in srgb, var(--brand-base) 30%, transparent);
+  --editor-pair-edge: var(--brand-base);
+  --editor-link: #6cc0d6;
+  --editor-link-x: #b393f5;
+  --editor-nested-fg: #b393f5;
+  --editor-nested-line: #3d3357;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --editor-pair-bg: color-mix(in srgb, var(--brand-base) 30%, transparent);
+    --editor-pair-edge: var(--brand-base);
+    --editor-link: #6cc0d6;
+    --editor-link-x: #b393f5;
+    --editor-nested-fg: #b393f5;
+    --editor-nested-line: #3d3357;
+  }
+}
+
+.cm-host .cm-editor {
+  height: 100%;
+}
+.cm-host .cm-editor.cm-focused {
+  outline: none;
+}
+.cm-host .cm-scroller {
+  overflow: auto;
+}
+.cm-mode-regular .usfm-join {
+  white-space: pre;
+}
+
+.cm-mode-regular {
+  background: var(--editor-paper);
+}
+/* A reference pane drawn straight on the page (Refine's reference text,
+   `ReferencePane bare`): no paper. Here, beside the rule it overrides, and not
+   in app.css: that file's rules sit in a layer, and this one does not. */
+[data-bare] .cm-mode-regular {
+  background: transparent;
+}
+/* A collapsed reference text's card (`ReferenceCard.tsx`): its opening verses
+   at the interface's 14px, edge to edge in the card, fading out at the
+   bottom — a glance at the text, not a page of it. */
+[data-reference-preview] {
+  mask-image: linear-gradient(to bottom, #000 40%, transparent);
+}
+[data-reference-preview] .cm-excerpt.cm-mode-regular {
+  background: transparent;
+}
+[data-reference-preview] .cm-excerpt .cm-content {
+  padding: 0;
+  font-size: var(--text-small);
+  line-height: 1.6;
+}
+.cm-mode-regular .cm-content {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 56px 0 30vh;
+  font-family: var(--font-scripture);
+  /* The reader's own size (`editor.fontSize`, written onto <html> by
+     `src/app/ui/theme.ts`). The fallback is the value this was hardcoded to,
+     so a document with no preference applied still reads the same. */
+  font-size: var(--editor-font-size, 18px);
+  line-height: 1.72;
+  color: var(--editor-ink);
+  caret-color: var(--editor-accent);
+}
+/* A reference pane is narrower than the 40rem column, so `margin: auto` gives
+   its text no gutter at all; it takes the reading's own breathing room. */
+[data-reference] .cm-mode-regular .cm-content {
+  padding-inline: 1.5rem;
+}
+.cm-mode-regular .cm-cursor {
+  border-left-color: var(--editor-accent);
+  border-left-width: 2px;
+}
+.cm-mode-regular .cm-selectionBackground,
+.cm-mode-regular.cm-focused .cm-selectionBackground {
+  background: var(--editor-selection) !important;
+}
+.cm-mode-regular .cm-line {
+  padding: 0;
+}
+
+.cm-mode-regular .usfm-block {
+  padding-bottom: 0.5em;
+}
+.cm-mode-regular .usfm-p,
+.cm-mode-regular .usfm-pi {
+  text-indent: 1.5em;
+}
+.cm-mode-regular .usfm-m,
+.cm-mode-regular .usfm-nb {
+  text-indent: 0;
+}
+
+/* Poetry, on the prototype's ladder (16 / 32 / 64 / 96px), with a hanging
+   indent so a wrapped line sits under the one it continues rather than under
+   its verse number. */
+.cm-mode-regular .usfm-q,
+.cm-mode-regular .usfm-q1,
+.cm-mode-regular .usfm-q2,
+.cm-mode-regular .usfm-q3,
+.cm-mode-regular .usfm-q4 {
+  padding-bottom: 0;
+  text-indent: -0.9em;
+}
+.cm-mode-regular .usfm-q,
+.cm-mode-regular .usfm-q1 {
+  padding-inline-start: calc(16px + 0.9em);
+}
+.cm-mode-regular .usfm-q2 {
+  padding-inline-start: calc(32px + 0.9em);
+}
+.cm-mode-regular .usfm-q3 {
+  padding-inline-start: calc(64px + 0.9em);
+}
+.cm-mode-regular .usfm-q4 {
+  padding-inline-start: calc(96px + 0.9em);
+}
+.cm-mode-regular .usfm-b {
+  /*min-height: 0.8em;*/
+  padding: 0;
+  height: 0;
+}
+
+.cm-mode-regular .usfm-verse {
+  font: 700 0.66em/1 var(--font-ui);
+  vertical-align: super;
+  color: var(--editor-accent);
+  margin: 0 0.3em 0 0.12em;
+  user-select: none;
+}
+.cm-mode-regular .usfm-chap {
+  padding: 1.1em 0 0.1em;
+  text-indent: 0;
+}
+.cm-mode-regular .usfm-chapnum {
+  font: 700 2.4em/1 var(--font-scripture);
+  color: var(--editor-accent);
+  letter-spacing: -0.02em;
+}
+.cm-mode-regular .usfm-head {
+  font-weight: 700;
+  text-indent: 0;
+  padding: 1.1em 0 0.15em;
+}
+.cm-mode-regular .usfm-r,
+.cm-mode-regular .usfm-d {
+  font-weight: 400;
+  font-style: italic;
+  color: var(--editor-muted);
+  font-size: 0.92em;
+}
+.cm-mode-regular .usfm-front {
+  text-indent: 0;
+}
+.cm-mode-regular .usfm-mt {
+  font: 700 1.7em/1.25 var(--font-scripture);
+  text-align: center;
+  padding: 0.5em 0 0.2em;
+}
+.cm-mode-regular .usfm-h,
+.cm-mode-regular .usfm-toc1,
+.cm-mode-regular .usfm-toc2,
+.cm-mode-regular .usfm-toc3,
+.cm-mode-regular .usfm-meta {
+  font: 400 11px/1.5 var(--font-mono);
+  color: var(--editor-meta);
+  text-indent: 0;
+}
+
+.cm-mode-usfm {
+  background: #0c0a09;
+}
+.cm-mode-usfm .cm-content {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #d6d3d1;
+  padding: 14px 18px 30vh;
+  caret-color: #38bdf8;
+}
+.cm-mode-usfm .cm-cursor {
+  border-left-color: #38bdf8;
+}
+.cm-mode-usfm .cm-selectionBackground,
+.cm-mode-usfm.cm-focused .cm-selectionBackground {
+  background: #1e3a5f !important;
+}
+.cm-mode-usfm .cm-usfm-marker {
+  color: #38bdf8;
+  font-weight: 600;
+}
+.cm-mode-usfm .cm-usfm-num {
+  color: #fbbf24;
+}
+.cm-mode-usfm .cm-usfm-chapter {
+  color: #f472b6;
+}
+.cm-mode-usfm .cm-usfm-para {
+  color: #a3e635;
+}
+.cm-mode-usfm .cm-usfm-heading {
+  color: #c084fc;
+}
+.cm-mode-usfm .cm-usfm-front {
+  color: #78716c;
+}
+
+.cm-mode-regular .usfm-caller {
+  font: 600 0.62em/1 var(--font-ui);
+  vertical-align: super;
+  color: var(--editor-link);
+  user-select: none;
+  cursor: pointer;
+}
+.cm-mode-regular .usfm-caller-x {
+  color: var(--editor-link-x);
+}
+.cm-mode-regular .usfm-notes {
+  max-width: 40rem;
+  margin: 1.2em auto 2.2em;
+  padding-top: 0.7em;
+  border-top: 1px solid var(--editor-rule);
+  font: 400 13px/1.55 var(--font-ui);
+  color: var(--editor-note);
+  text-indent: 0;
+}
+.cm-mode-regular .usfm-note {
+  display: flex;
+  gap: 0.45em;
+  padding: 0.12em 0;
+}
+.cm-mode-regular .usfm-note-mark {
+  color: var(--editor-link);
+  font-weight: 600;
+  font-size: 0.85em;
+  padding-top: 0.15em;
+}
+.cm-mode-regular .usfm-note-ref {
+  color: var(--editor-faint);
+  white-space: nowrap;
+}
+/* A note with no text yet. An empty inline span is zero pixels wide, so the
+   one target that means "let me write this" was unclickable on exactly the
+   note a reader had just made; the placeholder IS the click target. */
+.cm-mode-regular .usfm-note-empty {
+  color: var(--editor-faint);
+  font-style: italic;
+}
+.cm-mode-usfm .usfm-notes {
+  display: none;
+}
+
+.cm-mode-regular .usfm-num,
+.cm-mode-regular .usfm-verse-pip {
+  unicode-bidi: isolate;
+  direction: ltr;
+}
+.cm-mode-regular .usfm-num-v {
+  font: 700 0.66em/1 var(--font-ui);
+  vertical-align: super;
+  color: var(--editor-accent);
+}
+
+.cm-mode-regular .usfm-delim {
+  white-space: pre;
+}
+.cm-mode-regular .usfm-num-c {
+  font: 700 2.4em/1 var(--font-scripture);
+  color: var(--editor-accent);
+  letter-spacing: -0.02em;
+}
+
+/* An empty verse or chapter number: the outline is the place, the caret sits
+   on its left edge, and a typed digit fills it. About one superscript digit
+   wide with no margin of its own, so emptying a number barely moves the words
+   beside it. It is its diagnostic's whole mark (`recipes/lint.ts`,
+   SLOT_FINDINGS): the finding draws nothing of its own. */
+.cm-mode-regular .usfm-slot {
+  display: inline-block;
+  width: 0.6em;
+  height: 0.8em;
+  border: 1px dashed var(--editor-slot-line);
+  background: var(--editor-slot-bg);
+  border-radius: 2px;
+  vertical-align: super;
+  cursor: text;
+}
+.cm-mode-regular .usfm-slot-c {
+  width: 1.5em;
+  height: 1.5em;
+  vertical-align: baseline;
+}
+
+.cm-mode-regular .usfm-note-close {
+  display: inline-block;
+  font: 600 11px/1 var(--font-ui);
+  color: var(--editor-link);
+  background: var(--editor-chip-bg);
+  border-radius: 3px;
+  padding: 2px 4px;
+  margin: 0 0.2em;
+  cursor: pointer;
+  user-select: none;
+}
+.cm-mode-regular .usfm-note-close:hover {
+  background: var(--editor-chip-bg-hover);
+}
+
+.cm-mode-regular .usfm-lint-error,
+.cm-mode-usfm .usfm-lint-error {
+  background: var(--editor-error-bg);
+  box-shadow: inset 0 0 0 1px var(--editor-error-line);
+  border-radius: 2px;
+}
+.cm-mode-regular .usfm-lint-warn,
+.cm-mode-usfm .usfm-lint-warn {
+  background: var(--editor-warn-bg);
+  box-shadow: inset 0 0 0 1px var(--editor-warn-line);
+  border-radius: 2px;
+}
+.cm-mode-usfm .usfm-lint-error {
+  background: #4a1f1f;
+  box-shadow: inset 0 0 0 1px #a33;
+}
+.cm-mode-usfm .usfm-lint-warn {
+  background: #453a17;
+  box-shadow: inset 0 0 0 1px #a8892f;
+}
+
+.cm-mode-regular .usfm-note-open {
+  background: var(--editor-open-bg);
+  box-shadow: inset 0 0 0 1px var(--editor-open-line);
+  border-radius: 3px;
+  font:
+    400 0.82em/1.5 ui-monospace,
+    SFMono-Regular,
+    monospace;
+  color: var(--editor-open-fg);
+  padding: 0.1em 0.2em;
+}
+.cm-mode-regular .usfm-note {
+  cursor: pointer;
+}
+.cm-mode-regular .usfm-note:hover {
+  background: var(--editor-note-hover);
+}
+
+.cm-mode-regular .cm-gutters {
+  background: transparent;
+  border: none;
+}
+.cm-mode-usfm .cm-gutters {
+  background: #0c0a09;
+  border-right: 1px solid #292524;
+}
+
+.cm-mode-regular .usfm-focus {
+  background: var(--editor-focus-bg);
+  box-shadow: inset 3px 0 0 var(--editor-focus-bar);
+  border-radius: 3px;
+}
+/* A find hit inside the page. The app's highlight token, not the paper
+   palette's: the same match shown on an excerpt card and in the editor has to
+   be the same colour, or clicking Edit appears to move it. */
+.cm-mode-regular .usfm-hit {
+  background: var(--surface-highlight);
+  color: var(--on-surface-highlight);
+  border-radius: 2px;
+}
+
+/* The arrival mark: where a finding or a search hit put you. The highlight
+   token, so landing on a match looks like the match it was, and a transition
+   so it fades rather than blinks. */
+.cm-mode-regular .usfm-flash {
+  background: var(--surface-highlight);
+  color: var(--on-surface-highlight);
+  border-radius: 2px;
+  box-shadow: 0 0 0 2px var(--surface-highlight);
+  transition: background 240ms ease-out;
+}
+
+/* The paired block: where the caret's block lives on the other side.
+   Unscoped by mode on purpose — "what is that \q2 in the source" is a question
+   a reader asks most often while looking AT the markup, so USFM mode is the
+   one place this must not disappear. A left rule plus a wash, not the
+   highlight token: the highlight means "a match is here", and a pair is a
+   correspondence rather than a hit. The line form is for an EMPTY block, which
+   is the ordinary case for a block an overlay inserted. */
+.usfm-paired {
+  background: var(--editor-pair-bg);
+  /* `inset` and on the BOTTOM: an inline mark over three lines is three
+     fragments, and a ring around each of them reads as three boxes. An
+     underline per fragment reads as one continuous span. */
+  box-shadow: inset 0 -2px 0 var(--editor-pair-edge);
+  border-radius: 2px;
+}
+/* The empty block an overlay inserted: nothing to underline, so the whole
+   line carries it and the start edge says where the words go. */
+.usfm-paired-line {
+  background: var(--editor-pair-bg);
+  box-shadow: inset 3px 0 0 var(--editor-pair-edge);
+  border-radius: 3px;
+}
+
+.cm-mode-regular .usfm-word {
+  border-bottom: 1px dotted var(--editor-word-line);
+  cursor: help;
+}
+.cm-mode-regular .usfm-word:hover {
+  background: var(--editor-word-hover);
+}
+/* The attribute popover paints its own box. Scoped to its own class:
+   `.cm-tooltip-hover` is worn by EVERY hover tooltip, and stripping the
+   background off all of them left the diagnostics popover transparent. */
+.cm-host .cm-editor .cm-tooltip.cm-tooltip-attrs {
+  border: none;
+  background: none;
+  box-shadow: none;
+  overflow: visible;
+}
+.usfm-attrs {
+  background: var(--surface-primary);
+  color: var(--on-surface-primary);
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font: 400 12px/1.5 var(--font-ui);
+  box-shadow: var(--shadow-large);
+  min-width: 260px;
+}
+.usfm-attrs-head {
+  font: 600 15px/1.3 var(--font-scripture);
+  padding-bottom: 6px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--surface-border);
+}
+.usfm-attr {
+  display: grid;
+  grid-template-columns: 5.5em 1fr;
+  gap: 8px;
+  align-items: center;
+  margin: 3px 0;
+}
+.usfm-attr-k {
+  color: var(--on-surface-tertiary);
+  font: 400 11px/1 var(--font-mono);
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 3px 2px;
+  min-width: 0;
+}
+
+.usfm-attr-k[readonly] {
+  cursor: default;
+}
+.usfm-attr-k:not([readonly]) {
+  background: var(--surface-secondary);
+  border-color: var(--surface-border);
+  border-radius: 3px;
+}
+.usfm-attr-k:not([readonly]):focus {
+  outline: none;
+  border-color: var(--brand-base);
+}
+.usfm-attr-v {
+  background: var(--surface-secondary);
+  border: 1px solid var(--surface-border);
+  border-radius: 4px;
+  color: var(--on-surface-primary);
+  font: 400 12px/1 var(--font-mono);
+  padding: 4px 6px;
+  width: 100%;
+}
+.usfm-attr-v:focus {
+  outline: none;
+  border-color: var(--brand-base);
+}
+.usfm-attrs-foot {
+  margin-top: 7px;
+  color: var(--on-surface-tertiary);
+  font: 400 10px/1 var(--font-mono);
+}
+
+.cm-mode-regular .usfm-pip {
+  display: inline-block;
+  font: 600 0.7em/1 var(--font-ui);
+  color: var(--editor-link-x);
+  background: var(--editor-pip-bg);
+  border-radius: 3px;
+  padding: 1px 3px;
+  margin: 0 0.12em;
+  vertical-align: 0.08em;
+  user-select: none;
+}
+
+.cm-mode-regular .usfm-verse-pip {
+  display: inline;
+  font: 600 0.62em/1 var(--font-ui);
+  color: var(--editor-faint);
+  background: var(--editor-pip-neutral-bg);
+  border-radius: 2px;
+  padding: 1px 2px;
+  margin: 0 0.22em 0 0;
+  vertical-align: 0.3em;
+  user-select: none;
+}
+
+.cm-mode-regular .usfm-fr {
+  display: inline-block;
+  margin-right: 0.5em;
+  padding: 0.05em 0.4em;
+  border-radius: 3px;
+  background: var(--editor-fr-bg);
+  color: var(--editor-link);
+  font: 600 0.78em/1.5 var(--font-ui);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  user-select: none;
+  cursor: default;
+}
+.cm-mode-regular .usfm-ft {
+  color: var(--editor-ink);
+  font:
+    400 0.95em/1.6 Charter,
+    Georgia,
+    serif;
+}
+
+.cm-mode-regular .usfm-nested {
+  color: var(--editor-nested-fg);
+  box-shadow: inset 0 -1px 0 var(--editor-nested-line);
+}
+.cm-mode-regular .usfm-nested-xt {
+  font-style: italic;
+}
+
+.cm-mode-regular .usfm-brk {
+  display: block;
+  height: 0;
+}
+
+.cm-mode-regular .usfm-inblk.usfm-p,
+.cm-mode-regular .usfm-inblk.usfm-q,
+.cm-mode-regular .usfm-inblk.usfm-q1,
+.cm-mode-regular .usfm-inblk.usfm-q2,
+.cm-mode-regular .usfm-inblk.usfm-m {
+  font-weight: 400;
+  font-style: normal;
+}
+
+/* The row a followed caller landed on. A brief tint, not a permanent mark:
+   it answers "which one" and then gets out of the way. */
+.cm-mode-regular .usfm-note-found {
+  background: var(--surface-highlight);
+  border-radius: 4px;
+  transition: background 220ms ease-out;
+}
+
+/* The note being edited in place: a satellite over the note's own span, in the
+   row's slot. It has no card of its own — the row IS the card — so the view
+   inside it drops the page's chrome the way an excerpt does. */
+.cm-mode-regular .cm-note .cm-content {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  caret-color: var(--editor-accent);
+}
+.cm-mode-regular .cm-note .cm-line {
+  padding: 0;
+}
+.cm-mode-regular .cm-note .cm-scroller {
+  overflow: visible;
+}
+
+.cm-mode-regular .usfm-note-edit {
+  display: none;
+}
+/* The open note editor takes the rest of the ROW, and grows down with what is
+   typed into it. It was an `inline-block` of `min-width: 12ch` that never grew
+   and scrolled internally, so a note of two sentences was a keyhole. `flex: 1`
+   keeps the apparatus row's own width (the mark and the reference are the
+   other two flex items), `height: auto` on the scroller lets CodeMirror size
+   to its content, and `overflow: visible` means one line is one line and ten
+   are ten — the row grows, never the box's own scrollbar. */
+.cm-mode-regular .usfm-note-editing .usfm-note-edit {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 12ch;
+  vertical-align: top;
+}
+
+.cm-mode-regular .usfm-note-editing .usfm-note-body,
+.cm-mode-regular .usfm-note-editing .usfm-note-ref {
+  display: none;
+}
+
+.cm-mode-regular .usfm-note-done {
+  /* The editor beside it takes the rest of the row, so this must not be
+     squeezed into "Do / ne". */
+  flex: 0 0 auto;
+  white-space: nowrap;
+  margin-left: 8px;
+  padding: 1px 8px;
+  font: 500 10px/1.6 var(--font-ui);
+  color: var(--button-secondary-on-surface);
+  background: var(--surface-primary);
+  border: 1px solid var(--button-secondary-border);
+  border-radius: 4px;
+  cursor: pointer;
+  vertical-align: top;
+}
+.cm-mode-regular .usfm-note-done:hover {
+  background: var(--button-secondary-surface-hover);
+}
+/* The note being edited. The one literal colour the palette port left behind
+   in regular mode: a hard-coded amber that stayed light-mode amber on a dark
+   card. It is the warning line at half strength, so it follows the theme like
+   every other ring on this surface. */
+.cm-mode-regular .usfm-note-editing {
+  outline: 1px solid color-mix(in srgb, var(--editor-warn-line) 50%, transparent);
+  border-radius: 2px;
+}
+
+/* The box grows with what is typed into it, and never scrolls inside itself.
+   It was a fixed `inline-block` with CodeMirror's own scroller in it, so a
+   note of two sentences was a keyhole with a scrollbar. `height: auto` lets
+   the view size to its content and `overflow: visible` lets the APPARATUS ROW
+   take the height instead — one line is one line, and ten are ten. */
+.cm-mode-regular .usfm-note-edit .cm-editor {
+  background: transparent;
+  height: auto;
+}
+.cm-mode-regular .usfm-note-edit .cm-editor.cm-focused {
+  outline: none;
+}
+.cm-mode-regular .usfm-note-edit .cm-scroller {
+  line-height: inherit;
+  font-family: inherit;
+  height: auto;
+  overflow: visible;
+}
+.cm-mode-regular .usfm-note-edit .cm-content {
+  padding: 0;
+  /* One line minimum, so an empty note is still a place to click. */
+  min-height: 1.55em;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.cm-mode-regular .usfm-note-edit .cm-line {
+  padding: 0;
+}
+
+/* ---------------------------------------------------------------------------
+ * Sink 1's chrome: the diagnostics popover, the lint gutter and the lint panel.
+ *
+ * Everything that FLOATS above the document is app chrome, not scripture, so it
+ * reads from the semantic tokens in `src/app/ui/tokens.css` and follows the
+ * app's theme — light and dark — instead of carrying its own hexes. (Of the
+ * two scripture surfaces above, `.cm-mode-regular` swaps with the theme through
+ * the `--editor-*` names at the top of this file; `.cm-mode-usfm` keeps its
+ * literal terminal palette in both themes, because a terminal is dark either
+ * way and that IS the projection choice.)
+ *
+ * CodeMirror's own base theme paints `.cm-tooltip` `#f5f5f5` and only swaps it
+ * under a `&dark` editor theme, which Sefer does not install — so in dark mode
+ * the popover was light grey behind light text.
+ *
+ * Every selector below is prefixed `.cm-host .cm-editor` for ONE reason:
+ * `EditorView.baseTheme` emits `.ͼ1 .cm-diagnosticAction` — two classes — so a
+ * bare `.cm-diagnosticAction` loses on specificity and the defaults come back.
+ * The prefix is also true: these rules only mean anything inside a mounted view.
+ * ------------------------------------------------------------------------- */
+
+.cm-host .cm-editor .cm-tooltip {
+  background: var(--surface-primary);
+  color: var(--on-surface-primary);
+  border: 1px solid var(--surface-border);
+  border-radius: 10px;
+  box-shadow: var(--shadow-large);
+  font: 400 12px/1.5 var(--font-ui);
+  overflow: hidden;
+}
+
+.cm-host .cm-editor .cm-tooltip .cm-tooltip-arrow::before {
+  border-top-color: var(--surface-border);
+  border-bottom-color: var(--surface-border);
+}
+.cm-host .cm-editor .cm-tooltip .cm-tooltip-arrow::after {
+  border-top-color: var(--surface-primary);
+  border-bottom-color: var(--surface-primary);
+}
+
+.cm-host .cm-editor .cm-tooltip.cm-tooltip-lint,
+.cm-host .cm-editor .cm-tooltip .cm-tooltip-lint {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  max-width: 34rem;
+  max-height: 20rem;
+  overflow-y: auto;
+}
+
+/* One diagnostic. The severity is the left rule; the row itself keeps the
+   tooltip's surface so several rows read as one card. */
+.cm-host .cm-editor .cm-diagnostic {
+  display: block;
+  margin: 0;
+  padding: 8px 12px 8px 11px;
+  border-left: 3px solid var(--on-surface-tertiary);
+  white-space: pre-wrap;
+  color: var(--on-surface-primary);
+}
+.cm-host .cm-editor .cm-diagnostic + .cm-diagnostic {
+  border-top: 1px solid var(--surface-border);
+}
+.cm-host .cm-editor .cm-diagnostic-error {
+  border-left-color: var(--on-surface-error);
+}
+.cm-host .cm-editor .cm-diagnostic-warning {
+  border-left-color: var(--on-surface-warning);
+}
+.cm-host .cm-editor .cm-diagnostic-info,
+.cm-host .cm-editor .cm-diagnostic-hint {
+  border-left-color: var(--brand-base);
+}
+
+.cm-host .cm-editor .cm-diagnosticText {
+  display: block;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--on-surface-primary);
+}
+
+/* Which producer said so — `onion/<code>` or `sous/<code>`. Mono, quiet, and
+   below the message, because it is provenance rather than the point. */
+.cm-host .cm-editor .cm-diagnosticSource {
+  margin-top: 5px;
+  font: 400 10px/1.4 var(--font-mono);
+  letter-spacing: 0.02em;
+  color: var(--on-surface-tertiary);
+  opacity: 1;
+}
+
+/* The fix button. A real button, not a chip: it writes to the document. */
+.cm-host .cm-editor .cm-diagnosticAction {
+  display: inline-block;
+  margin: 7px 6px 0 0;
+  padding: 3px 9px;
+  font: 500 11px/1.5 var(--font-ui);
+  color: var(--button-primary-on-surface);
+  background: var(--button-primary-surface);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.cm-host .cm-editor .cm-diagnosticAction:hover {
+  background: var(--button-primary-surface-hover);
+}
+.cm-host .cm-editor .cm-diagnosticAction:focus-visible {
+  outline: 2px solid var(--brand-base);
+  outline-offset: 2px;
+}
+
+/* The inline range. CodeMirror's default is a background-image squiggle in a
+   fixed colour; a wavy text-decoration takes a custom property instead. */
+.cm-host .cm-editor .cm-lintRange {
+  background-image: none;
+  padding-bottom: 0;
+  text-decoration: underline wavy;
+  text-decoration-thickness: 1px;
+  text-decoration-skip-ink: none;
+  text-underline-offset: 3px;
+}
+/* An empty number's finding: the dashed box beside it is the whole mark. */
+.cm-host .cm-editor .cm-lintRange.usfm-lint-slot {
+  text-decoration: none;
+}
+.cm-host .cm-editor .cm-lintRange-error {
+  text-decoration-color: var(--on-surface-error);
+}
+.cm-host .cm-editor .cm-lintRange-warning {
+  text-decoration-color: var(--on-surface-warning);
+}
+.cm-host .cm-editor .cm-lintRange-info,
+.cm-host .cm-editor .cm-lintRange-hint {
+  text-decoration-color: var(--brand-base);
+}
+.cm-host .cm-editor .cm-lintRange-active {
+  background-color: color-mix(in srgb, var(--brand-base) 20%, transparent);
+  border-radius: 2px;
+}
+
+/* The gutter marker. The default is `content: url(<svg with a baked colour>)`;
+   restoring normal content and masking a shape lets the fill be a token. */
+.cm-host .cm-editor .cm-lint-marker {
+  content: normal;
+  width: 0.85em;
+  height: 0.85em;
+  cursor: pointer;
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: contain;
+  background-color: var(--on-surface-tertiary);
+}
+.cm-host .cm-editor .cm-lint-marker-error {
+  background-color: var(--on-surface-error);
+  mask-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><circle cx="20" cy="20" r="16" fill="black"/></svg>');
+}
+.cm-host .cm-editor .cm-lint-marker-warning {
+  background-color: var(--on-surface-warning);
+  mask-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><path d="M20 3 L38 36 L2 36 Z" fill="black"/></svg>');
+}
+.cm-host .cm-editor .cm-lint-marker-info,
+.cm-host .cm-editor .cm-lint-marker-hint {
+  background-color: var(--brand-base);
+  mask-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect x="5" y="5" width="30" height="30" rx="6" fill="black"/></svg>');
+}
+
+/* The lint panel (the `F8`/"open diagnostics" list at the bottom). */
+.cm-host .cm-editor .cm-panel.cm-panel-lint {
+  background: var(--surface-primary);
+  color: var(--on-surface-primary);
+  border-top: 1px solid var(--surface-border);
+}
+.cm-host .cm-editor .cm-panel.cm-panel-lint ul {
+  max-height: 140px;
+}
+.cm-host .cm-editor .cm-panel.cm-panel-lint ul [aria-selected] {
+  background-color: var(--surface-secondary);
+}
+.cm-host .cm-editor .cm-panel.cm-panel-lint ul:focus [aria-selected] {
+  background-color: color-mix(in srgb, var(--brand-base) 20%, transparent);
+  color: var(--on-surface-primary);
+}
+.cm-host .cm-editor .cm-panel.cm-panel-lint [name="close"] {
+  color: var(--on-surface-secondary);
+  cursor: pointer;
+  padding: 2px 6px;
+}
+
+/* An excerpt's marks (`src/app/ui/excerpts/ExcerptCard.tsx`), painted the
+   same in the read-only reader and in the satellite Edit opens, so clicking
+   Edit does not move anything. A match; a finding's match by severity (the
+   semantic severity surfaces, not the highlight — a severity is a judgement,
+   a highlight is a place); the one the find bar's cursor is on; and the
+   context either side of the unit the card is about, dimmed. */
+.cm-excerpt-hit {
+  background-color: var(--surface-highlight);
+  color: var(--on-surface-highlight);
+  border-radius: 2px;
+}
+.cm-excerpt-error {
+  background-color: var(--surface-error);
+  color: var(--on-surface-error);
+  border-radius: 2px;
+}
+.cm-excerpt-warning {
+  background-color: var(--surface-warning);
+  color: var(--on-surface-warning);
+  border-radius: 2px;
+}
+.cm-excerpt-info {
+  background-color: var(--surface-tertiary);
+  color: var(--on-surface-secondary);
+  border-radius: 2px;
+}
+.cm-excerpt-current {
+  box-shadow: 0 0 0 1px var(--brand-base);
+}
+.cm-excerpt-hit.cm-excerpt-current {
+  background-color: var(--brand-light);
+  color: var(--brand-base);
+}
+.cm-excerpt-context {
+  opacity: 0.55;
+}
+/* Dimmed while READING results, so the match stands out; full strength once
+   the card is being edited, because then it is the book, and it should look
+   like the editor. */
+.cm-editing .cm-excerpt-context {
+  opacity: 1;
+}
+
+/* A satellite inside an excerpt card (`src/app/ui/excerpts/`).
+   `.cm-mode-regular` is the PAGE: a centred 40rem column with a 56px head and
+   a 30vh tail, on its own paper. A card is none of those, so these rules undo
+   exactly that chrome and leave every USFM decoration alone — and they take
+   their colours from the tokens, because a card is themed and the page theme
+   above is not yet. */
+.cm-excerpt.cm-mode-regular {
+  background: transparent;
+}
+.cm-excerpt .cm-content {
+  max-width: none;
+  margin: 0;
+  padding: 8px 12px;
+}
+/* The reading's ink and size only: USFM keeps its terminal's, or a card's
+   text is near-black on the terminal's black. */
+.cm-excerpt.cm-mode-regular .cm-content {
+  font-size: var(--text-body);
+  color: var(--on-surface-primary);
+}
+.cm-excerpt .cm-scroller {
+  overflow: hidden;
+}
+
+/* ---------------------------------------------------------------------------
+   The front matter card (`core/frontmatter.ts`).
+
+   A block widget standing in for `\id`, `\h`, `\toc1-3` and `\mt*` in regular
+   mode: marker name as a locked label, value as the one editable field. Same
+   tokens and the same locked-key discipline as the attribute popover above,
+   because it is the same idea at book scale.
+   --------------------------------------------------------------------------- */
+/* Around every block widget's own element: its margins are inside the box
+   CodeMirror measures (`core/blockHost.ts`). */
+.cm-block-host {
+  display: flow-root;
+}
+.cm-mode-regular .usfm-frontcard {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 12px;
+  align-items: baseline;
+  max-width: 40rem;
+  margin: 0 auto 1.5rem;
+  padding: 12px 14px;
+  background: var(--surface-secondary);
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+}
+.cm-mode-regular .usfm-front-row {
+  display: contents;
+}
+.cm-mode-regular .usfm-front-label {
+  color: var(--on-surface-tertiary);
+  font: 400 11px/1.8 var(--font-ui);
+  white-space: nowrap;
+  cursor: default;
+}
+.cm-mode-regular .usfm-front-input {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--on-surface-primary);
+  font: 400 13px/1.4 var(--font-ui);
+  padding: 2px 6px;
+  width: 100%;
+  min-width: 0;
+}
+.cm-mode-regular .usfm-front-input:hover {
+  border-color: var(--surface-border);
+}
+.cm-mode-regular .usfm-front-input:focus {
+  outline: none;
+  background: var(--surface-primary);
+  border-color: var(--brand-base);
+}
+
+/* Blocks a translator still has to fill (`src/editor/recipes/emptyBlocks.ts`).
+   A widget, so it is not in the document and cannot be typed over, selected,
+   copied or saved — it is drawn AT the offset where the words go, and the
+   caret sits in front of it. Quiet on purpose: it marks a place to work, not
+   a mistake, so it wears the muted ink and not the error one. */
+.cm-mode-regular .usfm-ghost {
+  font: 400 0.85em/1 var(--font-ui);
+  font-style: italic;
+  color: var(--editor-faint);
+  border: 1px dashed var(--editor-slot-line);
+  border-radius: 3px;
+  padding: 0.1em 0.45em;
+  margin-inline-start: 0.1em;
+  vertical-align: baseline;
+  white-space: nowrap;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* ---------------------------------------------------------------------------
+   The engine's diff drawn on the reading (`recipes/diffView.ts`), for the
+   playground's "In the editor" experiment. A unit's tint is a line class; a
+   changed word a mark; a removed word, inline, struck through; a removed unit
+   a block. The severity surfaces are not used — a change is not a judgement.
+   ------------------------------------------------------------------------- */
+.cm-diff-pane {
+  overflow: hidden;
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+}
+.cm-diff-pane .cm-editor {
+  height: 100%;
+}
+.cm-diff .cm-content {
+  max-width: none;
+  margin: 0;
+  padding: 12px 16px;
+}
+/* The diff's hues, as tokens, so a colour-vision preset (`data-diff-palette`,
+   written by `src/app/ui/theme.ts` from the "Review colours" setting) is one
+   block. Standard is Zed's and GitHub's red and green; blue-orange is GitHub's
+   protanopia-deuteranopia pair, for readers who cannot tell red from green.
+   Blue is the brand there too, so a decided bar goes neutral, and a changed
+   bar goes gold so it is not read as a removed one. */
+:root {
+  --diff-added: #16a34a;
+  --diff-removed: #dc2626;
+  --diff-modified: #d97706;
+  --diff-decided: var(--brand-base);
+}
+:root[data-diff-palette="blue-orange"] {
+  --diff-added: #0969da;
+  --diff-removed: #e16f24;
+  --diff-modified: #bf8700;
+  --diff-decided: var(--on-surface-tertiary);
+}
+.cm-diff-added-unit {
+  background-color: color-mix(in srgb, var(--diff-added) 9%, transparent);
+}
+.cm-diff-deleted-unit {
+  background-color: color-mix(in srgb, var(--diff-removed) 8%, transparent);
+}
+/* Also a changed verse with no word to mark in this projection (markup-only,
+   with markup hidden): changed, but not in what you can see. A changed verse
+   whose words are marked has no wash — the marks say it. */
+.cm-diff-markup-unit {
+  background-color: color-mix(in srgb, var(--on-surface-tertiary) 8%, transparent);
+}
+/* A decided unit stops shouting, and puts nothing over the text: a wash or an
+   underline under the words was too faint to read as a choice and still sat
+   between the reader and the text. The choice is said where the side is
+   named — a card's column caption turns brand, with a check (`DiffCard`) —
+   and by the pressed Keep / Take buttons. The classes stay as hooks. */
+.cm-diff-kept,
+.cm-diff-taken {
+  background-color: transparent;
+}
+/* The side a decided unit will not read as (`Controls.dimUnchosen`): still
+   there to compare, but the brighter side is the result. */
+.cm-diff-unchosen {
+  opacity: 0.45;
+}
+/* Kept words are settled. Under a TAKE they stay marked: in
+   an editable review, what differs there now is the reader's own fix. */
+.cm-diff-kept .cm-diff-added {
+  background-color: transparent;
+}
+.cm-diff-added {
+  background-color: color-mix(in srgb, var(--diff-added) 30%, transparent);
+  border-radius: 2px;
+}
+/* Removed words carry a mark that is not a colour, so a reader who cannot
+   tell the two hues apart still can (`data-diff-removed`, "Removed words"). */
+.cm-diff-removed {
+  background-color: color-mix(in srgb, var(--diff-removed) 26%, transparent);
+  border-radius: 2px;
+  text-decoration: line-through;
+}
+:root[data-diff-removed="underline"] .cm-diff-removed {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+:root[data-diff-removed="none"] .cm-diff-removed {
+  text-decoration: none;
+}
+/* A one-text review drawn as Zed draws hunks (`DiffHunk` in
+   recipes/diffView.ts): the final text, and a bar beside each changed unit's
+   own rows. The hit area is wider than the stroke. Click the bar, or the
+   verse number, to open the other side's wording at the verse. */
+.cm-diff-bars {
+  pointer-events: none;
+}
+.cm-diff-bar {
+  --bar: var(--diff-modified);
+  width: 9px;
+  cursor: pointer;
+  pointer-events: auto;
+}
+/* The stroke, inset from the hit area, and ringed in the surface colour so
+   two bars that meet still read as two. */
+.cm-diff-bar::before {
+  content: "";
+  position: absolute;
+  inset: 1px 3px 1px 2px;
+  border-radius: 2px;
+  background: var(--bar);
+  box-shadow: 0 0 0 1px var(--surface-primary, #fff);
+  opacity: 0.8;
+}
+.cm-diff-bar:hover::before,
+.cm-diff-bar[data-open]::before {
+  inset: 1px 2px 1px 1px;
+  opacity: 1;
+}
+.cm-diff-bar-added {
+  --bar: var(--diff-added);
+}
+.cm-diff-bar-deleted {
+  --bar: var(--diff-removed);
+}
+.cm-diff-bar-decided {
+  --bar: var(--diff-decided);
+}
+/* The other side's wording, opened at the verse: a block inside the line, so
+   the paragraph breaks at this verse and not above the whole paragraph. */
+.cm-diff-was-box {
+  display: block;
+  text-indent: 0;
+  user-select: none;
+}
+/* Before the wording, a line can hold only the join that runs this verse on
+   from the last (a space) and CodeMirror's caret buffers: an empty row, which
+   moved the text by a line on opening. With nothing visible to break after,
+   they go; mid-paragraph the earlier verse's text keeps the row. */
+.cm-line > .usfm-join:has(~ .cm-diff-was-box),
+.cm-line > .cm-widgetBuffer:has(~ .cm-diff-was-box) {
+  display: none;
+}
+/* Zed's colours (standard palette): what it was on red, what it is on green, the words deeper.
+   No margin, border or padding: opening a verse inserts its old wording and
+   moves nothing else. */
+.cm-diff-was {
+  background-color: color-mix(in srgb, var(--diff-removed) 12%, transparent);
+}
+.cm-diff-was .cm-content {
+  padding: 0;
+}
+.cm-diff-now {
+  background-color: color-mix(in srgb, var(--diff-added) 12%, transparent);
+}
+/* The stamp brings the page's paper with it; the block's own tint shows. */
+.cm-diff-was .cm-editor,
+.cm-diff-was .cm-mode-regular,
+.cm-diff-was .cm-scroller,
+.cm-diff-was .cm-content {
+  background: transparent;
+}
+/* A unit's decision, in a thin column at the edge of your text — which, with
+   the other side drawn on the left, is the line between the two. Two chevrons,
+   stacked, no borders: each points at the text it chooses, and the chosen one
+   is filled. Only a pane that decides keeps the column's width; elsewhere
+   (the other side, a card) it takes none. */
+.cm-diff-controls {
+  min-width: 0;
+}
+.cm-diff-deciding .cm-diff-controls {
+  min-width: 68px;
+  padding-inline: 2px;
+}
+/* One row per verse that starts on the line: ‹ 9 ›, stacked when two share it. */
+.cm-diff-control-stack {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.cm-diff-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  padding-top: 2px;
+}
+.cm-diff-control-ref {
+  min-width: 18px;
+  text-align: center;
+  font: 600 11px/22px var(--font-sans, system-ui);
+  font-variant-numeric: tabular-nums;
+  color: var(--on-surface-tertiary);
+}
+.cm-diff-control button {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  cursor: pointer;
+  border: 0;
+  border-radius: 5px;
+  padding: 0;
+  color: var(--on-surface-tertiary);
+  background: transparent;
+}
+.cm-diff-control button svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.cm-diff-control button:hover {
+  color: var(--on-surface-primary);
+  background: var(--surface-secondary);
+}
+.cm-diff-control button[data-on="true"] {
+  color: var(--surface-primary);
+  background: var(--brand-base);
+}
+
+/* The editable side of a review: it reads like the page, and
+   says it is a page you can type on — a text cursor, and a ring while the
+   caret is in it. */
+.cm-diff-live .cm-content {
+  cursor: text;
+}
+
+/* Editing in a card — Find, Key terms, Findings, Review's editable side: a
+   thin accent outline around the text, the same everywhere, so "you are typing
+   in the book here" reads the same on every screen. An overlay, not a border,
+   so starting to edit never shifts the layout; inset, so a card's rounded
+   clipping never cuts it. Not an `outline` on the host: that paints UNDER the
+   editor's own layers, and a card with a gutter (Review's, which CodeMirror
+   stacks above the text) covered it. */
+/* A direct card (Key terms) is drawn as a field: at rest, a grey outline in
+   exactly the place the editor's brand one (below) takes while editing, so
+   there is one box and it only changes colour. 12px inside it on every side. */
+[data-direct-target] {
+  position: relative;
+  /* Its own stacking context, so the outline's fill below can sit behind the
+     text without falling behind the card. */
+  isolation: isolate;
+}
+/* The frame draws both states, so the editor's own outline (drawn on its host,
+   which scrolls with the chapter) is not also drawn inside it. */
+[data-direct-target] .cm-editing::after {
+  display: none;
+}
+[data-direct-target][data-editing]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1.5px solid var(--brand-base);
+  border-radius: 24px;
+  pointer-events: none;
+  z-index: 1;
+}
+[data-direct-target]:not([data-editing])::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border: 1px solid var(--surface-border);
+  border-radius: 24px;
+  pointer-events: none;
+  transition:
+    background-color 150ms ease-in-out,
+    border-color 150ms ease-in-out;
+}
+/* The card's own verse stays darker than its context, always: reading,
+   editing (where the editor would otherwise bring context to full strength)
+   and with the whole chapter open. */
+[data-direct-target] .cm-editing .cm-excerpt-context {
+  opacity: 0.55;
+}
+/* Hovered, it says it can be clicked: the light brand edge every field takes
+   on hover (`Select`, `Input`: `border-brand/40`). No fill. */
+[data-direct-target]:not([data-editing]):hover::after {
+  border-color: color-mix(in srgb, var(--brand-base) 40%, transparent);
+}
+/* Between the 48px gutters the text runs edge to edge — they are its margin —
+   with 24px above and below it, inside the box's 24px corners. */
+[data-direct-target][data-gutter] .cm-excerpt .cm-content {
+  padding: 24px 0;
+}
+[data-direct-target] .cm-excerpt .cm-content {
+  /* 12px inside the outline: the scroller already sits 3.5px in from the
+     frame, and the outline 2px (`ExcerptCard`). */
+  padding: 10.5px;
+  /* Double spacing, as the guide's reading beside it (`ExcerptCard`). */
+  line-height: 2;
+}
+
+.cm-editing,
+.cm-diff-live {
+  position: relative;
+}
+.cm-editing::after,
+.cm-diff-live:focus-within::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border: 1.5px solid var(--brand-base);
+  border-radius: 10px;
+  pointer-events: none;
+  z-index: 300;
+}
+
+/* A diff card in "Changes as excerpts": the diff view clipped to one change,
+   at a card's measure rather than a page's. */
+.cm-diff-card .cm-content {
+  padding: 8px 12px;
+}
+.cm-diff-card .cm-scroller {
+  overflow: hidden;
+}
