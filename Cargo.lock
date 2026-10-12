@@ -135,6 +135,7 @@ name = "hub-checks"
 version = "0.1.0"
 dependencies = [
  "mise",
+ "rayon",
  "serde",
  "serde_json",
  "usfm_onion",
@@ -163,6 +164,7 @@ name = "hub-repo-read"
 version = "0.1.0"
 dependencies = [
  "git2",
+ "rayon",
  "thiserror",
 ]
 
@@ -194,6 +196,7 @@ dependencies = [
  "hub-stitch",
  "serde",
  "serde_json",
+ "serde_yaml",
  "thiserror",
  "xxhash-rust",
 ]
