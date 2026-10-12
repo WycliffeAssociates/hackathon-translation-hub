@@ -1,0 +1,14 @@
+{
+  "v": 1,
+  "upstreams": [
+    {
+      "books": [
+        "LUK"
+      ],
+      "via": "git",
+      "url": "https://content.bibletranslationtools.org/alfred/tn_luk_text_reg.git",
+      "commit": "a50001016cf765350124639e7601e2e653cf6f90",
+      "takenAt": "2023-09-01"
+    }
+  ]
+}
