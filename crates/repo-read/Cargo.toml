@@ -10,3 +10,8 @@ thiserror.workspace = true
 
 [dev-dependencies]
 rayon.workspace = true
+
+[features]
+# Build libgit2 from source (needs cmake and a C compiler) instead of linking
+# the system's. The Docker image uses it: distro libgit2 lags git2's 1.9.
+vendored-libgit2 = ["git2/vendored-libgit2"]

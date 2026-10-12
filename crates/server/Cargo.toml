@@ -39,3 +39,4 @@ tracing-opentelemetry = { version = "0.32", optional = true }
 [features]
 otel = ["dep:opentelemetry", "dep:opentelemetry_sdk", "dep:opentelemetry-otlp", "dep:tracing-opentelemetry"]
 mariadb = ["hub-ingest/mariadb"]
+vendored-libgit2 = ["hub-repo-read/vendored-libgit2"]

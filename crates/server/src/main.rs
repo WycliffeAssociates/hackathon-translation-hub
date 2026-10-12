@@ -3,6 +3,7 @@
 //!
 //!     hub-server              serve (configuration: see config.rs / AGENTS.md)
 //!     hub-server --openapi    print the OpenAPI document and exit
+//!     hub-server --health     exit 0 if the server on HUB_LISTEN answers (Docker's HEALTHCHECK)
 //!
 //! Observability is wide events: one JSON line per request (`event:"request"`),
 //! per poll round (`event:"poll"`) and per catalog refresh (`event:"catalog"`),
@@ -37,6 +38,9 @@ async fn main() {
                 .expect("serialize OpenAPI")
         );
         return;
+    }
+    if std::env::args().any(|a| a == "--health") {
+        std::process::exit(health().await);
     }
     let _guard = telemetry::init();
     let config = config::Config::from_env();
@@ -82,6 +86,22 @@ async fn main() {
         })
         .await
         .expect("server");
+}
+
+/// GET /v1/status on our own listen address. The image has no curl, so the
+/// binary checks itself.
+async fn health() -> i32 {
+    let mut addr = config::Config::from_env().listen;
+    if addr.ip().is_unspecified() {
+        addr.set_ip(std::net::Ipv4Addr::LOCALHOST.into());
+    }
+    let ok = reqwest::Client::new()
+        .get(format!("http://{addr}/v1/status"))
+        .timeout(std::time::Duration::from_secs(3))
+        .send()
+        .await
+        .is_ok_and(|r| r.status().is_success());
+    if ok { 0 } else { 1 }
 }
 
 /// One wide event per request. Handlers add to the span (`db_ms`, `rows`);

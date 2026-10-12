@@ -238,19 +238,19 @@ fn parse_values(s: &str) -> Result<(Vec<Row>, usize), usize> {
     }
 }
 
-/// Every repo in Forgejo's live database. Read-only: one SELECT, no writes,
-/// and the account the hub uses should only have SELECT on `repository` and
-/// `user`.
+/// Every repo in Forgejo's live database. Read-only: one SELECT on
+/// `repository` alone, which is all the `dashboard_ro` account may read
+/// besides topics and releases (HANDOFF.md). `owner_name` is denormalized on
+/// the row, so no join on `user` is needed.
 #[cfg(feature = "mariadb")]
 pub fn from_mariadb(url: &str) -> Result<Vec<ForgejoRepo>, mysql::Error> {
     use mysql::prelude::Queryable;
     let pool = mysql::Pool::new(url)?;
     let mut conn = pool.get_conn()?;
-    // owner_name is denormalized on repository; join user only as a fallback.
     let rows: Vec<mysql::Row> = conn.query(
-        "SELECT r.id, LOWER(COALESCE(r.owner_name, u.lower_name)), r.lower_name, r.default_branch,
-                r.is_private, r.is_empty, r.is_mirror, r.is_archived, r.updated_unix, r.topics
-         FROM repository r LEFT JOIN `user` u ON u.id = r.owner_id",
+        "SELECT id, LOWER(owner_name), lower_name, default_branch, is_private, is_empty,
+                is_mirror, is_archived, updated_unix, topics
+         FROM repository",
     )?;
     Ok(rows
         .into_iter()
