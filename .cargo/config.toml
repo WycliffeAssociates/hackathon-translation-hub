@@ -1,0 +1,3 @@
+# scripture-kitchen is fetched over git; use the git CLI so its credentials apply.
+[net]
+git-fetch-with-cli = true

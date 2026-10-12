@@ -1,0 +1,9 @@
+[package]
+name = "hub-repo-read"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+
+[dependencies]
+git2.workspace = true
+thiserror.workspace = true

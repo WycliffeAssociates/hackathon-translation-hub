@@ -1,0 +1,36 @@
+# The hub's Rust side. Each crate owns one job; `hub-scan` runs them together.
+#   manifest   tS / RC / Burrito manifests → one normalized shape
+#   repo-read  bare repos on disk, read-only: HEAD, tree, blobs
+#   stitch     Writer (tS) chunks → one USFM book, Sefer's template
+#   synthetic  a Writer repo served as an RC-shaped repo
+#   checks     scripture-kitchen lint summary, legacy markers, content key, coverage
+#   domain     the Bible shape's rules (the Official pick)
+#   hub-scan   CLI: run the pipeline over a repo root, write JSON
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+edition = "2024"
+version = "0.1.0"
+publish = false
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+thiserror = "2"
+git2 = { version = "0.20", default-features = false }
+xxhash-rust = { version = "0.8", features = ["xxh3"] }
+rayon = "1"
+# scripture-kitchen by tag, never by path. v0.1.10 is not pushed yet; its engine
+# is byte-identical to v0.1.9 (only onion/Cargo.toml's version moved).
+usfm_onion = { git = "https://github.com/WycliffeAssociates/scripture-kitchen", tag = "v0.1.9" }
+mise = { git = "https://github.com/WycliffeAssociates/scripture-kitchen", tag = "v0.1.9" }
+
+hub-manifest = { path = "crates/manifest" }
+hub-repo-read = { path = "crates/repo-read" }
+hub-stitch = { path = "crates/stitch" }
+hub-synthetic = { path = "crates/synthetic" }
+hub-checks = { path = "crates/checks" }
+hub-domain = { path = "crates/domain" }
