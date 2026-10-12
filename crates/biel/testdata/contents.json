@@ -1,0 +1,261 @@
+{
+ "data": {
+  "content": [
+   {
+    "id": "a03zpqriua43o4r70xbq78pl",
+    "name": "bahasatech.indobarat/pse-x-riauasli_3jn_text_reg",
+    "type": "text",
+    "resource_type": "reg",
+    "domain": "scripture",
+    "modified_on": "2026-07-24T08:20:14",
+    "language": {
+     "ietf_code": "pse-x-riauasli"
+    },
+    "git_repo": {
+     "repo_url": "https://content.bibletranslationtools.org/bahasatech.indobarat/pse-x-riauasli_3jn_text_reg",
+     "username": "bahasatech.indobarat",
+     "repo_name": "pse-x-riauasli_3jn_text_reg"
+    },
+    "wa_content_metadata": {
+     "status": "Primary",
+     "show_on_biel": true
+    },
+    "rendered_contents": [
+     {
+      "scriptural_rendering_metadata": {
+       "book_slug": "3JN"
+      }
+     },
+     {
+      "scriptural_rendering_metadata": {
+       "book_slug": "3JN"
+      }
+     },
+     {
+      "scriptural_rendering_metadata": {
+       "book_slug": "3JN"
+      }
+     }
+    ]
+   },
+   {
+    "id": "bdovi9eri3ckn1hzid5wbrrh",
+    "name": "pa/ulb",
+    "type": "audio",
+    "resource_type": "bible",
+    "domain": "scripture",
+    "modified_on": "2026-10-12T22:28:17.027",
+    "language": {
+     "ietf_code": "pa"
+    },
+    "git_repo": null,
+    "wa_content_metadata": null,
+    "rendered_contents": []
+   },
+   {
+    "id": "a0jg74tznj4o46gq5u1v1o88",
+    "name": "THE_RIGHT_SIGNET/byj_jhn_text_reg",
+    "type": "text",
+    "resource_type": "reg",
+    "domain": "scripture",
+    "modified_on": "2024-09-16T10:20:23",
+    "language": {
+     "ietf_code": "byj"
+    },
+    "git_repo": null,
+    "wa_content_metadata": {
+     "status": "Primary",
+     "show_on_biel": true
+    },
+    "rendered_contents": []
+   },
+   {
+    "id": "a0owpyg5axfax165fz49myk2",
+    "name": "dcs-mirror/jeane_manuhutu_ums-texttranslation-perjanjian_baru_pendau",
+    "type": "text",
+    "resource_type": null,
+    "domain": "gloss",
+    "modified_on": "2026-07-24T10:17:06",
+    "language": null,
+    "git_repo": {
+     "repo_url": "https://content.bibletranslationtools.org/DCS-Mirror/jeane_manuhutu_ums-textTranslation-Perjanjian_Baru_Pendau",
+     "username": "DCS-Mirror",
+     "repo_name": "jeane_manuhutu_ums-textTranslation-Perjanjian_Baru_Pendau"
+    },
+    "wa_content_metadata": {
+     "status": "Active",
+     "show_on_biel": false
+    },
+    "rendered_contents": [
+     {
+      "scriptural_rendering_metadata": {
+       "book_slug": "MAT"
+      }
+     },
+     {
+      "scriptural_rendering_metadata": {
+       "book_slug": "MRK"
+      }
+     },
+     {
+      "scriptural_rendering_metadata": {
+       "book_slug": "LUK"
+      }
+     },
+     {
+      "scriptural_rendering_metadata": {
+       "book_slug": "JHN"
+      }
+     }
+    ]
+   },
+   {
+    "id": "a344tt4ch3qf161zu5n18l89",
+    "name": "dcs-mirror/danielc-n_fr-texttranslation-fra_tlx",
+    "type": "text",
+    "resource_type": null,
+    "domain": "gloss",
+    "modified_on": "2026-07-24T09:25:25",
+    "language": null,
+    "git_repo": {
+     "repo_url": "https://content.bibletranslationtools.org/DCS-Mirror/danielc-n_fr-textTranslation-fra_tlx",
+     "username": "DCS-Mirror",
+     "repo_name": "danielc-n_fr-textTranslation-fra_tlx"
+    },
+    "wa_content_metadata": {
+     "status": "Active",
+     "show_on_biel": false
+    },
+    "rendered_contents": [
+     {
+      "scriptural_rendering_metadata": {
+       "book_slug": "PHP"
+      }
+     },
+     {
+      "scriptural_rendering_metadata": {
+       "book_slug": "TIT"
+      }
+     }
+    ]
+   },
+   {
+    "id": "a8mbbnqae34cxil0yb8k7rle",
+    "name": "rg exercise - nt survey passages english",
+    "type": "text",
+    "resource_type": "reviewers-guide",
+    "domain": "peripheral",
+    "modified_on": null,
+    "language": {
+     "ietf_code": "en"
+    },
+    "git_repo": null,
+    "wa_content_metadata": null,
+    "rendered_contents": []
+   },
+   {
+    "id": "a40xpp20ionlfvup9ju1e1rg",
+    "name": "moffat_chola/bwc_2pe_text_reg",
+    "type": "text",
+    "resource_type": "reg",
+    "domain": "scripture",
+    "modified_on": "2026-10-07T12:49:11",
+    "language": {
+     "ietf_code": "bwc"
+    },
+    "git_repo": {
+     "repo_url": "https://content.bibletranslationtools.org/Moffat_chola/bwc_2pe_text_reg",
+     "username": "Moffat_chola",
+     "repo_name": "bwc_2pe_text_reg"
+    },
+    "wa_content_metadata": {
+     "status": "",
+     "show_on_biel": true
+    },
+    "rendered_contents": [
+     {
+      "scriptural_rendering_metadata": {
+       "book_slug": "2PE"
+      }
+     },
+     {
+      "scriptural_rendering_metadata": {
+       "book_slug": "2PE"
+      }
+     }
+    ]
+   },
+   {
+    "id": "c73urvdvvktcyyzoxjw5myvn",
+    "name": "gl_work/ceb_ulb_rev",
+    "type": "text",
+    "resource_type": "ulb",
+    "domain": "scripture",
+    "modified_on": "2026-07-24T08:39:23",
+    "language": {
+     "ietf_code": "ceb"
+    },
+    "git_repo": {
+     "repo_url": "https://content.bibletranslationtools.org/GL_work/ceb_ulb_rev",
+     "username": "GL_Work",
+     "repo_name": "ceb_ulb_rev"
+    },
+    "wa_content_metadata": {
+     "status": "Active",
+     "show_on_biel": false
+    },
+    "rendered_contents": [
+     {
+      "scriptural_rendering_metadata": {
+       "book_slug": "RUT"
+      }
+     },
+     {
+      "scriptural_rendering_metadata": {
+       "book_slug": "2PE"
+      }
+     }
+    ]
+   },
+   {
+    "id": "ka7d76oxxer8hopjrnazd3xx",
+    "name": "dcs-mirror/burritotruck_en_bsb",
+    "type": "text",
+    "resource_type": "bsb",
+    "domain": "gloss",
+    "modified_on": "2026-07-24T09:42:22",
+    "language": null,
+    "git_repo": {
+     "repo_url": "https://content.bibletranslationtools.org/DCS-Mirror/BurritoTruck_en_bsb",
+     "username": "DCS-Mirror",
+     "repo_name": "BurritoTruck_en_bsb"
+    },
+    "wa_content_metadata": {
+     "status": "Active",
+     "show_on_biel": false
+    },
+    "rendered_contents": [
+     {
+      "scriptural_rendering_metadata": {
+       "book_slug": "2KI"
+      }
+     },
+     {
+      "scriptural_rendering_metadata": {
+       "book_slug": "HEB"
+      }
+     },
+     {
+      "scriptural_rendering_metadata": {
+       "book_slug": "FRONT MATTER"
+      }
+     }
+    ]
+   },
+   {
+    "id": null,
+    "name": "a row with no id cannot be stored"
+   }
+  ]
+ }
+}
