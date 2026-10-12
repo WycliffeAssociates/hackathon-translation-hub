@@ -5,7 +5,12 @@
 #   synthetic  a Writer repo served as an RC-shaped repo
 #   checks     scripture-kitchen lint summary, legacy markers, content key, coverage
 #   domain     the Bible shape's rules (the Official pick)
-#   hub-scan   CLI: run the pipeline over a repo root, write JSON
+#   ingest     the pipeline for one repo, and what Forgejo's DB says about repos
+#   store      the hub's SQLite: migrations, writes from ingest, reads for the API
+#   proof      sous-chef proofreading over one repo's books
+#   biel       the public data API: language facts, catalog status
+#   server     the HTTP API (/v1), the soft poll, logs and traces
+#   hub-scan   CLI: run the pipeline over a repo root, write JSON (or the store)
 [workspace]
 resolver = "3"
 members = ["crates/*"]
@@ -34,3 +39,7 @@ hub-stitch = { path = "crates/stitch" }
 hub-synthetic = { path = "crates/synthetic" }
 hub-checks = { path = "crates/checks" }
 hub-domain = { path = "crates/domain" }
+hub-ingest = { path = "crates/ingest" }
+hub-store = { path = "crates/store" }
+hub-biel = { path = "crates/biel" }
+hub-proof = { path = "crates/proof" }
