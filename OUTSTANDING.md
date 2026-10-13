@@ -34,6 +34,12 @@ reasoned about but has not run against the real thing.
 
 - **Stored Sous rows: cap of 200 per book and check, or 25?** Will to decide. On dev-data the rows are 43 MB of a 64 MB database (112k rows); at about 32k repos that is roughly 1 GB. The per-book counts (`finding_count`) are 0.6 MB and stay either way. With 25, the page would say "showing 25 of N" and rows would be about 100 MB in production. The change is `ROWS_PER_BOOK_CODE` in `crates/server/src/proof.rs`, then one re-proofread. The other option is to store no rows and re-run Sous for the repo on click (~0.2 s, Hebrew 5 s).
 
+## Decided 2026-10-12 (night)
+
+- The SQLite and the logs live in host directories on disk (`./var/data`, `./var/logs` in compose), not named volumes.
+- Sous Chef's source comparisons are in scope for the POC (in progress).
+- Fixes in scripture-kitchen and Sefer are listed in TODO.md for Will.
+
 ## Known gaps in what is built
 
 - **MariaDB reader: verified against stock Forgejo, not yet against wacs2.** `dev/forgejo/check.sh` runs Forgejo 11.0.16 (rootless) on MariaDB 10.11 and reads it as `dashboard_ro` with production's grants. It checks that the public repo is indexed, the private one is not, a push lands within a poll, and a repo made private disappears. wacs2 itself still needs a run (ask first).

@@ -50,8 +50,8 @@ cd web && pnpm install && pnpm dev
 # Everything in one process, as deployed: build the web app, then
 HUB_WEB_DIR=web/dist cargo run --release -p hub-server   # → http://127.0.0.1:8787/
 
-# Docker, on dev-data
-docker compose up --build                                # → http://localhost:8787/
+# Docker, on dev-data: MariaDB like prod (loads the dumps once), then the hub reading it as dashboard_ro
+docker compose up -d db && docker compose up --build hub  # → http://localhost:8787/  (SQLite + logs persist in ./var)
 ```
 
 Configuration is environment variables, all optional in development:
@@ -104,4 +104,4 @@ Match the surrounding code: module doc comments say what a crate does and where 
 
 ## Deploy
 
-`Dockerfile` builds one image (web + server, `--features mariadb,otel,vendored-libgit2`) that runs as uid 1000 (Forgejo's) and checks its own health (`hub-server --health`). On the wacs2 host, mount Forgejo's repositories read-only with the SELinux flag (`/var/lib/gitea/git/repositories:/repos:ro,z`), set `HUB_FORGEJO_DB` to the `dashboard_ro` account, and keep `/data` and `/logs` on volumes. `docker-compose.yml` is the dev-data version of the same.
+`Dockerfile` builds one image (web + server, `--features mariadb,otel,vendored-libgit2`) that runs as uid 1000 (Forgejo's) and checks its own health (`hub-server --health`). On the wacs2 host, mount Forgejo's repositories read-only with the SELinux flag (`/var/lib/gitea/git/repositories:/repos:ro,z`), set `HUB_FORGEJO_DB` to the `dashboard_ro` account, and keep `/data` and `/logs` on volumes. `docker-compose.yml` is the dev-data version of the same: the local `db` (MariaDB 10.11 with the dumps and `dashboard_ro`) plus the hub, with its SQLite and logs in `./var/data` and `./var/logs` on disk.

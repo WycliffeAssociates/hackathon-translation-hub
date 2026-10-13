@@ -1,19 +1,47 @@
-# The hub on dev-data, as the coworker would run it locally:
-#   docker compose up --build      → http://localhost:8787
-# Production differs only in the repo mount (Forgejo's repository root) and
-# HUB_FORGEJO_DB instead of the dump.
+# Local stand-ins for the WACS side, plus the hub.
+#
+#   docker compose up -d db          MariaDB like prod (wacs2-db-1). First start loads
+#                                    dev-data/sql/*.sql.gz and creates the read-only user.
+#                                    Reload after replacing the dumps:
+#                                    docker compose down -v && docker compose up -d db
+#   docker compose up --build hub    the hub on dev-data → http://localhost:8787
+#
+# The hub reads the repo list from `db` as dashboard_ro, as it will read
+# wacs2-db-1 in production. Its SQLite and rotated JSON logs persist on disk in
+# ./var/data and ./var/logs (gitignored), so `down` loses nothing and the logs
+# can be read with scripts/latency.py from the host. The image runs as uid 1000;
+# if your user is not 1000: mkdir -p var/data var/logs && sudo chown 1000 var/data var/logs
+#
+# Production (the wacs2 host) differs only in:
+#   - /var/lib/gitea/git/repositories:/repos:ro,z   (Forgejo's volume; z for SELinux)
+#   - HUB_FORGEJO_DB pointing at wacs2-db-1 with the real dashboard_ro password
+#   - ./var/data and ./var/logs on a disk with room
 services:
+  db:
+    image: mariadb:10.11
+    environment:
+      MARIADB_ROOT_PASSWORD: dev
+      MARIADB_DATABASE: gitea
+    ports:
+      - "${DB_PORT:-3306}:3306"
+    volumes:
+      - ./dev/db-init:/docker-entrypoint-initdb.d:ro
+      - ./dev-data/sql:/dumps:ro
+      - db_data:/var/lib/mysql
+
   hub:
     build: .
+    depends_on: [db]
     ports: ["8787:8787"]
     volumes:
       - ./dev-data/repositories:/repos:ro
-      - ./dev-data/sql:/forgejo:ro
-      - hub-data:/data
-      - hub-logs:/logs
+      - ./var/data:/data
+      - ./var/logs:/logs
     environment:
-      HUB_FORGEJO_DUMP: /forgejo/repository.sql.gz
+      # The poll retries each round, so starting before db is ready is harmless.
+      HUB_FORGEJO_DB: mysql://dashboard_ro:dev@db:3306/gitea
+      # HUB_LOG_KEEP: "14"                                 # days of log files
       # OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318   # optional: export spans
+
 volumes:
-  hub-data:
-  hub-logs:
+  db_data:
