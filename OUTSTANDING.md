@@ -17,14 +17,14 @@ reasoned about but has not run against the real thing.
 | Alternate names, regions from the public data API | ✅ verified | `crates/biel` → `language` table; search matches alternate names |
 | Is it Primary / shown on BIEL | ✅ verified | `catalog_content` table; `/v1/languages/{ietf}` `books[]` (Official pick, state); `/v1/biel/conflicts` (320 books / 33 languages = workTracker) |
 | Source texts resolved against WA-Catalog, as Sefer does | ✅ verified | `wa-catalog/<lang>_<resource>` (Sefer `relationships.ts`). Only the first declared source that exists on disk is used |
-| Synthetic repos for Writer projects, with a "not a real repo" notice | ✅ API verified · web in progress | `crates/synthetic`; tree/file serve the synthetic files, `?source=true` the real ones |
+| Synthetic repos for Writer projects, with a "not a real repo" notice | ✅ verified (API + browser smoke) | `crates/synthetic`; tree/file serve the synthetic files, `?source=true` the real ones |
 | Checks and verse counts against the synthetic book | ✅ verified | lint + coverage run on the stitched book |
 | Chapter coverage | ✅ verified | `coverage` per book with per-chapter gaps. Uses onion's TOC (the engine sous-chef also reads), not a sous-chef pass |
 | Backend observability: JSON logs, rotation | ✅ verified | wide events per request/poll/catalog; `HUB_LOG_DIR` daily rotation, `HUB_LOG_KEEP` |
 | Trace response times | ✅ verified | `duration_ms`/`db_ms` per request; `scripts/latency.py`; verify.py enforces a p95 budget |
 | OTel-ish export | ✅ verified locally | `--features otel` + `OTEL_EXPORTER_OTLP_ENDPOINT`. Checked against Jaeger 1.62 (`docker run -p 4318:4318 -p 16686:16686 jaegertracing/all-in-one:1.62.0`): the request span joined the caller's `traceparent` trace, with `route` and `db_ms` |
-| Thin front end (Solid + Effect, calls the API) | 🚧 in progress | `web/` |
-| Docker to deploy | ⚠️ written, image build not yet run | `Dockerfile`, `docker-compose.yml` |
+| Thin front end (Solid + Effect, calls the API) | ✅ verified | `web/`: typecheck, build, `tools/smoke.mjs` 12/12 in Chromium against the real server. ~59 KB gzip, viewer lazy (~338 KB, mostly the onion wasm) |
+| Docker to deploy | ✅ verified locally | `Dockerfile` (127 MB, uid 1000, healthy via `hub-server --health`), `docker-compose.yml`. `verify.py --base` passes against the container on dev-data. On macOS the first scan takes 35 s instead of 4.4 s (Docker Desktop file sharing); a native Linux mount should not. Not yet run on the wacs2 host |
 | Clear run + verify instructions | ✅ | `AGENTS.md`, `.claude/skills/verify-hub/`, `scripts/verify.py` |
 
 ## Known gaps in what is built
@@ -43,6 +43,11 @@ reasoned about but has not run against the real thing.
 - **scripture-kitchen v0.1.10** is only local. Push the tag, then bump every pin (see AGENTS.md).
 - **Linux builds** need `--features vendored-libgit2` (the Dockerfile does this) or a system libgit2 1.9.
 - **History is from the day the hub starts.** There is no backfill from git history yet (the proto's "over time" idea).
+
+- **Web:**
+  - Book history is per book, so the sparkline sits in the open book's header. A per-repo history route would allow a column in the books table.
+  - Audio, image and raw links are plain URLs, so those requests carry no `traceparent`.
+  - The app uses Solid 1.9 (the router targets it), while Sefer is on Solid 2 rc.
 
 ## Not built yet, but agreed earlier
 

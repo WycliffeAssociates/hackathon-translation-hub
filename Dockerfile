@@ -15,7 +15,10 @@
 
 # --- web: the static app ------------------------------------------------------
 FROM node:22-bookworm-slim AS web
-RUN corepack enable
+# Pinned: the lockfiles are format 9. msgpackr-extract's build script (an
+# optional native speedup Effect pulls in) is skipped on purpose, as locally.
+RUN npm install -g pnpm@10.18.0
+ENV npm_config_strict_dep_builds=false
 WORKDIR /src
 # The viewer is aliased from the spike, so both trees are needed.
 COPY spikes/viewer/package.json spikes/viewer/pnpm-lock.yaml spikes/viewer/
