@@ -2,13 +2,17 @@
 // the `@viewer` alias; see vite.config.ts) rather than copied. The spike's
 // `mountViewer` is Sefer's editor in read-only mode with the engine's
 // diagnostics drawn inline; this component adds the mode toggle, a chapter
-// picker, proofreading findings as underlines, and "go to this range".
-import { For, Show, createEffect, createSignal, on, onCleanup, onMount } from "solid-js";
+// navigator that follows the scroll (the fork's `watchLocation`), proofreading
+// findings as underlines, and "go to this range".
+import { Show, createEffect, createSignal, on, onCleanup, onMount } from "solid-js";
 import "@viewer/host/tokens.css";
 import "@viewer/editor-fork/editor.css";
 import { bootEngine } from "@viewer/host/engine.onion";
 import { mountViewer, type ViewerMount } from "@viewer/viewer/mountViewer";
 import { showCorpusFindings, type CorpusFinding } from "@viewer/editor-fork/recipes/lint";
+import { watchLocation } from "@viewer/editor-fork/recipes/whereAmI";
+import type { BookRow } from "../api/types";
+import ChapterNav from "./ChapterNav";
 
 export interface Range {
   readonly from: number;
@@ -51,24 +55,31 @@ export default function UsfmViewer(props: {
   focus: Range | null;
   /** A chapter label (`"3"`) to scroll to. */
   chapter: string | null;
+  /** The book's lint and coverage, to mark chapters in the navigator. */
+  book?: BookRow | undefined;
   onReady?: () => void;
 }) {
   let host!: HTMLDivElement;
   const [mount, setMount] = createSignal<ViewerMount>();
+  /** The chapter label in view (`""` in the front matter). */
+  const [current, setCurrent] = createSignal("");
   const [mode, setMode] = createSignal<Mode>("regular");
   const [failed, setFailed] = createSignal<string>();
   const doc = canonical(props.text);
 
   onMount(() => {
     let alive = true;
+    let unwatch = () => {};
     onCleanup(() => {
       alive = false;
+      unwatch();
       mount()?.destroy();
     });
     bootEngine().then(
       (engine) => {
         if (!alive) return;
         const m = mountViewer({ parent: host, text: doc.text, analyze: engine.memoize(), mode: mode() });
+        unwatch = watchLocation(m.view, (where) => follow(m, where?.label ?? ""));
         setMount(m);
         props.onReady?.();
       },
@@ -76,7 +87,14 @@ export default function UsfmViewer(props: {
     );
   });
 
-  createEffect(on([mount, mode], ([m, md]) => m?.setMode(md)));
+  createEffect(
+    on([mount, mode], ([m, md]) => {
+      if (!m) return;
+      m.setMode(md);
+      // The text reflows under a still scroller; ask again where we are.
+      requestAnimationFrame(() => m.view.scrollDOM.dispatchEvent(new Event("scroll")));
+    }),
+  );
 
   createEffect(() => {
     const m = mount();
@@ -110,35 +128,74 @@ export default function UsfmViewer(props: {
     });
   });
 
-  const chapters = () => mount()?.chapters().filter((c) => c.label) ?? [];
+  const labels = () => mount()?.chapters().flatMap((c) => (c.label ? [c.label] : [])) ?? [];
+
+  // After a jump the indicator says where we asked to go, until the reader
+  // scrolls: a short last chapter cannot reach the top of the pane, and the
+  // scroll position alone would name the one above it (and "next" would stick).
+  let pinned: { label: string; top: number | null } | null = null;
+  function follow(m: ViewerMount, label: string) {
+    if (pinned) {
+      if (pinned.top === null || Math.abs(m.view.scrollDOM.scrollTop - pinned.top) < 4) return;
+      pinned = null;
+    }
+    setCurrent(label);
+  }
 
   const goTo = (label: string) => {
     const m = mount();
     const row = m?.chapters().find((c) => c.label === label);
-    if (m && row) m.scrollTo(row.ordinal);
+    if (!m || !row) return;
+    const pin = { label, top: null as number | null };
+    pinned = pin;
+    setCurrent(label);
+    m.scrollTo(row.ordinal);
+    // CodeMirror scrolls on its next measure, and may correct once its height
+    // estimates are replaced by real lines; take the position after that.
+    setTimeout(() => pinned === pin && (pin.top = m.view.scrollDOM.scrollTop), 200);
   };
   createEffect(on([mount, () => props.chapter], ([m, ch]) => m && ch && goTo(ch)));
 
+  const step = (by: -1 | 1) => {
+    const all = labels();
+    const next = all[all.indexOf(current()) + by] ?? (current() === "" && by === 1 ? all[0] : undefined);
+    if (next !== undefined) goTo(next);
+  };
+
+  /** `[` / `]` and Alt+←/→ step chapters while focus is in the viewer. */
+  const onKey = (e: KeyboardEvent) => {
+    if (e.defaultPrevented || e.metaKey || e.ctrlKey) return;
+    if ((e.target as HTMLElement).closest(".chnav-pop")) return;
+    const by = e.key === "[" || (e.altKey && e.key === "ArrowLeft") ? -1 : e.key === "]" || (e.altKey && e.key === "ArrowRight") ? 1 : 0;
+    if (!by) return;
+    e.preventDefault();
+    step(by);
+  };
+
   return (
-    <div class="usfm-viewer">
+    <div class="usfm-viewer" onKeyDown={onKey}>
       <div class="viewer-bar">
         <div class="seg" role="group" aria-label="View mode">
           <button type="button" aria-pressed={mode() === "regular"} onClick={() => setMode("regular")}>Regular</button>
           <button type="button" aria-pressed={mode() === "usfm"} onClick={() => setMode("usfm")}>USFM</button>
         </div>
-        <Show when={chapters().length}>
-          <label class="small">
-            Chapter{" "}
-            <select onChange={(e) => goTo(e.currentTarget.value)} value={props.chapter ?? ""}>
-              <option value="" disabled>…</option>
-              <For each={chapters()}>{(c) => <option value={c.label}>{c.label}</option>}</For>
-            </select>
-          </label>
+        <Show when={labels().length}>
+          <ChapterNav
+            labels={labels()}
+            current={current()}
+            book={props.book}
+            onStep={step}
+            onPick={(label) => {
+              goTo(label);
+              host.focus({ preventScroll: true });
+            }}
+          />
         </Show>
         <Show when={!mount() && !failed()}><span class="loading small">Starting the viewer…</span></Show>
       </div>
       <Show when={failed()}>{(e) => <div class="failure">Viewer failed: {e()}</div>}</Show>
-      <div class="viewer-pane" ref={host} data-mode={mode()} />
+      {/* Focusable, so a click in the text puts the [ ] keys here. */}
+      <div class="viewer-pane" ref={host} data-mode={mode()} tabIndex={0} aria-label="Book text" />
     </div>
   );
 }

@@ -47,7 +47,7 @@ export default function FileView(props: {
               <Show when={USFM.has(kind())} fallback={<pre class="code">{t()}</pre>}>
                 {/* Keyed on the text: a new file is a new editor. */}
                 <Show when={t()} keyed>
-                  {(body) => <UsfmViewer text={body} findings={props.findings} focus={props.focus} chapter={props.chapter} />}
+                  {(body) => <UsfmViewer text={body} findings={props.findings} focus={props.focus} chapter={props.chapter} book={props.book} />}
                 </Show>
               </Show>
             )}

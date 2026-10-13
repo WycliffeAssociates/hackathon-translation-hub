@@ -2,19 +2,7 @@
 // declared source, and one cell per chapter.
 import { For, Show } from "solid-js";
 import type { BookRow, CoverageRow, LintRow } from "../../api/types";
-import { Counts } from "../../ui/bits";
-
-/** `[4, 5, 6, 9]` → `4–6, 9`. */
-const ranges = (ns: readonly number[]) => {
-  const out: string[] = [];
-  for (let i = 0; i < ns.length; i++) {
-    let j = i;
-    while (j + 1 < ns.length && ns[j + 1] === ns[j]! + 1) j++;
-    out.push(i === j ? `${ns[i]}` : `${ns[i]}–${ns[j]}`);
-    i = j;
-  }
-  return out.join(", ");
-};
+import { Counts, ranges } from "../../ui/bits";
 
 const topCodes = (lint: LintRow) =>
   Object.entries(lint.by_code)

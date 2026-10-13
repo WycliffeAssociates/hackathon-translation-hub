@@ -215,6 +215,8 @@ button.linkish.mono { font-family: var(--mono); }
 
 /* files + viewer */
 .browser { align-items: start; grid-template-columns: minmax(180px, 260px) minmax(0, 1fr); scroll-margin-top: 70px; }
+/* Again for phones: the line above overrides the earlier one-column rule. */
+@media (max-width: 760px) { .browser { grid-template-columns: minmax(0, 1fr); } }
 .tree { max-height: 78vh; }
 .viewer-head h3 { margin: .2rem 0; }
 .book-facts { display: inline-flex; gap: .6rem; align-items: center; }
@@ -261,3 +263,38 @@ button.linkish.mono { font-family: var(--mono); }
 .stat { border: 1px solid var(--rule); border-radius: 10px; padding: .7rem .9rem; background: var(--wf-bg); display: flex; flex-direction: column; }
 .stat b { font-size: 1.4rem; font-variant-numeric: tabular-nums; }
 .stat span { color: var(--muted); font-size: .85rem; }
+
+/* viewer: chapter navigator — ‹ [Chapter 5 of 28 ▾] › and a grid of ten to a row */
+.viewer-bar { position: relative; }
+.viewer-pane:focus-visible { outline: 2px solid var(--lapis); outline-offset: 1px; }
+.chnav-ctl { display: inline-flex; }
+.chnav-ctl button { border-radius: 0; padding: .25em .6em; font-variant-numeric: tabular-nums; }
+.chnav-ctl button + button { border-left: 0; }
+.chnav-step { width: 2.2rem; font-size: 1.1rem; line-height: 1.2; }
+.chnav-ctl .chnav-step:first-child { border-radius: 8px 0 0 8px; }
+.chnav-ctl .chnav-step:last-child { border-radius: 0 8px 8px 0; }
+.chnav-step:disabled { opacity: .4; cursor: default; }
+.chnav-step:disabled:hover { border-color: var(--rule); }
+/* Wide enough for "Chapter 150 of 150", so the bar does not move between books. */
+.chnav-open { width: 11.5rem; text-align: center; white-space: nowrap; }
+.chnav-open[aria-expanded="true"] { background: var(--paper-2); }
+.chnav-of { color: var(--muted); }
+.chnav-caret { color: var(--muted); margin-left: .35em; font-size: .8em; }
+.chnav-pop { position: absolute; top: calc(100% + 4px); left: 0; z-index: 6; width: min(27rem, 100%); padding: .6rem; border: 1px solid var(--rule); border-radius: 10px; background: var(--wf-bg); box-shadow: 0 8px 24px color-mix(in srgb, var(--ink) 16%, transparent); }
+.chnav-grid { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 4px; max-height: min(52vh, 25rem); overflow: auto; padding: 2px; }
+.chn { height: 2rem; padding: 0; font-size: .82rem; font-variant-numeric: tabular-nums; border-radius: 5px; border: 1px solid var(--rule); background: var(--wf-bg); color: var(--ink); }
+.chn.warn { background: color-mix(in srgb, var(--draft) 24%, var(--wf-bg)); border-color: color-mix(in srgb, var(--draft) 60%, var(--wf-bg)); }
+.chn.err { background: color-mix(in srgb, var(--conflict) 20%, var(--wf-bg)); border-color: color-mix(in srgb, var(--conflict) 60%, var(--wf-bg)); }
+.chn.gap { box-shadow: inset 0 -3px 0 var(--ink); }
+.chn[aria-current="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); font-weight: 700; }
+.chn[aria-current="true"].gap { box-shadow: inset 0 -3px 0 var(--paper); }
+.chn:focus-visible { outline: 2px solid var(--lapis); outline-offset: 1px; }
+.chnav-legend { display: flex; flex-wrap: wrap; gap: .2rem .9rem; margin: .5rem 0 0; }
+.chnav-legend i.chn { display: inline-block; width: .9rem; height: .9rem; vertical-align: -2px; margin-right: .2rem; }
+.chnav-keys { margin-left: auto; }
+kbd { font-family: var(--mono); font-size: .8em; border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 4px; padding: 0 .3em; background: var(--paper); }
+@media (max-width: 480px) {
+  .chnav-word { display: none; }
+  .chnav-open { width: 7.5rem; }
+  .chnav-keys { display: none; }
+}

@@ -27,7 +27,19 @@ export function Failure(props: { error: unknown }) {
   );
 }
 
-const plural = (n: number, word: string) => `${n.toLocaleString()} ${word}${n === 1 ? "" : "s"}`;
+/** `[4, 5, 6, 9]` → `4–6, 9`. */
+export const ranges = (ns: readonly number[]) => {
+  const out: string[] = [];
+  for (let i = 0; i < ns.length; i++) {
+    let j = i;
+    while (j + 1 < ns.length && ns[j + 1] === ns[j]! + 1) j++;
+    out.push(i === j ? `${ns[i]}` : `${ns[i]}–${ns[j]}`);
+    i = j;
+  }
+  return out.join(", ");
+};
+
+export const plural = (n: number, word: string) => `${n.toLocaleString()} ${word}${n === 1 ? "" : "s"}`;
 
 /** The error / warning / info badges. Zero counts are drawn quietly. */
 export function Counts(props: { errors: number; warnings: number; infos?: number }) {

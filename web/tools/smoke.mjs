@@ -73,9 +73,89 @@ await step("repo-en_ulb", async () => {
   await page.waitForFunction(() => (document.querySelector(".viewer-pane .cm-content")?.textContent ?? "").includes("\\v "));
   await shot("03-repo-en_ulb-MAT-usfm");
   await page.getByRole("button", { name: "Regular", exact: true }).click();
-  await page.getByRole("combobox").selectOption("5");
-  await page.waitForTimeout(300);
+});
+
+// The chapter navigator: ‹ [Chapter n of N ▾] › plus a grid, following the scroll.
+const nav = {
+  now: () => page.locator(".chnav-open .chnav-now").innerText(),
+  waitNow: (want) => page.waitForFunction((w) => {
+    const t = document.querySelector(".chnav-open .chnav-now")?.textContent ?? "";
+    return typeof w === "string" ? t === w : /^\d+$/.test(t) && Number(t) > w;
+  }, want),
+  open: async () => {
+    await page.getByRole("button", { name: /Choose a chapter$/ }).click();
+    const pop = page.getByRole("dialog", { name: "Chapters" });
+    await pop.waitFor();
+    return pop;
+  },
+  pane: () => page.locator(".viewer-pane .cm-scroller"),
+};
+
+await step("chapter-nav", async () => {
+  const pop = await nav.open();
+  expect((await pop.locator(".chnav-grid .chn").count()) === 28, "28 chapter cells for MAT");
+  await pop.getByRole("button", { name: /^Chapter 5( ·|$)/ }).click();
+  await pop.waitFor({ state: "detached" });
+  await nav.waitNow("5");
+  await page.waitForTimeout(400);
+  const top = await nav.pane().evaluate((el) => el.scrollTop);
+  expect(top > 1000, `the pane scrolled to chapter 5 (scrollTop ${top})`);
+  // A nudge ends the "where you asked to go" pin; the scroll watcher must agree it is 5.
+  await nav.pane().evaluate((el) => el.scrollBy(0, 8));
+  await page.waitForTimeout(200);
+  expect((await nav.now()) === "5", `the scroll watcher reads chapter 5 (got ${await nav.now()})`);
   await shot("04-repo-en_ulb-MAT-chapter5");
+  // Read on: the indicator follows the scroll.
+  await nav.pane().evaluate((el) => el.scrollBy(0, 6000));
+  await nav.waitNow(5);
+  const after = await nav.now();
+  results.push({ name: `  scrolled 6000px from MAT 5 → indicator says ${after}`, ok: true, ms: 0, notes: [] });
+  // Keyboard, with focus in the text: ] and [ step; Alt+← steps back too.
+  await page.locator(".viewer-pane").focus();
+  await page.keyboard.press("]");
+  await nav.waitNow(String(Number(after) + 1));
+  await page.keyboard.press("[");
+  await nav.waitNow(after);
+  await page.keyboard.press("Alt+ArrowLeft");
+  await nav.waitNow(String(Number(after) - 1));
+  await page.getByRole("button", { name: "Next chapter" }).click();
+  await nav.waitNow(after);
+  // The grid by keyboard: Escape closes and gives focus back to the button.
+  const again = await nav.open();
+  await page.keyboard.press("Escape");
+  await again.waitFor({ state: "detached" });
+  expect(await page.locator(".chnav-open").evaluate((el) => el === document.activeElement), "focus back on the chapter button");
+});
+
+/** The picker open on a book, at desktop width and at 390px. */
+async function pickerShots(name, url, chapters) {
+  await page.goto(`${base}${url}`);
+  await page.locator(".chnav-open").waitFor();
+  for (const [w, h, tag] of [[1280, 900, "desktop"], [390, 844, "390"]]) {
+    await page.setViewportSize({ width: w, height: h });
+    await page.waitForTimeout(150);
+    // The bar just under the sticky header, so the grid below it is in the shot.
+    await page.locator(".viewer-bar").evaluate((el) => scrollTo(0, el.getBoundingClientRect().top + scrollY - document.querySelector("header.top").offsetHeight - 40));
+    const pop = await nav.open();
+    expect((await pop.locator(".chnav-grid .chn").count()) === chapters, `${chapters} chapter cells`);
+    const box = await pop.boundingBox();
+    expect(box && box.x >= 0 && box.x + box.width <= w, `the grid inside the ${w}px viewport`);
+    await shot(`${name}-${tag}`);
+    await page.keyboard.press("Escape");
+  }
+  await page.setViewportSize({ width: 1280, height: 900 });
+}
+
+await step("chapter-nav-books", async () => {
+  await pickerShots("04b-picker-en_ulb-PSA", "/repos/wa-catalog/en_ulb?file=19-PSA.usfm", 150);
+  await pickerShots("04c-picker-en_ulb-OBA", "/repos/wa-catalog/en_ulb?file=31-OBA.usfm", 1);
+  // Marks: missing verses (ru_ulb Psalms) and lint tints (a Psalms repo with errors and warnings).
+  await pickerShots("04d-picker-ru_ulb-PSA-gaps", "/repos/wa-catalog/ru_ulb?file=19-PSA.usfm", 150);
+  const hav = await page.request.get(`${base}/v1/repos/faustin_azaza/hav_psa_text_reg`);
+  if (hav.ok()) {
+    const book = (await hav.json()).books[0];
+    await pickerShots("04e-picker-lint-tints", `/repos/faustin_azaza/hav_psa_text_reg?file=${encodeURIComponent(book.path)}`, book.chapters);
+  }
 });
 
 await step("repo-en_ulb-finding", async () => {
