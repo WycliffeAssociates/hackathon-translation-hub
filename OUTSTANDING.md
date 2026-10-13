@@ -29,8 +29,8 @@ reasoned about but has not run against the real thing.
 
 ## Known gaps in what is built
 
-- **MariaDB reader is unverified.** `--features mariadb`, one SELECT on `repository` (the `dashboard_ro` grants). Needs a run against wacs2's DB (ask before touching the server).
-- **Forgejo bumping `updated_unix` on push is unverified** (HANDOFF.md). The poll does not depend on it: it also compares HEAD on disk for every repo each round.
+- **MariaDB reader: verified against stock Forgejo, not yet against wacs2.** `dev/forgejo/check.sh` runs Forgejo 11.0.16 (rootless) on MariaDB 10.11 and reads it as `dashboard_ro` with production's grants. It checks that the public repo is indexed, the private one is not, a push lands within a poll, and a repo made private disappears. wacs2 itself still needs a run (ask first).
+- **A push bumps `repository.updated_unix`: confirmed** on Forgejo 11.0.16 (`check.sh`, step 1). The poll still also compares HEAD on disk, which covers writes that skip Forgejo.
 - **Sous-chef:**
   - No source-compared lanes (length, presence, source copy); they need `analyze_paired` with the WA-Catalog source.
   - Thai `th_ulb` flags every U+200B (3,221 findings); this is likely a kitchen rule to revisit.

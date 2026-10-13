@@ -1,0 +1,40 @@
+# Stock Forgejo (rootless, like wacs2) on MariaDB 10.11 (like wacs2-db-1), for
+# checking the hub against the real thing: what Forgejo writes to
+# `repository` on push, and the hub reading it through a `dashboard_ro`
+# account with production's grants. Driven by dev/forgejo/check.sh; nothing
+# here touches dev-data or any real server.
+#
+# Repos land in ../../target/forgejo/git/repositories on the host, so a
+# native hub-server can read them the way the sidecar reads Forgejo's volume.
+name: hub-forgejo-check
+services:
+  db:
+    image: mariadb:10.11
+    environment:
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_DATABASE: gitea
+      MARIADB_USER: gitea
+      MARIADB_PASSWORD: gitea
+    ports: ["127.0.0.1:3307:3306"]
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 2s
+      retries: 60
+  forgejo:
+    image: codeberg.org/forgejo/forgejo:11-rootless
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      FORGEJO__database__DB_TYPE: mysql
+      FORGEJO__database__HOST: db:3306
+      FORGEJO__database__NAME: gitea
+      FORGEJO__database__USER: gitea
+      FORGEJO__database__PASSWD: gitea
+      FORGEJO__security__INSTALL_LOCK: "true"
+      FORGEJO__server__ROOT_URL: http://127.0.0.1:3300/
+      FORGEJO__server__HTTP_PORT: "3000"
+      FORGEJO__repository__ROOT: /var/lib/gitea/git/repositories
+      FORGEJO__service__DISABLE_REGISTRATION: "true"
+    volumes:
+      - ../../target/forgejo:/var/lib/gitea
+    ports: ["127.0.0.1:3300:3000"]
