@@ -37,6 +37,9 @@ pub struct AppState {
         repo_tree,
         repo_file,
         repo_proof,
+        repo_findings,
+        hub_findings,
+        hub_code,
         book_history,
         list_languages,
         get_language,
@@ -72,6 +75,9 @@ pub fn router(state: AppState) -> axum::Router {
         .route("/v1/repos/{owner}/{name}/tree", get(repo_tree))
         .route("/v1/repos/{owner}/{name}/file/{*path}", get(repo_file))
         .route("/v1/repos/{owner}/{name}/proof", get(repo_proof))
+        .route("/v1/repos/{owner}/{name}/findings", get(repo_findings))
+        .route("/v1/findings", get(hub_findings))
+        .route("/v1/findings/{engine}/{code}", get(hub_code))
         .route(
             "/v1/repos/{owner}/{name}/books/{book}/history",
             get(book_history),
@@ -336,19 +342,96 @@ fn content_type(path: &str) -> &'static str {
     }
 }
 
-/// Sous Chef findings over the repo's books, from the last run.
+#[derive(Debug, Deserialize, IntoParams)]
+#[into_params(parameter_in = Query)]
+pub struct ProofQuery {
+    /// Only this book (USFM id, e.g. `MAT`).
+    book: Option<String>,
+    /// Only this check (e.g. `Rarity`).
+    code: Option<String>,
+    /// Default 2000.
+    limit: Option<u32>,
+}
+
+/// Documentation only: the shape `repo_proof` assembles from stored JSON.
+#[derive(Serialize, ToSchema)]
+pub struct ProofPage {
+    /// Which books formed the corpus, and which were left out.
+    pub corpus: crate::proof::ProofCorpus,
+    /// The stored rows that match, in book order. At most
+    /// `ROWS_PER_BOOK_CODE` (200) per book and check are stored; the true
+    /// counts are in `/findings`.
+    pub findings: Vec<hub_proof::Finding>,
+}
+
+/// Sous Chef rows from the last run, for one book and/or one check.
 #[utoipa::path(get, path = "/v1/repos/{owner}/{name}/proof",
-    params(("owner" = String, Path), ("name" = String, Path)),
-    responses((status = 200, body = crate::proof::ProofBody), (status = 404, body = ApiError)))]
+    params(("owner" = String, Path), ("name" = String, Path), ProofQuery),
+    responses((status = 200, body = ProofPage), (status = 404, body = ApiError)))]
 async fn repo_proof(
     State(s): State<AppState>,
     Path((owner, name)): Path<(String, String)>,
+    Query(q): Query<ProofQuery>,
 ) -> ApiResult<Response> {
     let (o, n) = (owner.to_lowercase(), name.to_lowercase());
-    let body = with_reader(&s.store, move |c| read::proof_body(c, &o, &n))
-        .await?
-        .ok_or_else(|| not_found(format!("no proofreading run for {owner}/{name} yet")))?;
+    let found = with_reader(&s.store, move |c| {
+        let Some(corpus) = read::proof_body(c, &o, &n)? else {
+            return Ok(None);
+        };
+        let book = q.book.map(|b| b.to_uppercase());
+        let rows = read::proof_rows(c, &o, &n, book.as_deref(), q.code.as_deref(), q.limit.unwrap_or(2000))?;
+        Ok(Some((corpus, rows)))
+    })
+    .await?;
+    let (corpus, rows) =
+        found.ok_or_else(|| not_found(format!("no proofreading run for {owner}/{name} yet")))?;
+    tracing::Span::current().record("rows", rows.len());
+    // The rows are stored as JSON; splice them rather than parse and re-serialize.
+    let body = format!("{{\"corpus\":{corpus},\"findings\":[{}]}}", rows.join(","));
     Ok(([(header::CONTENT_TYPE, "application/json")], body).into_response())
+}
+
+/// Every check that fired in the repo (lint and Sous Chef), most findings
+/// first, each with its count per book.
+#[utoipa::path(get, path = "/v1/repos/{owner}/{name}/findings",
+    params(("owner" = String, Path), ("name" = String, Path)),
+    responses((status = 200, body = Vec<read::CodeCount>)))]
+async fn repo_findings(
+    State(s): State<AppState>,
+    Path((owner, name)): Path<(String, String)>,
+) -> ApiResult<Json<Vec<read::CodeCount>>> {
+    let (o, n) = (owner.to_lowercase(), name.to_lowercase());
+    with_reader(&s.store, move |c| read::repo_findings(c, &o, &n))
+        .await
+        .map(Json)
+}
+
+/// Every check across every repo, most findings first: where a rule is noisy.
+#[utoipa::path(get, path = "/v1/findings",
+    responses((status = 200, body = Vec<read::HubCode>)))]
+async fn hub_findings(State(s): State<AppState>) -> ApiResult<Json<Vec<read::HubCode>>> {
+    with_reader(&s.store, read::hub_findings).await.map(Json)
+}
+
+#[derive(Debug, Deserialize, IntoParams)]
+#[into_params(parameter_in = Query)]
+pub struct HubCodeQuery {
+    /// Default 50.
+    limit: Option<u32>,
+}
+
+/// The repos where one check fires most.
+#[utoipa::path(get, path = "/v1/findings/{engine}/{code}",
+    params(("engine" = String, Path, description = "`lint` or `sous`"), ("code" = String, Path), HubCodeQuery),
+    responses((status = 200, body = Vec<read::RepoCodeCount>)))]
+async fn hub_code(
+    State(s): State<AppState>,
+    Path((engine, code)): Path<(String, String)>,
+    Query(q): Query<HubCodeQuery>,
+) -> ApiResult<Json<Vec<read::RepoCodeCount>>> {
+    with_reader(&s.store, move |c| read::hub_code(c, &engine, &code, q.limit.unwrap_or(50)))
+        .await
+        .map(Json)
 }
 
 /// What the hub saw each time the book changed: lint and coverage over time.

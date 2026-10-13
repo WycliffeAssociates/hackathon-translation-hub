@@ -2,10 +2,13 @@
 
 **What:** Sous Chef's corpus-relative findings over all of a repo's books
 ("[;] appears only 2 of 1,053 times"). Run by the poll whenever HEAD moves;
-stored per repo. At most 500 findings per code are kept, the rest counted in
-`dropped` (fa_opv alone has 235k word-final ZWNJ findings).
+stored per repo. Every finding is counted per book and check
+(`/findings`); rows are kept up to 200 per book and check (`/proof?book=&code=`),
+since some scripts produce findings by the hundred thousand.
 
-**Reach:** `GET /v1/repos/wa-catalog/en_ulb/proof`; the repo page's Proofreading section.
+**Reach:** `GET /v1/repos/wa-catalog/en_ulb/findings` (counts, both engines),
+`/proof?book=GEN&code=Casing` (rows); the repo page's Findings table; hub-wide
+`/v1/findings` and the `/checks` page.
 
 **Drive:** click a finding; the viewer opens the book at `from`..`to` (UTF-16
 offsets into the raw file).

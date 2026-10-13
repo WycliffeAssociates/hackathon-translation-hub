@@ -42,6 +42,10 @@ pub struct LintSummary {
     pub infos: u32,
     /// Counted findings per code name (`unknown-marker`, `verse-gap`, …).
     pub by_code: BTreeMap<String, u32>,
+    /// Each counted code's severity in this book: `error`, `warning` or
+    /// `info`. Fixed per book, since it depends only on the code and the
+    /// `\usfm` version the book declares.
+    pub severity: BTreeMap<String, &'static str>,
     /// Per chapter: `[errors, warnings, infos]`. Findings before the first `\c`
     /// (or under a `\c` with no readable number) are chapter 0.
     pub by_chapter: BTreeMap<u32, [u32; 3]>,
@@ -111,6 +115,9 @@ pub fn lint_book_with(text: &str, s5: bool) -> LintSummary {
             _ => out.infos += 1,
         }
         *out.by_code.entry(row.name.to_owned()).or_default() += 1;
+        out.severity
+            .entry(row.name.to_owned())
+            .or_insert(["error", "warning", "info"][bucket]);
         // The anchor is a token index; the reader's `Toc.at(span.from)` is
         // the anchor token's first byte.
         let byte = tokens

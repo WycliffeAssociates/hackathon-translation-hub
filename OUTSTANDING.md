@@ -27,6 +27,11 @@ reasoned about but has not run against the real thing.
 | Docker to deploy | ✅ verified locally | `Dockerfile` (127 MB, uid 1000, healthy via `hub-server --health`), `docker-compose.yml`. `verify.py --base` passes against the container on dev-data. On macOS the first scan takes 35 s instead of 4.4 s (Docker Desktop file sharing); a native Linux mount should not. Not yet run on the wacs2 host |
 | Clear run + verify instructions | ✅ | `AGENTS.md`, `.claude/skills/verify-hub/`, `scripts/verify.py` |
 
+## Rules that look noisy (found with /checks)
+
+- `delimiter-surplus` (lint, info): 35k findings in 414 repos. This is formatter-level (doubled spaces); it could leave the summary counts.
+- `missing-paragraph` (lint, warning): fires in 952 of 983 Writer books, once per chapter. Writer never writes `\p`, and Sefer's stitch template adds none. Fix it in Sefer's template (so the hub's stitch stays byte-identical) or count it apart for synthetic books. Will to decide.
+
 ## Known gaps in what is built
 
 - **MariaDB reader: verified against stock Forgejo, not yet against wacs2.** `dev/forgejo/check.sh` runs Forgejo 11.0.16 (rootless) on MariaDB 10.11 and reads it as `dashboard_ro` with production's grants. It checks that the public repo is indexed, the private one is not, a push lands within a poll, and a repo made private disappears. wacs2 itself still needs a run (ask first).
@@ -36,7 +41,8 @@ reasoned about but has not run against the real thing.
   - Thai `th_ulb` flags every U+200B (3,221 findings); this is likely a kitchen rule to revisit.
   - A one-book Writer corpus gives noisy `Rarity` findings.
   - The proof pass does not register `\s5`.
-  - At most 500 findings per code are stored.
+  - Every finding is counted per book and check; rows are stored up to 200 per book and check.
+  - `MisplacedFormat` produces 971k of 1.05M findings, from writing systems that use format characters on purpose (Khmer and Lao U+200B, Persian U+200C, Hebrew U+2060). The rule should judge them against the corpus, as the convention rules do. That is a kitchen change.
 - **An idle poll costs ~1.3 s** on dev-data (re-reading the 32k-row dump plus HEAD on 1,441 repos); with MariaDB it is one SELECT. Measure on production's ~30k repos.
 - **The first poll after start rescans everything** (~11 s on dev-data with proofreading; `wa-catalog/hbo_uhb` alone takes ~5 s). Production has ~30k repos: measure the first poll there, and consider proofreading lazily or with a time budget.
 - **`book_history` key** is (repo, book, time): two files with the same `\id` in one repo collapse to one history row.

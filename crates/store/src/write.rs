@@ -73,8 +73,23 @@ pub struct ProofRun<B: Serialize> {
     pub findings: usize,
     pub by_book: std::collections::BTreeMap<String, usize>,
     pub by_rule: std::collections::BTreeMap<String, usize>,
+    /// The run's books and skipped files (the API's proof summary body).
     pub body: B,
+    /// Every finding, in book order. All are counted; the first
+    /// `rows_per_book_code` of each (book, code) are stored as rows.
+    pub rows: Vec<ProofRow>,
+    pub rows_per_book_code: usize,
     pub error: Option<String>,
+}
+
+/// One sous-chef finding as stored: its keys, and the JSON the API serves.
+#[derive(Debug, Clone)]
+pub struct ProofRow {
+    pub book: String,
+    pub code: String,
+    /// `hygiene` or `convention`.
+    pub severity: String,
+    pub body: String,
 }
 
 impl Store {
@@ -194,6 +209,24 @@ impl Store {
             ],
         )?;
         tx.execute("DELETE FROM repo_book WHERE repo_id = ?1", [repo_id])?;
+        tx.execute(
+            "DELETE FROM finding_count WHERE repo_id = ?1 AND engine = 'lint'",
+            [repo_id],
+        )?;
+        {
+            let mut count = tx.prepare(
+                "INSERT INTO finding_count (repo_id, engine, book, code, severity, n)
+                 VALUES (?1, 'lint', ?2, ?3, ?4, ?5)
+                 ON CONFLICT (repo_id, engine, book, code) DO UPDATE SET n = n + excluded.n",
+            )?;
+            for b in &scan.books {
+                let book = if b.book.is_empty() { &b.path } else { &b.book };
+                for (code, n) in &b.lint.by_code {
+                    let severity = b.lint.severity.get(code).copied().unwrap_or("info");
+                    count.execute(params![repo_id, book, code, severity, n])?;
+                }
+            }
+        }
         {
             let mut book = tx.prepare(
                 "INSERT OR REPLACE INTO repo_book (repo_id, book, path, content_key, chapters, verses,
@@ -326,8 +359,12 @@ impl Store {
         Ok(())
     }
 
+    /// Stores one proofreading run: its summary, a count per (book, code), and
+    /// the first rows of each (book, code). Replaces the repo's previous run.
     pub fn write_proof<B: Serialize>(&self, run: &ProofRun<B>, sk_tag: &str) -> Result<()> {
-        self.writer().execute(
+        let mut conn = self.writer();
+        let tx = conn.transaction()?;
+        tx.execute(
             "INSERT OR REPLACE INTO proof (repo_id, head_sha, sk_tag, ran_unix, millis, findings,
                by_book, by_rule, body, error)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
@@ -344,6 +381,35 @@ impl Store {
                 run.error,
             ],
         )?;
+        tx.execute("DELETE FROM proof_finding WHERE repo_id = ?1", [run.repo_id])?;
+        tx.execute(
+            "DELETE FROM finding_count WHERE repo_id = ?1 AND engine = 'sous'",
+            [run.repo_id],
+        )?;
+        {
+            let mut counts: std::collections::BTreeMap<(&str, &str), (usize, &str)> =
+                std::collections::BTreeMap::new();
+            let mut row = tx.prepare(
+                "INSERT INTO proof_finding (repo_id, book, code, seq, body) VALUES (?1, ?2, ?3, ?4, ?5)",
+            )?;
+            for f in &run.rows {
+                let entry = counts
+                    .entry((f.book.as_str(), f.code.as_str()))
+                    .or_insert((0, f.severity.as_str()));
+                if entry.0 < run.rows_per_book_code {
+                    row.execute(params![run.repo_id, f.book, f.code, entry.0 as i64, f.body])?;
+                }
+                entry.0 += 1;
+            }
+            let mut count = tx.prepare(
+                "INSERT INTO finding_count (repo_id, engine, book, code, severity, n)
+                 VALUES (?1, 'sous', ?2, ?3, ?4, ?5)",
+            )?;
+            for ((book, code), (n, severity)) in counts {
+                count.execute(params![run.repo_id, book, code, severity, n as i64])?;
+            }
+        }
+        tx.commit()?;
         Ok(())
     }
 

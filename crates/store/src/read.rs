@@ -753,3 +753,153 @@ pub fn totals(conn: &Connection) -> Result<Totals> {
         state,
     })
 }
+
+/// One check's count in one book.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct BookCount {
+    pub book: String,
+    pub n: i64,
+}
+
+/// One check across a repo: its total and its books, most first.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct CodeCount {
+    /// `lint` (scripture-kitchen's structure checks) or `sous` (Sous Chef).
+    pub engine: String,
+    pub code: String,
+    /// lint: `error`, `warning`, `info` · sous: `hygiene`, `convention`.
+    pub severity: String,
+    pub total: i64,
+    pub books: Vec<BookCount>,
+}
+
+const SEVERITY_ORDER: &str = "CASE severity WHEN 'error' THEN 0 WHEN 'warning' THEN 1
+  WHEN 'hygiene' THEN 2 WHEN 'convention' THEN 3 ELSE 4 END";
+
+/// Every check that fired in a repo, most findings first, with per-book counts.
+pub fn repo_findings(conn: &Connection, owner: &str, name: &str) -> Result<Vec<CodeCount>> {
+    let rows: Vec<(String, String, String, String, i64)> = conn
+        .prepare(
+            "SELECT f.engine, f.code, f.severity, f.book, f.n FROM finding_count f
+             JOIN repo r ON r.id = f.repo_id WHERE r.owner = ?1 AND r.name = ?2
+             ORDER BY f.engine, f.code, f.n DESC, f.book",
+        )?
+        .query_map(params![owner, name], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
+        })?
+        .collect::<rusqlite::Result<_>>()?;
+    let mut out: Vec<CodeCount> = Vec::new();
+    for (engine, code, severity, book, n) in rows {
+        match out.last_mut() {
+            Some(c) if c.engine == engine && c.code == code => {
+                c.total += n;
+                c.books.push(BookCount { book, n });
+            }
+            _ => out.push(CodeCount {
+                engine,
+                code,
+                severity,
+                total: n,
+                books: vec![BookCount { book, n }],
+            }),
+        }
+    }
+    out.sort_by(|a, b| b.total.cmp(&a.total).then_with(|| a.code.cmp(&b.code)));
+    Ok(out)
+}
+
+/// One check across the hub.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct HubCode {
+    pub engine: String,
+    pub code: String,
+    pub severity: String,
+    pub total: i64,
+    /// Repos where it fires at least once.
+    pub repos: i64,
+    pub books: i64,
+    /// Share of the total in the single noisiest repo, 0–1: near 1 means one
+    /// repo (often one script's convention) explains the count.
+    pub top_repo_share: f64,
+}
+
+/// Every check across every repo, most findings first: where a noisy rule
+/// shows up.
+pub fn hub_findings(conn: &Connection) -> Result<Vec<HubCode>> {
+    Ok(conn
+        .prepare(&format!(
+            "WITH per_repo AS (
+               SELECT engine, code, severity, repo_id, sum(n) AS n, count(*) AS books
+               FROM finding_count GROUP BY engine, code, repo_id)
+             SELECT engine, code, max(severity), sum(n), count(*), sum(books),
+                    CAST(max(n) AS REAL) / sum(n)
+             FROM per_repo GROUP BY engine, code
+             ORDER BY sum(n) DESC, {SEVERITY_ORDER}"
+        ))?
+        .query_map([], |r| {
+            Ok(HubCode {
+                engine: r.get(0)?,
+                code: r.get(1)?,
+                severity: r.get(2)?,
+                total: r.get(3)?,
+                repos: r.get(4)?,
+                books: r.get(5)?,
+                top_repo_share: r.get(6)?,
+            })
+        })?
+        .collect::<rusqlite::Result<_>>()?)
+}
+
+/// One repo's count for one check.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct RepoCodeCount {
+    pub owner: String,
+    pub name: String,
+    pub title: Option<String>,
+    pub language: Option<String>,
+    pub n: i64,
+    pub books: i64,
+}
+
+/// The repos where one check fires most.
+pub fn hub_code(conn: &Connection, engine: &str, code: &str, limit: u32) -> Result<Vec<RepoCodeCount>> {
+    Ok(conn
+        .prepare(
+            "SELECT r.owner, r.name, r.title, r.language, sum(f.n), count(*)
+             FROM finding_count f JOIN repo r ON r.id = f.repo_id
+             WHERE f.engine = ?1 AND f.code = ?2
+             GROUP BY f.repo_id ORDER BY sum(f.n) DESC LIMIT ?3",
+        )?
+        .query_map(params![engine, code, limit.clamp(1, 500)], |r| {
+            Ok(RepoCodeCount {
+                owner: r.get(0)?,
+                name: r.get(1)?,
+                title: r.get(2)?,
+                language: r.get(3)?,
+                n: r.get(4)?,
+                books: r.get(5)?,
+            })
+        })?
+        .collect::<rusqlite::Result<_>>()?)
+}
+
+/// Stored sous-chef rows for a repo, optionally one book and/or one check, in
+/// book order. Each is a hub-proof `Finding` as JSON text.
+pub fn proof_rows(
+    conn: &Connection,
+    owner: &str,
+    name: &str,
+    book: Option<&str>,
+    code: Option<&str>,
+    limit: u32,
+) -> Result<Vec<String>> {
+    Ok(conn
+        .prepare(
+            "SELECT p.body FROM proof_finding p JOIN repo r ON r.id = p.repo_id
+             WHERE r.owner = ?1 AND r.name = ?2
+               AND (?3 IS NULL OR p.book = ?3) AND (?4 IS NULL OR p.code = ?4)
+             ORDER BY p.book, p.code, p.seq LIMIT ?5",
+        )?
+        .query_map(params![owner, name, book, code, limit.clamp(1, 20_000)], |r| r.get(0))?
+        .collect::<rusqlite::Result<_>>()?)
+}

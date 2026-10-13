@@ -194,9 +194,25 @@ def main():
         code, body = get(base, "/v1/repos/wa-catalog/en_ulb/file/41-MAT.usfm", out / "responses" / "41-MAT.usfm")
         c.ok(code == 200 and body.startswith(b"\\id MAT"), "file bytes are the USFM", f"{len(body)} bytes")
 
-        code, proof = get_json(base, "/v1/repos/wa-catalog/en_ulb/proof", out, "proof-en_ulb")
-        c.ok(code == 200 and proof["findings"] and all("from" in f and "to" in f for f in proof["findings"]),
-             "proofreading findings carry offsets", f"{len(proof['findings'])} findings")
+        code, counts = get_json(base, "/v1/repos/wa-catalog/en_ulb/findings", out, "findings-en_ulb")
+        totals = [x["total"] for x in counts or []]
+        c.ok(code == 200 and totals and totals == sorted(totals, reverse=True)
+             and {x["engine"] for x in counts} == {"lint", "sous"},
+             "repo findings: lint and sous checks, sorted by count", f"{len(counts)} checks")
+        sous = next(x for x in counts if x["engine"] == "sous")
+        book = sous["books"][0]
+        code, proof = get_json(base, f"/v1/repos/wa-catalog/en_ulb/proof?book={book['book']}&code={sous['code']}",
+                               out, "proof-en_ulb-book-code")
+        rows = proof["findings"] if proof else []
+        c.ok(code == 200 and len(rows) == min(book["n"], 200)
+             and all(f["book"] == book["book"] and f["code"] == sous["code"] and "from" in f for f in rows),
+             "proof rows for one book and check match its count", f"{sous['code']} in {book['book']}: {len(rows)}")
+        code, hub = get_json(base, "/v1/findings", out, "findings-hub")
+        c.ok(code == 200 and hub and hub[0]["total"] >= hub[-1]["total"], "hub-wide checks sorted by count",
+             f"top: {hub[0]['engine']} {hub[0]['code']} {hub[0]['total']}" if hub else "")
+        code, top = get_json(base, f"/v1/findings/{hub[0]['engine']}/{hub[0]['code']}?limit=3", out, "findings-hub-top")
+        c.ok(code == 200 and top and top[0]["n"] >= top[-1]["n"], "repos for the top check", 
+             ", ".join(f"{r['owner']}/{r['name']} {r['n']}" for r in top or []))
 
         code, syn = get_json(base, "/v1/repos?synthetic=true&limit=1", out, "repos-synthetic")
         s = syn["repos"][0]

@@ -31,6 +31,80 @@
         }
       }
     },
+    "/v1/findings": {
+      "get": {
+        "tags": [],
+        "summary": "Every check across every repo, most findings first: where a rule is noisy.",
+        "operationId": "hub_findings",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/HubCode"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/findings/{engine}/{code}": {
+      "get": {
+        "tags": [],
+        "summary": "The repos where one check fires most.",
+        "operationId": "hub_code",
+        "parameters": [
+          {
+            "name": "engine",
+            "in": "path",
+            "description": "`lint` or `sous`",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Default 50.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RepoCodeCount"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/languages": {
       "get": {
         "tags": [],
@@ -361,11 +435,11 @@
         }
       }
     },
-    "/v1/repos/{owner}/{name}/proof": {
+    "/v1/repos/{owner}/{name}/findings": {
       "get": {
         "tags": [],
-        "summary": "Sous Chef findings over the repo's books, from the last run.",
-        "operationId": "repo_proof",
+        "summary": "Every check that fired in the repo (lint and Sous Chef), most findings\nfirst, each with its count per book.",
+        "operationId": "repo_findings",
         "parameters": [
           {
             "name": "owner",
@@ -390,7 +464,76 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProofBody"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CodeCount"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/repos/{owner}/{name}/proof": {
+      "get": {
+        "tags": [],
+        "summary": "Sous Chef rows from the last run, for one book and/or one check.",
+        "operationId": "repo_proof",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "book",
+            "in": "query",
+            "description": "Only this book (USFM id, e.g. `MAT`).",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "code",
+            "in": "query",
+            "description": "Only this check (e.g. `Rarity`).",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Default 2000.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProofPage"
                 }
               }
             }
@@ -527,6 +670,23 @@
           },
           "track": {
             "type": "string"
+          }
+        }
+      },
+      "BookCount": {
+        "type": "object",
+        "description": "One check's count in one book.",
+        "required": [
+          "book",
+          "n"
+        ],
+        "properties": {
+          "book": {
+            "type": "string"
+          },
+          "n": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       },
@@ -692,6 +852,40 @@
               "string",
               "null"
             ]
+          }
+        }
+      },
+      "CodeCount": {
+        "type": "object",
+        "description": "One check across a repo: its total and its books, most first.",
+        "required": [
+          "engine",
+          "code",
+          "severity",
+          "total",
+          "books"
+        ],
+        "properties": {
+          "books": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BookCount"
+            }
+          },
+          "code": {
+            "type": "string"
+          },
+          "engine": {
+            "type": "string",
+            "description": "`lint` (scripture-kitchen's structure checks) or `sous` (Sous Chef)."
+          },
+          "severity": {
+            "type": "string",
+            "description": "lint: `error`, `warning`, `info` · sous: `hygiene`, `convention`."
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       },
@@ -939,6 +1133,48 @@
           }
         }
       },
+      "HubCode": {
+        "type": "object",
+        "description": "One check across the hub.",
+        "required": [
+          "engine",
+          "code",
+          "severity",
+          "total",
+          "repos",
+          "books",
+          "top_repo_share"
+        ],
+        "properties": {
+          "books": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "code": {
+            "type": "string"
+          },
+          "engine": {
+            "type": "string"
+          },
+          "repos": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Repos where it fires at least once."
+          },
+          "severity": {
+            "type": "string"
+          },
+          "top_repo_share": {
+            "type": "number",
+            "format": "double",
+            "description": "Share of the total in the single noisiest repo, 0–1: near 1 means one\nrepo (often one script's convention) explains the count."
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
       "LanguageDetail": {
         "type": "object",
         "required": [
@@ -1150,47 +1386,6 @@
           }
         }
       },
-      "ProofBody": {
-        "type": "object",
-        "description": "What `/v1/repos/{owner}/{name}/proof` serves.",
-        "required": [
-          "books",
-          "skipped",
-          "findings",
-          "dropped"
-        ],
-        "properties": {
-          "books": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ProofBook"
-            }
-          },
-          "dropped": {
-            "type": "object",
-            "description": "Code → findings left out of `findings` past the per-code cap.",
-            "additionalProperties": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "propertyNames": {
-              "type": "string"
-            }
-          },
-          "findings": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Finding"
-            }
-          },
-          "skipped": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Skipped"
-            }
-          }
-        }
-      },
       "ProofBook": {
         "type": "object",
         "required": [
@@ -1210,6 +1405,49 @@
           },
           "id": {
             "type": "string"
+          }
+        }
+      },
+      "ProofCorpus": {
+        "type": "object",
+        "description": "The run's corpus: which books formed it and which were left out. Stored\nas the proof's summary body.",
+        "required": [
+          "books",
+          "skipped"
+        ],
+        "properties": {
+          "books": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProofBook"
+            }
+          },
+          "skipped": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Skipped"
+            }
+          }
+        }
+      },
+      "ProofPage": {
+        "type": "object",
+        "description": "Documentation only: the shape `repo_proof` assembles from stored JSON.",
+        "required": [
+          "corpus",
+          "findings"
+        ],
+        "properties": {
+          "corpus": {
+            "$ref": "#/components/schemas/ProofCorpus",
+            "description": "Which books formed the corpus, and which were left out."
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Finding"
+            },
+            "description": "The stored rows that match, in book order. At most\n`ROWS_PER_BOOK_CODE` (200) per book and check are stored; the true\ncounts are in `/findings`."
           }
         }
       },
@@ -1273,6 +1511,44 @@
           },
           "sk_tag": {
             "type": "string"
+          }
+        }
+      },
+      "RepoCodeCount": {
+        "type": "object",
+        "description": "One repo's count for one check.",
+        "required": [
+          "owner",
+          "name",
+          "n",
+          "books"
+        ],
+        "properties": {
+          "books": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "n": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },

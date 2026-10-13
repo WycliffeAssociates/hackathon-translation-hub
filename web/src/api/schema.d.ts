@@ -21,6 +21,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/findings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every check across every repo, most findings first: where a rule is noisy. */
+        get: operations["hub_findings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/findings/{engine}/{code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The repos where one check fires most. */
+        get: operations["hub_code"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/languages": {
         parameters: {
             query?: never;
@@ -129,6 +163,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/repos/{owner}/{name}/findings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every check that fired in the repo (lint and Sous Chef), most findings
+         *     first, each with its count per book.
+         */
+        get: operations["repo_findings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/repos/{owner}/{name}/proof": {
         parameters: {
             query?: never;
@@ -136,7 +190,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Sous Chef findings over the repo's books, from the last run. */
+        /** Sous Chef rows from the last run, for one book and/or one check. */
         get: operations["repo_proof"];
         put?: never;
         post?: never;
@@ -201,6 +255,12 @@ export interface components {
             resource_type: string;
             track: string;
         };
+        /** @description One check's count in one book. */
+        BookCount: {
+            book: string;
+            /** Format: int64 */
+            n: number;
+        };
         /**
          * @description One book of one version (resource type + track) in a language, with the
          *     repos that could be its text and the rules' verdicts on them.
@@ -242,6 +302,17 @@ export interface components {
             show_on_biel: boolean;
             status?: string | null;
             track?: string | null;
+        };
+        /** @description One check across a repo: its total and its books, most first. */
+        CodeCount: {
+            books: components["schemas"]["BookCount"][];
+            code: string;
+            /** @description `lint` (scripture-kitchen's structure checks) or `sous` (Sous Chef). */
+            engine: string;
+            /** @description lint: `error`, `warning`, `info` · sous: `hygiene`, `convention`. */
+            severity: string;
+            /** Format: int64 */
+            total: number;
         };
         CoverageRow: {
             /**
@@ -366,6 +437,27 @@ export interface components {
             /** Format: int64 */
             warnings: number;
         };
+        /** @description One check across the hub. */
+        HubCode: {
+            /** Format: int64 */
+            books: number;
+            code: string;
+            engine: string;
+            /**
+             * Format: int64
+             * @description Repos where it fires at least once.
+             */
+            repos: number;
+            severity: string;
+            /**
+             * Format: double
+             * @description Share of the total in the single noisiest repo, 0–1: near 1 means one
+             *     repo (often one script's convention) explains the count.
+             */
+            top_repo_share: number;
+            /** Format: int64 */
+            total: number;
+        };
         LanguageDetail: {
             /** @description From the catalog: per version and book, which repo is Official. */
             books: components["schemas"]["BookPick"][];
@@ -426,22 +518,31 @@ export interface components {
             subject?: string | null;
             title?: string | null;
         };
-        /** @description What `/v1/repos/{owner}/{name}/proof` serves. */
-        ProofBody: {
-            books: components["schemas"]["ProofBook"][];
-            /** @description Code → findings left out of `findings` past the per-code cap. */
-            dropped: {
-                [key: string]: number;
-            };
-            findings: components["schemas"]["Finding"][];
-            skipped: components["schemas"]["Skipped"][];
-        };
         ProofBook: {
             /** @description The `\id` code as written, first three bytes: `MAT`. */
             book: string;
             /** Format: int32 */
             findings: number;
             id: string;
+        };
+        /**
+         * @description The run's corpus: which books formed it and which were left out. Stored
+         *     as the proof's summary body.
+         */
+        ProofCorpus: {
+            books: components["schemas"]["ProofBook"][];
+            skipped: components["schemas"]["Skipped"][];
+        };
+        /** @description Documentation only: the shape `repo_proof` assembles from stored JSON. */
+        ProofPage: {
+            /** @description Which books formed the corpus, and which were left out. */
+            corpus: components["schemas"]["ProofCorpus"];
+            /**
+             * @description The stored rows that match, in book order. At most
+             *     `ROWS_PER_BOOK_CODE` (200) per book and check are stored; the true
+             *     counts are in `/findings`.
+             */
+            findings: components["schemas"]["Finding"][];
         };
         ProofSummary: {
             by_book: {
@@ -461,6 +562,17 @@ export interface components {
             /** Format: int64 */
             ran_unix: number;
             sk_tag: string;
+        };
+        /** @description One repo's count for one check. */
+        RepoCodeCount: {
+            /** Format: int64 */
+            books: number;
+            language?: string | null;
+            /** Format: int64 */
+            n: number;
+            name: string;
+            owner: string;
+            title?: string | null;
         };
         RepoDetail: components["schemas"]["RepoSummary"] & {
             books: components["schemas"]["BookRow"][];
@@ -601,6 +713,51 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BielConflict"][];
+                };
+            };
+        };
+    };
+    hub_findings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HubCode"][];
+                };
+            };
+        };
+    };
+    hub_code: {
+        parameters: {
+            query?: {
+                /** @description Default 50. */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description `lint` or `sous` */
+                engine: string;
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RepoCodeCount"][];
                 };
             };
         };
@@ -781,7 +938,7 @@ export interface operations {
             };
         };
     };
-    repo_proof: {
+    repo_findings: {
         parameters: {
             query?: never;
             header?: never;
@@ -798,7 +955,36 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ProofBody"];
+                    "application/json": components["schemas"]["CodeCount"][];
+                };
+            };
+        };
+    };
+    repo_proof: {
+        parameters: {
+            query?: {
+                /** @description Only this book (USFM id, e.g. `MAT`). */
+                book?: string;
+                /** @description Only this check (e.g. `Rarity`). */
+                code?: string;
+                /** @description Default 2000. */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                owner: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProofPage"];
                 };
             };
             404: {

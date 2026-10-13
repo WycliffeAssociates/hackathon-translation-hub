@@ -1,31 +1,30 @@
 //! Sous Chef runs for the poll: one per repo whose HEAD moved since its last
 //! run. Findings are corpus-relative, so a run covers the whole repo.
 //!
-//! Some texts produce findings by the hundred thousand (fa_opv's word-final
-//! ZWNJ: 235k `MisplacedFormat`), which no page can show. The stored body
-//! keeps the first [`KEEP_PER_CODE`] findings of each code and says how many
-//! it dropped; the counts in `by_rule` stay exact.
+//! Every finding is counted (per book and check, in `finding_count`), but
+//! rows are kept only up to [`ROWS_PER_BOOK_CODE`] per book and check: some
+//! texts produce findings by the hundred thousand (Khmer's and Lao's word
+//! separators, Persian's ZWNJ), and the pages read counts first and open rows
+//! one book and one check at a time.
 
 use std::collections::BTreeMap;
 use std::time::Instant;
 
 use hub_ingest::{Scanner, book_texts};
-use hub_store::{ProofRun, StaleRepo};
+use hub_store::{ProofRow, ProofRun, StaleRepo};
 use serde::Serialize;
 
-pub const KEEP_PER_CODE: usize = 500;
+pub const ROWS_PER_BOOK_CODE: usize = 200;
 
-/// What `/v1/repos/{owner}/{name}/proof` serves.
+/// The run's corpus: which books formed it and which were left out. Stored
+/// as the proof's summary body.
 #[derive(Serialize, utoipa::ToSchema)]
-pub struct ProofBody {
+pub struct ProofCorpus {
     pub books: Vec<hub_proof::ProofBook>,
     pub skipped: Vec<hub_proof::Skipped>,
-    pub findings: Vec<hub_proof::Finding>,
-    /// Code → findings left out of `findings` past the per-code cap.
-    pub dropped: BTreeMap<String, usize>,
 }
 
-pub fn run(scanner: &Scanner, repo: &StaleRepo) -> Option<ProofRun<ProofBody>> {
+pub fn run(scanner: &Scanner, repo: &StaleRepo) -> Option<ProofRun<ProofCorpus>> {
     let sha = repo.head_sha.clone()?;
     let started = Instant::now();
     let result = book_texts(scanner, &repo.owner, &repo.name, &sha).and_then(|texts| {
@@ -36,53 +35,40 @@ pub fn run(scanner: &Scanner, repo: &StaleRepo) -> Option<ProofRun<ProofBody>> {
         hub_proof::proofread(&books).map_err(|e| e.to_string())
     });
     let millis = started.elapsed().as_millis() as i64;
-    Some(match result {
-        Ok(proof) => {
-            let total = proof.findings.len();
-            let mut by_book = BTreeMap::new();
-            let mut by_rule: BTreeMap<String, usize> = BTreeMap::new();
-            let mut kept = Vec::new();
-            let mut dropped: BTreeMap<String, usize> = BTreeMap::new();
-            for f in proof.findings {
-                *by_book.entry(f.book.clone()).or_default() += 1;
-                let n = by_rule.entry(f.code.to_owned()).or_default();
-                *n += 1;
-                if *n <= KEEP_PER_CODE {
-                    kept.push(f);
-                } else {
-                    *dropped.entry(f.code.to_owned()).or_default() += 1;
-                }
-            }
-            ProofRun {
-                repo_id: repo.id,
-                head_sha: sha,
-                millis,
-                findings: total,
-                by_book,
-                by_rule,
-                body: ProofBody {
-                    books: proof.books,
-                    skipped: proof.skipped,
-                    findings: kept,
-                    dropped,
-                },
-                error: None,
-            }
-        }
-        Err(e) => ProofRun {
-            repo_id: repo.id,
-            head_sha: sha,
-            millis,
-            findings: 0,
-            by_book: BTreeMap::new(),
-            by_rule: BTreeMap::new(),
-            body: ProofBody {
-                books: Vec::new(),
-                skipped: Vec::new(),
-                findings: Vec::new(),
-                dropped: BTreeMap::new(),
-            },
-            error: Some(e),
+    let mut run = ProofRun {
+        repo_id: repo.id,
+        head_sha: sha,
+        millis,
+        findings: 0,
+        by_book: BTreeMap::new(),
+        by_rule: BTreeMap::new(),
+        body: ProofCorpus {
+            books: Vec::new(),
+            skipped: Vec::new(),
         },
-    })
+        rows: Vec::new(),
+        rows_per_book_code: ROWS_PER_BOOK_CODE,
+        error: None,
+    };
+    match result {
+        Ok(proof) => {
+            run.findings = proof.findings.len();
+            for f in &proof.findings {
+                *run.by_book.entry(f.book.clone()).or_default() += 1;
+                *run.by_rule.entry(f.code.to_owned()).or_default() += 1;
+                run.rows.push(ProofRow {
+                    book: f.book.clone(),
+                    code: f.code.to_owned(),
+                    severity: f.rule.to_owned(),
+                    body: serde_json::to_string(f).unwrap_or_default(),
+                });
+            }
+            run.body = ProofCorpus {
+                books: proof.books,
+                skipped: proof.skipped,
+            };
+        }
+        Err(e) => run.error = Some(e),
+    }
+    Some(run)
 }
