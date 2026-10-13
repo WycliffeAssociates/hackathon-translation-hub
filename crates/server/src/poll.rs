@@ -11,6 +11,7 @@
 //! Every `catalog_every`: replace the copy of the public data API's languages
 //! and catalog rows. Pages read the copy, never the API.
 
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -114,6 +115,9 @@ impl Poller {
             proofread = proofread.runs,
             proof_failures = proofread.failures,
             proof_ms = proofread.millis,
+            proof_paired = proofread.paired,
+            proof_sources = proofread.sources,
+            proof_source_ms = proofread.source_ms,
             proof_slowest_ms = proofread.slowest_ms,
             proof_slowest = %proofread.slowest,
             duration_ms = started.elapsed().as_millis() as u64,
@@ -122,37 +126,75 @@ impl Poller {
         Ok(())
     }
 
-    /// Proofreads every repo whose HEAD or kitchen tag moved since its last
-    /// run, in parallel (sous itself is single-threaded per corpus).
+    /// Proofreads every repo whose HEAD, kitchen tag, or source text moved
+    /// since its last run, in parallel (sous itself is single-threaded per
+    /// corpus). Each source text due repos declare is read and prepared once.
     fn proofread(&self) -> ProofRound {
         let started = Instant::now();
-        let due: Vec<_> = match self.store.proof_marks() {
-            Ok(marks) => marks
-                .into_iter()
-                .filter(|m| {
-                    m.head_sha != m.repo.head_sha
-                        || m.sk_tag.as_deref() != Some(hub_proof::KITCHEN_TAG)
-                })
-                .map(|m| m.repo)
-                .collect(),
+        let marks = match self.store.proof_marks() {
+            Ok(marks) => marks,
             Err(e) => {
                 warn!(error = %e, "reading proof marks failed");
                 return ProofRound::default();
             }
         };
+        // Each source's HEAD now: a couple of file reads per distinct source.
+        let mut source_heads: HashMap<&str, Option<String>> = HashMap::new();
+        for m in &marks {
+            if let Some(repo) = m.source_repo.as_deref() {
+                source_heads.entry(repo).or_insert_with(|| {
+                    let (owner, name) = repo.split_once('/')?;
+                    hub_repo_read::head(&self.scanner.repo_path(owner, name))
+                        .ok()
+                        .flatten()
+                        .map(|h| h.sha)
+                });
+            }
+        }
+        let due: Vec<_> = marks
+            .iter()
+            .filter(|m| {
+                let source_head = m
+                    .source_repo
+                    .as_deref()
+                    .and_then(|r| source_heads[r].clone());
+                m.head_sha != m.repo.head_sha
+                    || m.sk_tag.as_deref() != Some(hub_proof::KITCHEN_TAG)
+                    || m.proof_source_repo != m.source_repo
+                    || m.proof_source_sha != source_head
+            })
+            .collect();
+
+        let source_started = Instant::now();
+        let mut wanted: Vec<&str> = due
+            .iter()
+            .filter_map(|m| m.source_repo.as_deref())
+            .collect();
+        wanted.sort_unstable();
+        wanted.dedup();
+        let sources: HashMap<&str, crate::proof::SourceText> = wanted
+            .par_iter()
+            .filter_map(|repo| Some((*repo, crate::proof::prepare_source(&self.scanner, repo)?)))
+            .collect();
+        let source_ms = source_started.elapsed().as_millis() as u64;
+
         let runs: Vec<_> = due
             .par_iter()
-            .filter_map(|r| {
-                crate::proof::run(&self.scanner, r)
-                    .map(|run| (format!("{}/{}", r.owner, r.name), run))
+            .filter_map(|m| {
+                let source = m.source_repo.as_deref().and_then(|r| sources.get(r));
+                crate::proof::run(&self.scanner, &m.repo, m.language.as_deref(), source)
+                    .map(|run| (format!("{}/{}", m.repo.owner, m.repo.name), run))
             })
             .collect();
         let mut round = ProofRound {
             runs: runs.len(),
+            sources: sources.len(),
+            source_ms,
             ..ProofRound::default()
         };
         for (repo, run) in &runs {
             round.failures += usize::from(run.error.is_some());
+            round.paired += usize::from(run.source_repo.is_some());
             if run.millis as u64 > round.slowest_ms {
                 round.slowest_ms = run.millis as u64;
                 round.slowest = repo.clone();
@@ -238,6 +280,11 @@ impl Poller {
 #[derive(Default)]
 struct ProofRound {
     runs: usize,
+    /// Runs that compared against a source text.
+    paired: usize,
+    /// Source texts prepared this round, and the time it took.
+    sources: usize,
+    source_ms: u64,
     failures: usize,
     millis: u64,
     slowest_ms: u64,

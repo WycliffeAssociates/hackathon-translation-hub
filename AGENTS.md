@@ -89,7 +89,7 @@ The `/verify-hub` skill (`.claude/skills/verify-hub/`) wraps this as launch → 
 Each unit of work writes **one JSON line** that has everything needed to explain it:
 
 - `event:"request"`: method, route, path, query, status, `duration_ms`, `db_ms`, `bytes`, `traceparent`, `page` (the web app sends `x-hub-page`).
-- `event:"poll"`: repos public/removed/rescanned, `scan_ms`, proofread count, `proof_ms`, the slowest repo, `duration_ms`.
+- `event:"poll"`: repos public/removed/rescanned, `scan_ms`, proofread count, `proof_ms`, the slowest repo, `proof_paired` (repos compared against their source), `proof_sources` and `proof_source_ms` (source texts prepared this round), `duration_ms`.
 - `event:"catalog"`: languages, catalog rows, `duration_ms`.
 
 They go to stdout, and to `HUB_LOG_DIR/hub.YYYY-MM-DD.jsonl` (rotated daily) when that is set. With `--features otel` and `OTEL_EXPORTER_OTLP_ENDPOINT`, the same spans also go to a collector, and requests join the browser's trace through `traceparent`. To add context to a request's event, record a field on the current span (declare it `Empty` in `wide_event` in `crates/server/src/main.rs`) rather than logging a separate line.

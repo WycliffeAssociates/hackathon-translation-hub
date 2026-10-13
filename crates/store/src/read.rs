@@ -862,7 +862,12 @@ pub struct RepoCodeCount {
 }
 
 /// The repos where one check fires most.
-pub fn hub_code(conn: &Connection, engine: &str, code: &str, limit: u32) -> Result<Vec<RepoCodeCount>> {
+pub fn hub_code(
+    conn: &Connection,
+    engine: &str,
+    code: &str,
+    limit: u32,
+) -> Result<Vec<RepoCodeCount>> {
     Ok(conn
         .prepare(
             "SELECT r.owner, r.name, r.title, r.language, sum(f.n), count(*)
@@ -900,6 +905,9 @@ pub fn proof_rows(
                AND (?3 IS NULL OR p.book = ?3) AND (?4 IS NULL OR p.code = ?4)
              ORDER BY p.book, p.code, p.seq LIMIT ?5",
         )?
-        .query_map(params![owner, name, book, code, limit.clamp(1, 20_000)], |r| r.get(0))?
+        .query_map(
+            params![owner, name, book, code, limit.clamp(1, 20_000)],
+            |r| r.get(0),
+        )?
         .collect::<rusqlite::Result<_>>()?)
 }

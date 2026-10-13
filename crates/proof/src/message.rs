@@ -7,8 +7,8 @@
 //! typographic quotes.
 
 use sous_core::{
-    BookKey, Form, HygieneClass, HygieneDigest, OuterClass, Pattern, PatternKey, ScalarKey, Side,
-    Usual as SousUsual, unicode::Pool,
+    BookKey, Form, HygieneClass, HygieneDigest, OuterClass, Pattern, PatternKey, PresenceKind,
+    ScalarKey, Side, Usual as SousUsual, unicode::Pool,
 };
 
 use crate::Usual;
@@ -214,4 +214,46 @@ fn form_name(form: Form) -> &'static str {
         Form::Upper => "in all capitals",
         Form::Mixed | Form::Uncased => "in mixed case",
     }
+}
+
+/// The kitchen catalog's `length.long` / `length.short`, with the number.
+pub(crate) fn length(long: bool, z_book: Option<f64>, z_project: Option<f64>) -> String {
+    let (z, scope) = match (z_book, z_project) {
+        (Some(z), _) => (z, "the other verses in this book"),
+        (None, Some(z)) => (z, "the other verses in this project"),
+        (None, None) => (0.0, "the other verses"),
+    };
+    format!(
+        "This verse is much {} than usual, compared with its source text ({:.1} times the usual spread from {scope}).",
+        if long { "longer" } else { "shorter" },
+        z.abs()
+    )
+}
+
+pub(crate) fn presence(kind: PresenceKind, keys: u32) -> String {
+    let verses = if keys == 1 {
+        "a verse".to_owned()
+    } else {
+        format!("{keys} verses in a row")
+    };
+    match kind {
+        PresenceKind::Missing => {
+            format!("The source text has {verses} here that this book does not have.")
+        }
+        PresenceKind::Extra => {
+            format!("This book has {verses} here that the source text does not have.")
+        }
+        PresenceKind::Empty if keys == 1 => {
+            "This verse is empty here, but the source text has words in it.".to_owned()
+        }
+        PresenceKind::Empty => {
+            format!("These {keys} verses are empty here, but the source text has words in them.")
+        }
+    }
+}
+
+pub(crate) fn source_copy(run: u32, eligible: u32) -> String {
+    format!(
+        "{run} words in a row here are spelled exactly as in the source text (of {eligible} words in this verse that could be compared)."
+    )
 }

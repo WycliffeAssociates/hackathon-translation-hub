@@ -207,6 +207,12 @@ def main():
         c.ok(code == 200 and len(rows) == min(book["n"], 200)
              and all(f["book"] == book["book"] and f["code"] == sous["code"] and "from" in f for f in rows),
              "proof rows for one book and check match its count", f"{sous['code']} in {book['book']}: {len(rows)}")
+        # ru_ulb declares en/ulb as its source and versifies differently
+        # (Russian Synodal), so Sous's source-compared lanes must report it.
+        code, ru = get_json(base, "/v1/repos/wa-catalog/ru_ulb/findings", out, "findings-ru_ulb")
+        source = {x["code"]: x["total"] for x in ru or [] if x["engine"] == "sous" and x["severity"] == "source"}
+        c.ok(code == 200 and source.get("Presence", 0) > 0 and source.get("LengthProportionality", 0) > 0,
+             "source-compared lanes ran against wa-catalog/en_ulb", f"ru_ulb: {source}")
         code, hub = get_json(base, "/v1/findings", out, "findings-hub")
         c.ok(code == 200 and hub and hub[0]["total"] >= hub[-1]["total"], "hub-wide checks sorted by count",
              f"top: {hub[0]['engine']} {hub[0]['code']} {hub[0]['total']}" if hub else "")

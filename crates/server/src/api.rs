@@ -379,7 +379,14 @@ async fn repo_proof(
             return Ok(None);
         };
         let book = q.book.map(|b| b.to_uppercase());
-        let rows = read::proof_rows(c, &o, &n, book.as_deref(), q.code.as_deref(), q.limit.unwrap_or(2000))?;
+        let rows = read::proof_rows(
+            c,
+            &o,
+            &n,
+            book.as_deref(),
+            q.code.as_deref(),
+            q.limit.unwrap_or(2000),
+        )?;
         Ok(Some((corpus, rows)))
     })
     .await?;
@@ -429,9 +436,11 @@ async fn hub_code(
     Path((engine, code)): Path<(String, String)>,
     Query(q): Query<HubCodeQuery>,
 ) -> ApiResult<Json<Vec<read::RepoCodeCount>>> {
-    with_reader(&s.store, move |c| read::hub_code(c, &engine, &code, q.limit.unwrap_or(50)))
-        .await
-        .map(Json)
+    with_reader(&s.store, move |c| {
+        read::hub_code(c, &engine, &code, q.limit.unwrap_or(50))
+    })
+    .await
+    .map(Json)
 }
 
 /// What the hub saw each time the book changed: lint and coverage over time.

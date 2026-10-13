@@ -25,9 +25,9 @@
 //! galley's publication does it (`galley/src/sous/mod.rs`): the projected span
 //! maps to its BOUNDING raw span, then to UTF-16.
 //!
-//! Not run here: the source-compared lanes (length proportionality, presence,
-//! source-copy), which need a declared source text, and `--typos`, an
-//! on-demand report rather than findings.
+//! With a declared source text ([`proofread_paired`]), the source-compared
+//! lanes run too: length proportionality, presence, and (when asked) source
+//! copy. Not run here: `--typos`, an on-demand report rather than findings.
 //!
 //! Results are a pure function of (every book's bytes in the corpus, engine
 //! version), so a cache key must cover the whole repo, not one book.
@@ -35,11 +35,13 @@
 mod message;
 
 use serde::Serialize;
+use sous_core::unicode::atoms::count_atoms;
 use sous_core::{
-    Brigade, Corpus, FindingKind, PackedFinding, Pattern, ProjectedBook, Reasons, TextRange,
-    analyze,
+    BookKey, Brigade, ChapterPass, Corpus, FindingKind, PackedFinding, Pattern, PresenceRow,
+    ProjectedBook, Reasons, SourceLengths, SourceVerse, SourceWords, TextRange, VerseKey,
+    analyze_paired, source_lengths,
 };
-use usfm_galley::onion::utf16_index;
+use usfm_galley::onion::{Sid, Utf16Index, utf16_index};
 use usfm_galley::sous::OnionBook;
 
 /// The scripture-kitchen tag this crate's engine was built from. It must match
@@ -71,6 +73,9 @@ pub struct ProofBook {
     /// The `\id` code as written, first three bytes: `MAT`.
     pub book: String,
     pub findings: u32,
+    /// The source book this one was compared with ([`proofread_paired`]),
+    /// by its host id; `None` when there was no source or it lacks this book.
+    pub source: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, utoipa::ToSchema)]
@@ -115,6 +120,32 @@ pub struct Finding {
     pub run: Option<u32>,
     /// Convention: the counts behind the claim.
     pub evidence: Option<Evidence>,
+    /// Source-compared lanes: what the comparison with the source found.
+    pub paired: Option<PairedEvidence>,
+}
+
+/// The facts behind one source-compared finding (`rule: "source"`). Source
+/// copy's run of shared words is [`Finding::run`].
+#[derive(Debug, Clone, Default, PartialEq, Serialize, utoipa::ToSchema)]
+pub struct PairedEvidence {
+    /// `LengthProportionality`: `Long` or `Short`. `Presence`: `Missing` (the
+    /// source has verses the book lacks; the span is where they would go),
+    /// `Extra` (the book has verses the source lacks) or `Empty` (the verse
+    /// is there but holds nothing). `SourceCopy`: `Copy`.
+    pub kind: &'static str,
+    /// Presence: consecutive verse keys the row covers, a bridge counting once.
+    /// `chapter`/`verse` are the first of them.
+    pub keys: Option<u32>,
+    /// Length: how many spreads this verse's target/source ratio sits from the
+    /// usual ratio in this book, and in the whole repo. `None` when that scope
+    /// had too few paired verses to judge (sous's `min_verses`, 50).
+    pub z_book: Option<f64>,
+    pub z_project: Option<f64>,
+    /// Length: graphemes in the target verse and in its source verse.
+    pub target_len: Option<u32>,
+    pub source_len: Option<u32>,
+    /// Source copy: target words in the verse that could be compared.
+    pub eligible: Option<u32>,
 }
 
 /// The fraction behind one convention finding. Every site of one pattern
@@ -148,12 +179,91 @@ pub enum Error {
     Corpus(String),
 }
 
+/// A declared source text (e.g. `wa-catalog/en_ulb`), prepared once: per book,
+/// each verse's length in graphemes and its word set. That is everything the
+/// source-compared lanes read from a source, so one `Source` serves every
+/// target that declares it, across threads.
+#[derive(Debug, Default)]
+pub struct Source {
+    books: Vec<SourceBook>,
+}
+
+#[derive(Debug)]
+struct SourceBook {
+    id: String,
+    key: BookKey,
+    verses: Vec<SourceVerse>,
+    words: SourceWords,
+}
+
+impl Source {
+    /// Parses the source's books the way targets are parsed. A book that
+    /// cannot be parsed or has no `\id` is left out; of two books with one
+    /// `\id`, the first is kept (sous's own rule, `judge_lengths` @ v0.1.9
+    /// `core/src/proportionality.rs:480`).
+    pub fn prepare(books: &[Book]) -> Self {
+        let mut out = Self::default();
+        for book in books {
+            let Ok(onion) = OnionBook::parse(book.text) else {
+                continue;
+            };
+            let key = onion.key();
+            if key.as_bytes() == [0; 3] || out.books.iter().any(|b| b.key == key) {
+                continue;
+            }
+            out.books.push(SourceBook {
+                id: book.id.to_owned(),
+                key,
+                verses: source_lengths(&onion),
+                words: SourceWords::of(&onion),
+            });
+        }
+        out
+    }
+
+    /// Books the source holds.
+    pub fn len(&self) -> usize {
+        self.books.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.books.is_empty()
+    }
+
+    fn book(&self, key: BookKey) -> Option<&SourceBook> {
+        self.books.iter().find(|b| b.key == key)
+    }
+}
+
 /// Proofreads `books` as one corpus.
 ///
 /// A book that cannot join the corpus — no `\id`, a second book with the same
 /// `\id`, chapters out of order — is listed in [`Proof::skipped`] rather than
 /// failing the rest. A later duplicate is the one skipped.
 pub fn proofread(books: &[Book]) -> Result<Proof, Error> {
+    run(books, None)
+}
+
+/// [`proofread`], plus the source-compared lanes against `source`: length
+/// proportionality and presence always, source copy when `source_copy` is set
+/// (sous ships it off: against a source in the same language family it fires
+/// about twice a verse; a host that knows its source is unrelated turns it
+/// on). This is the sous CLI's `brigade_findings` (`cli/src/lengths.rs:14`
+/// @ v0.1.9) with the source entering as lengths and word sets.
+///
+/// A target book pairs with the source book of the same `\id`; its verses pair
+/// by onion's verse anchors (chapter, verse, bridge) plus occurrence, never by
+/// position (`charter.md`, the aligned-unit contract). A book with no source
+/// book still gets every unpaired check.
+pub fn proofread_paired(
+    books: &[Book],
+    source: &Source,
+    source_copy: bool,
+) -> Result<Proof, Error> {
+    run(books, Some((source, source_copy)))
+}
+
+fn run(books: &[Book], source: Option<(&Source, bool)>) -> Result<Proof, Error> {
     let mut proof = Proof::default();
     // Index-aligned: `kept[i]` is the input book `parsed[i]` was parsed from.
     let mut kept: Vec<&Book> = Vec::with_capacity(books.len());
@@ -186,7 +296,22 @@ pub fn proofread(books: &[Book]) -> Result<Proof, Error> {
     }
 
     let corpus = Corpus::try_new(&parsed).map_err(|error| Error::Corpus(error.to_string()))?;
-    let (rows, patterns, _, _) = analyze(&corpus, &Brigade::default()).into_parts();
+    // The CLI sets the switch in both word-judging slots (`cli/src/lengths.rs:26`).
+    let mut config = <Brigade as ChapterPass>::Config::default();
+    let source_copy = source.is_some_and(|(_, on)| on);
+    config.1.lengths.source_copy = source_copy;
+    config.2.lengths.source_copy = source_copy;
+    let lengths: Vec<SourceLengths<'_>> = source
+        .iter()
+        .flat_map(|(source, _)| &source.books)
+        .map(|b| SourceLengths {
+            book: b.key,
+            verses: &b.verses,
+            words: Some(&b.words),
+        })
+        .collect();
+    let (findings, paired) = analyze_paired(&corpus, &Brigade::default(), &config, &lengths);
+    let (rows, patterns, _, _) = findings.into_parts();
 
     proof.books = kept
         .iter()
@@ -195,83 +320,191 @@ pub fn proofread(books: &[Book]) -> Result<Proof, Error> {
             id: book.id.to_owned(),
             book: onion.key().to_string(),
             findings: 0,
+            source: source
+                .and_then(|(source, _)| source.book(onion.key()))
+                .map(|b| b.id.clone()),
         })
         .collect();
     // Rows arrive ordered by book, so each book's UTF-16 index is built once.
     for rows in rows.chunk_by(|a, b| a.book_idx() == b.book_idx()) {
         let at = usize::from(rows[0].book_idx().get());
-        let (book, onion) = (kept[at], &parsed[at]);
-        let utf16 = utf16_index(book.text.as_bytes());
+        let target = Target {
+            book: kept[at],
+            onion: &parsed[at],
+            utf16: utf16_index(kept[at].text.as_bytes()),
+            patterns: &patterns,
+            presence: paired.presence.get(at).map_or(&[], Vec::as_slice),
+            source: source.and_then(|(source, _)| source.book(parsed[at].key())),
+        };
         let before = proof.findings.len();
-        proof.findings.extend(
-            rows.iter()
-                .filter_map(|row| locate(book, onion, &utf16, &patterns, *row)),
-        );
+        proof
+            .findings
+            .extend(rows.iter().filter_map(|row| target.finding(*row)));
         proof.books[at].findings = u32::try_from(proof.findings.len() - before).unwrap_or(u32::MAX);
     }
     Ok(proof)
 }
 
-/// One packed row as a [`Finding`]: address, raw UTF-16 span, message.
-fn locate(
-    book: &Book,
-    parsed: &OnionBook,
-    utf16: &usfm_galley::onion::Utf16Index<'_>,
-    patterns: &[Pattern],
-    row: PackedFinding,
-) -> Option<Finding> {
-    let span = TextRange::new(row.from(), row.to()).ok()?;
-    let located = parsed.locate(span)?;
-    let (first, mut runs) = (located.first, located.spans);
-    let start = runs.next()?;
-    let end = runs.last().map_or(start.end, |run| run.end);
-    let text = parsed.text()[row.from() as usize..row.to() as usize].to_owned();
+/// One target book and what its rows are read against.
+struct Target<'a> {
+    book: &'a Book<'a>,
+    onion: &'a OnionBook,
+    utf16: Utf16Index<'a>,
+    patterns: &'a [Pattern],
+    /// Sous's own presence rows for this book: they carry the verse key the
+    /// packed row does not.
+    presence: &'a [PresenceRow],
+    source: Option<&'a SourceBook>,
+}
 
-    let (rule, code, reasons, run, evidence, message) = match row.kind() {
-        FindingKind::Hygiene(digest) => (
-            "hygiene",
-            digest.class().name(),
-            Vec::new(),
-            Some(digest.run()),
-            None,
-            message::hygiene(digest),
-        ),
-        FindingKind::Convention(digest) => {
-            let index = digest.pattern().get();
-            let pattern = patterns.get(usize::from(index))?;
-            (
-                "convention",
-                pattern.channel.name(),
-                reason_names(digest.reasons()),
-                None,
-                Some(Evidence {
+impl Target<'_> {
+    /// One packed row as a [`Finding`]: address, raw UTF-16 span, message.
+    fn finding(&self, row: PackedFinding) -> Option<Finding> {
+        let span = TextRange::new(row.from(), row.to()).ok()?;
+        let (first, from, to) = self.raw(span)?;
+        let text = self.onion.text()[row.from() as usize..row.to() as usize].to_owned();
+        let mut finding = Finding {
+            id: self.book.id.to_owned(),
+            book: self.onion.key().to_string(),
+            chapter: first.chapter,
+            verse: (first.first != 0).then_some(first.first),
+            from: self.utf16.to_utf16(from),
+            to: self.utf16.to_utf16(to),
+            rule: "",
+            code: "",
+            reasons: Vec::new(),
+            message: String::new(),
+            text,
+            run: None,
+            evidence: None,
+            paired: None,
+        };
+        match row.kind() {
+            FindingKind::Hygiene(digest) => {
+                finding.rule = "hygiene";
+                finding.code = digest.class().name();
+                finding.run = Some(digest.run());
+                finding.message = message::hygiene(digest);
+            }
+            FindingKind::Convention(digest) => {
+                let index = digest.pattern().get();
+                let pattern = self.patterns.get(usize::from(index))?;
+                finding.rule = "convention";
+                finding.code = pattern.channel.name();
+                finding.reasons = reason_names(digest.reasons());
+                finding.evidence = Some(Evidence {
                     pattern: index,
                     numerator: pattern.numerator,
                     denominator: pattern.denominator,
                     books: pattern.books,
                     usual: message::usual(pattern),
-                }),
-                message::convention(pattern, &text, parsed.key()),
-            )
+                });
+                finding.message = message::convention(pattern, &finding.text, self.onion.key());
+            }
+            FindingKind::LengthProportionality(digest) => {
+                let z_book = digest.book_scope().map(|z| z.as_f64());
+                let z_project = digest.project_scope().map(|z| z.as_f64());
+                let long = z_book.or(z_project).is_some_and(|z| z > 0.0);
+                let (target_len, source_len) = self.lengths(span);
+                finding.rule = "source";
+                finding.code = "LengthProportionality";
+                finding.message = message::length(long, z_book, z_project);
+                finding.paired = Some(PairedEvidence {
+                    kind: if long { "Long" } else { "Short" },
+                    z_book,
+                    z_project,
+                    target_len: Some(target_len),
+                    source_len,
+                    ..PairedEvidence::default()
+                });
+            }
+            FindingKind::Presence(digest) => {
+                let kind = digest.kind();
+                // The row this record was pushed from names its first key.
+                if let Some(row) = self
+                    .presence
+                    .iter()
+                    .find(|r| r.span() == span && r.kind() == kind && r.keys() == digest.keys())
+                {
+                    finding.chapter = row.key().chapter();
+                    finding.verse = Some(row.key().first());
+                }
+                finding.rule = "source";
+                finding.code = "Presence";
+                finding.message = message::presence(kind, digest.keys());
+                finding.paired = Some(PairedEvidence {
+                    kind: kind.name(),
+                    keys: Some(digest.keys()),
+                    ..PairedEvidence::default()
+                });
+            }
+            FindingKind::SourceCopy(digest) => {
+                finding.rule = "source";
+                finding.code = "SourceCopy";
+                finding.run = Some(digest.run());
+                finding.message = message::source_copy(digest.run(), digest.eligible());
+                finding.paired = Some(PairedEvidence {
+                    kind: "Copy",
+                    eligible: Some(digest.eligible()),
+                    ..PairedEvidence::default()
+                });
+            }
         }
-        // Source-compared kinds; `analyze` without a source emits none.
-        _ => return None,
-    };
-    Some(Finding {
-        id: book.id.to_owned(),
-        book: parsed.key().to_string(),
-        chapter: first.chapter,
-        verse: (first.first != 0).then_some(first.first),
-        from: utf16.to_utf16(start.start),
-        to: utf16.to_utf16(end),
-        rule,
-        code,
-        reasons,
-        message,
-        text,
-        run,
-        evidence,
-    })
+        Some(finding)
+    }
+
+    /// The address and bounding raw byte span of a projected span. An empty
+    /// span (a presence row for verses the target lacks sits at the point they
+    /// would go) is placed at the raw position of the character there.
+    fn raw(&self, span: TextRange) -> Option<(Sid, u32, u32)> {
+        if span.is_empty() {
+            let text = self.onion.text();
+            let at = span.from() as usize;
+            if let Some(c) = text[at..].chars().next() {
+                let next = TextRange::new(span.from(), (at + c.len_utf8()) as u32).ok()?;
+                let (sid, from, _) = self.raw(next)?;
+                return Some((sid, from, from));
+            }
+            let c = text[..at].chars().next_back()?;
+            let previous = TextRange::new((at - c.len_utf8()) as u32, span.from()).ok()?;
+            let (sid, _, to) = self.raw(previous)?;
+            return Some((sid, to, to));
+        }
+        let located = self.onion.locate(span)?;
+        let mut runs = located.spans;
+        let start = runs.next()?;
+        let end = runs.last().map_or(start.end, |run| run.end);
+        Some((located.first, start.start, end))
+    }
+
+    /// Graphemes in a length row's target unit, and in the source verses its
+    /// keys cover. The row's span bounds the unit, so the unit is the target
+    /// verses inside it; a bridge on either side sums its constituents.
+    fn lengths(&self, span: TextRange) -> (u32, Option<u32>) {
+        let text = &self.onion.text()[span.from() as usize..span.to() as usize];
+        let target = count_atoms(text);
+        let keys: Vec<VerseKey> = self
+            .onion
+            .verses()
+            .filter(|v| span.from() <= v.text().from() && v.text().to() <= span.to())
+            .map(|v| v.key())
+            .collect();
+        let source = self.source.zip(keys.first()).map(|(source, first)| {
+            let last = keys.iter().map(|k| k.last()).max().unwrap_or(first.last());
+            source
+                .verses
+                .iter()
+                .filter(|v| {
+                    let key = v.key();
+                    key.chapter() == first.chapter()
+                        && key.first() >= first.first()
+                        && key.last() <= last
+                })
+                .map(|v| v.graphemes())
+                .sum()
+        });
+        (target, source)
+    }
 }
 
 fn reason_names(reasons: Reasons) -> Vec<&'static str> {
@@ -340,5 +573,41 @@ mod tests {
         assert_eq!(proof.books.len(), 1);
         let skipped: Vec<&str> = proof.skipped.iter().map(|s| s.id.as_str()).collect();
         assert_eq!(skipped, ["41-MRK-copy.usfm", "notes.usfm"]);
+    }
+
+    // Pins pairing by verse key, the source lanes' one structural promise
+    // (charter.md, the aligned-unit contract): a target that skips verse 3
+    // reports 3 missing at the point it would go, with 4 still paired to 4.
+    // Pairing by position would report nothing missing and compare 4 with 3.
+    #[test]
+    fn source_lanes_pair_by_verse_key() {
+        let source = "\\id MRK\n\\c 1\n\\p\n\\v 1 One.\n\\v 2 Two.\n\\v 3 Three.\n\\v 4 Four.\n";
+        let target = "\\id MRK\n\\c 1\n\\p\n\\v 1 Uno.\n\\v 2 Dos.\n\\v 4 Cuatro.\n";
+        let source = Source::prepare(&[Book {
+            id: "src/41-MRK.usfm",
+            text: source,
+        }]);
+        let books = [Book {
+            id: "41-MRK.usfm",
+            text: target,
+        }];
+        let proof = proofread_paired(&books, &source, false).unwrap();
+        assert_eq!(proof.books[0].source.as_deref(), Some("src/41-MRK.usfm"));
+        let missing: Vec<_> = proof
+            .findings
+            .iter()
+            .filter(|f| f.paired.as_ref().is_some_and(|p| p.kind == "Missing"))
+            .collect();
+        assert_eq!(missing.len(), 1, "{:#?}", proof.findings);
+        let at = target.find("Cuatro").unwrap() as u32; // ASCII: bytes = UTF-16
+        assert_eq!(
+            (
+                missing[0].chapter,
+                missing[0].verse,
+                missing[0].from,
+                missing[0].to
+            ),
+            (1, Some(3), at, at)
+        );
     }
 }

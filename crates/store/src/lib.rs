@@ -18,7 +18,9 @@ use std::sync::{Mutex, MutexGuard};
 pub use rusqlite::Connection;
 use rusqlite::OpenFlags;
 
-pub use write::{CatalogRow, LanguageRow, ProofMark, ProofRow, ProofRun, ScanMark, StaleRepo, SyncCounts};
+pub use write::{
+    CatalogRow, LanguageRow, ProofMark, ProofRow, ProofRun, ScanMark, StaleRepo, SyncCounts,
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -35,6 +37,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/0001_init.sql"),
     include_str!("../migrations/0002_finding_counts.sql"),
+    include_str!("../migrations/0003_proof_source.sql"),
 ];
 
 pub struct Store {

@@ -393,6 +393,7 @@ export interface components {
              *     wrong.
              */
             message: string;
+            paired?: null | components["schemas"]["PairedEvidence"];
             /**
              * @description Every way a convention site is unusual, Sous's `Reasons` names; the
              *     `code` is the finest of them. Empty for hygiene.
@@ -518,12 +519,57 @@ export interface components {
             subject?: string | null;
             title?: string | null;
         };
+        /**
+         * @description The facts behind one source-compared finding (`rule: "source"`). Source
+         *     copy's run of shared words is [`Finding::run`].
+         */
+        PairedEvidence: {
+            /**
+             * Format: int32
+             * @description Source copy: target words in the verse that could be compared.
+             */
+            eligible?: number | null;
+            /**
+             * Format: int32
+             * @description Presence: consecutive verse keys the row covers, a bridge counting once.
+             *     `chapter`/`verse` are the first of them.
+             */
+            keys?: number | null;
+            /**
+             * @description `LengthProportionality`: `Long` or `Short`. `Presence`: `Missing` (the
+             *     source has verses the book lacks; the span is where they would go),
+             *     `Extra` (the book has verses the source lacks) or `Empty` (the verse
+             *     is there but holds nothing). `SourceCopy`: `Copy`.
+             */
+            kind: string;
+            /** Format: int32 */
+            source_len?: number | null;
+            /**
+             * Format: int32
+             * @description Length: graphemes in the target verse and in its source verse.
+             */
+            target_len?: number | null;
+            /**
+             * Format: double
+             * @description Length: how many spreads this verse's target/source ratio sits from the
+             *     usual ratio in this book, and in the whole repo. `None` when that scope
+             *     had too few paired verses to judge (sous's `min_verses`, 50).
+             */
+            z_book?: number | null;
+            /** Format: double */
+            z_project?: number | null;
+        };
         ProofBook: {
             /** @description The `\id` code as written, first three bytes: `MAT`. */
             book: string;
             /** Format: int32 */
             findings: number;
             id: string;
+            /**
+             * @description The source book this one was compared with ([`proofread_paired`]),
+             *     by its host id; `None` when there was no source or it lacks this book.
+             */
+            source?: string | null;
         };
         /**
          * @description The run's corpus: which books formed it and which were left out. Stored
@@ -532,6 +578,13 @@ export interface components {
         ProofCorpus: {
             books: components["schemas"]["ProofBook"][];
             skipped: components["schemas"]["Skipped"][];
+            /**
+             * @description The source text the run compared against, `owner/name@sha`; absent
+             *     when the repo resolves none.
+             */
+            source?: string | null;
+            /** @description Whether the source-copy lane ran (only when the languages differ). */
+            source_copy: boolean;
         };
         /** @description Documentation only: the shape `repo_proof` assembles from stored JSON. */
         ProofPage: {

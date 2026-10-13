@@ -37,15 +37,16 @@ reasoned about but has not run against the real thing.
 ## Decided 2026-10-12 (night)
 
 - The SQLite and the logs live in host directories on disk (`./var/data`, `./var/logs` in compose), not named volumes.
-- Sous Chef's source comparisons are in scope for the POC (in progress).
+- Sous Chef's source comparisons are in scope for the POC: done. 983 of 1,136 repos are compared against their declared source (LengthProportionality, Presence, SourceCopy), at about the same proof time.
 - Fixes in scripture-kitchen and Sefer are listed in TODO.md for Will.
+
+- **`SourceCopy` between related languages.** Will to decide. It runs only when the repo's language differs from its source's (Sous ships it off because a same-language source matches everywhere: en_udb vs en_ulb gives 59k). Related languages still flood it: tkg vs plt_ulb 1,149, bou vs sw_ulb 1,134. Hub-wide it is 16,465 findings in 267 repos. Options: switch it off (`source_copy()` in `crates/server/src/proof.rs`), or raise Sous's `source_copy_min_run` from 3 (not exposed yet).
 
 ## Known gaps in what is built
 
 - **MariaDB reader: verified against stock Forgejo, not yet against wacs2.** `dev/forgejo/check.sh` runs Forgejo 11.0.16 (rootless) on MariaDB 10.11 and reads it as `dashboard_ro` with production's grants. It checks that the public repo is indexed, the private one is not, a push lands within a poll, and a repo made private disappears. wacs2 itself still needs a run (ask first).
 - **A push bumps `repository.updated_unix`: confirmed** on Forgejo 11.0.16 (`check.sh`, step 1). The poll still also compares HEAD on disk, which covers writes that skip Forgejo.
 - **Sous-chef:**
-  - No source-compared lanes (length, presence, source copy); they need `analyze_paired` with the WA-Catalog source.
   - Thai `th_ulb` flags every U+200B (3,221 findings); this is likely a kitchen rule to revisit.
   - A one-book Writer corpus gives noisy `Rarity` findings.
   - The proof pass does not register `\s5`.

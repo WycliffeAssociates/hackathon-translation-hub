@@ -5,6 +5,7 @@
 //!   en_ulb: 66 books, 0 skipped, 1,234 findings in 210 ms (read 40 ms)
 //!     Rarity 400 · Casing 300 · …
 //! cargo run --release -p hub-proof --example proofread_repo -- --json <repo.git> > proof.json
+//! cargo run --release -p hub-proof --example proofread_repo -- --source wa-catalog/en_ulb.git [--copy] <repo.git>
 //! ```
 //!
 //! A consolidated repo is proofread as its root `*.usfm` / `*.sfm` files; a
@@ -14,34 +15,74 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use std::time::Instant;
 
-use hub_proof::{Book, proofread};
+use hub_proof::{Book, Source, proofread, proofread_paired};
 use hub_repo_read::{EntryKind, RepoReader, head};
 use hub_synthetic::{Upstream, synthesize};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut json = false;
+    let mut copy = false;
+    let mut source = None;
     let mut repos = Vec::new();
-    for arg in std::env::args().skip(1) {
-        if arg == "--json" {
-            json = true;
-        } else {
-            repos.push(arg);
+    let mut args = std::env::args().skip(1);
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--json" => json = true,
+            "--copy" => copy = true,
+            "--source" => source = args.next(),
+            _ => repos.push(arg),
         }
     }
     if repos.is_empty() {
-        return Err("usage: proofread_repo [--json] <repo.git>...".into());
+        return Err(
+            "usage: proofread_repo [--json] [--source <repo.git> [--copy]] <repo.git>...".into(),
+        );
     }
+    let source = match source {
+        Some(path) => {
+            let files = read_books(Path::new(&path))?;
+            let books: Vec<Book> = files.iter().map(|(id, text)| Book { id, text }).collect();
+            let started = Instant::now();
+            let source = Source::prepare(&books);
+            eprintln!(
+                "source {path}: {} books prepared in {:.0?}",
+                source.len(),
+                started.elapsed()
+            );
+            Some(source)
+        }
+        None => None,
+    };
     for repo in repos {
-        run(Path::new(&repo), json)?;
+        run(Path::new(&repo), json, source.as_ref().map(|s| (s, copy)))?;
     }
     Ok(())
 }
 
-fn run(path: &Path, json: bool) -> Result<(), Box<dyn std::error::Error>> {
+fn run(
+    path: &Path,
+    json: bool,
+    source: Option<(&Source, bool)>,
+) -> Result<(), Box<dyn std::error::Error>> {
     let started = Instant::now();
+    let files = read_books(path)?;
+    let read = started.elapsed();
+
+    let books: Vec<Book> = files.iter().map(|(id, text)| Book { id, text }).collect();
+    let started = Instant::now();
+    let proof = match source {
+        Some((source, copy)) => proofread_paired(&books, source, copy)?,
+        None => proofread(&books)?,
+    };
+    let took = started.elapsed();
+    report(path, json, &files, &proof, took, read)
+}
+
+/// The repo's books at HEAD: the stitched book of a Writer repo, or every root
+/// USFM file.
+fn read_books(path: &Path) -> Result<Vec<(String, String)>, Box<dyn std::error::Error>> {
     let Some(head) = head(path)? else {
-        eprintln!("{}: empty repo", path.display());
-        return Ok(());
+        return Ok(Vec::new());
     };
     let reader = RepoReader::open(path)?;
     let upstream = Upstream {
@@ -70,15 +111,19 @@ fn run(path: &Path, json: bool) -> Result<(), Box<dyn std::error::Error>> {
             files
         }
     };
-    let read = started.elapsed();
+    Ok(files)
+}
 
-    let books: Vec<Book> = files.iter().map(|(id, text)| Book { id, text }).collect();
-    let started = Instant::now();
-    let proof = proofread(&books)?;
-    let took = started.elapsed();
-
+fn report(
+    path: &Path,
+    json: bool,
+    files: &[(String, String)],
+    proof: &hub_proof::Proof,
+    took: std::time::Duration,
+    read: std::time::Duration,
+) -> Result<(), Box<dyn std::error::Error>> {
     if json {
-        println!("{}", serde_json::to_string_pretty(&proof)?);
+        println!("{}", serde_json::to_string_pretty(proof)?);
         return Ok(());
     }
     let bytes: usize = files.iter().map(|(_, text)| text.len()).sum();

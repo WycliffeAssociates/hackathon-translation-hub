@@ -259,6 +259,8 @@ button.linkish.mono { font-family: var(--mono); }
 .tag.eng-sous { color: var(--mock); border-color: var(--mock); }
 .sev.hygiene { background: var(--conflict); color: #fff; }
 .sev.convention { background: var(--paper-2); color: var(--muted); }
+/* Sous's source-compared lanes: against the declared source text. */
+.sev.source { background: transparent; color: var(--ink); border: 1px solid var(--line); }
 .sev.hint { background: var(--paper-2); color: var(--muted); }
 .check-books > td { background: var(--paper-2); }
 .book-counts { display: flex; flex-wrap: wrap; gap: .3rem; }

@@ -1038,6 +1038,17 @@
             "type": "string",
             "description": "One plain English sentence. The claim is narrow on purpose: rare, not\nwrong."
           },
+          "paired": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PairedEvidence",
+                "description": "Source-compared lanes: what the comparison with the source found."
+              }
+            ]
+          },
           "reasons": {
             "type": "array",
             "items": {
@@ -1386,6 +1397,69 @@
           }
         }
       },
+      "PairedEvidence": {
+        "type": "object",
+        "description": "The facts behind one source-compared finding (`rule: \"source\"`). Source\ncopy's run of shared words is [`Finding::run`].",
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "eligible": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Source copy: target words in the verse that could be compared.",
+            "minimum": 0
+          },
+          "keys": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Presence: consecutive verse keys the row covers, a bridge counting once.\n`chapter`/`verse` are the first of them.",
+            "minimum": 0
+          },
+          "kind": {
+            "type": "string",
+            "description": "`LengthProportionality`: `Long` or `Short`. `Presence`: `Missing` (the\nsource has verses the book lacks; the span is where they would go),\n`Extra` (the book has verses the source lacks) or `Empty` (the verse\nis there but holds nothing). `SourceCopy`: `Copy`."
+          },
+          "source_len": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "target_len": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Length: graphemes in the target verse and in its source verse.",
+            "minimum": 0
+          },
+          "z_book": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double",
+            "description": "Length: how many spreads this verse's target/source ratio sits from the\nusual ratio in this book, and in the whole repo. `None` when that scope\nhad too few paired verses to judge (sous's `min_verses`, 50)."
+          },
+          "z_project": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          }
+        }
+      },
       "ProofBook": {
         "type": "object",
         "required": [
@@ -1405,6 +1479,13 @@
           },
           "id": {
             "type": "string"
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The source book this one was compared with ([`proofread_paired`]),\nby its host id; `None` when there was no source or it lacks this book."
           }
         }
       },
@@ -1413,7 +1494,8 @@
         "description": "The run's corpus: which books formed it and which were left out. Stored\nas the proof's summary body.",
         "required": [
           "books",
-          "skipped"
+          "skipped",
+          "source_copy"
         ],
         "properties": {
           "books": {
@@ -1427,6 +1509,17 @@
             "items": {
               "$ref": "#/components/schemas/Skipped"
             }
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The source text the run compared against, `owner/name@sha`; absent\nwhen the repo resolves none."
+          },
+          "source_copy": {
+            "type": "boolean",
+            "description": "Whether the source-copy lane ran (only when the languages differ)."
           }
         }
       },

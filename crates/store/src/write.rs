@@ -34,6 +34,13 @@ pub struct ProofMark {
     pub repo: StaleRepo,
     pub head_sha: Option<String>,
     pub sk_tag: Option<String>,
+    /// The repo's language, from its manifest.
+    pub language: Option<String>,
+    /// The source its last scan resolved (any book's `source_repo`), now.
+    pub source_repo: Option<String>,
+    /// The source and its HEAD the last run read.
+    pub proof_source_repo: Option<String>,
+    pub proof_source_sha: Option<String>,
 }
 
 /// One language from the public data API, as stored.
@@ -69,6 +76,10 @@ pub struct CatalogRow {
 pub struct ProofRun<B: Serialize> {
     pub repo_id: i64,
     pub head_sha: String,
+    /// The source text the run compared against (`owner/name`) and its HEAD;
+    /// `None` when the repo resolves no source.
+    pub source_repo: Option<String>,
+    pub source_sha: Option<String>,
     pub millis: i64,
     pub findings: usize,
     pub by_book: std::collections::BTreeMap<String, usize>,
@@ -366,8 +377,8 @@ impl Store {
         let tx = conn.transaction()?;
         tx.execute(
             "INSERT OR REPLACE INTO proof (repo_id, head_sha, sk_tag, ran_unix, millis, findings,
-               by_book, by_rule, body, error)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+               by_book, by_rule, body, error, source_repo, source_sha)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
             params![
                 run.repo_id,
                 run.head_sha,
@@ -379,9 +390,14 @@ impl Store {
                 serde_json::to_string(&run.by_rule)?,
                 serde_json::to_string(&run.body)?,
                 run.error,
+                run.source_repo,
+                run.source_sha,
             ],
         )?;
-        tx.execute("DELETE FROM proof_finding WHERE repo_id = ?1", [run.repo_id])?;
+        tx.execute(
+            "DELETE FROM proof_finding WHERE repo_id = ?1",
+            [run.repo_id],
+        )?;
         tx.execute(
             "DELETE FROM finding_count WHERE repo_id = ?1 AND engine = 'sous'",
             [run.repo_id],
@@ -417,7 +433,11 @@ impl Store {
     pub fn proof_marks(&self) -> Result<Vec<ProofMark>> {
         let conn = self.writer();
         let mut stmt = conn.prepare(
-            "SELECT r.id, r.owner, r.name, r.head_sha, p.head_sha, p.sk_tag FROM repo r
+            "SELECT r.id, r.owner, r.name, r.head_sha, p.head_sha, p.sk_tag, r.language,
+               (SELECT b.source_repo FROM repo_book b
+                 WHERE b.repo_id = r.id AND b.source_repo IS NOT NULL LIMIT 1),
+               p.source_repo, p.source_sha
+             FROM repo r
              LEFT JOIN proof p ON p.repo_id = r.id
              WHERE r.head_sha IS NOT NULL AND EXISTS (SELECT 1 FROM repo_book b WHERE b.repo_id = r.id)",
         )?;
@@ -432,6 +452,10 @@ impl Store {
                     },
                     head_sha: r.get(4)?,
                     sk_tag: r.get(5)?,
+                    language: r.get(6)?,
+                    source_repo: r.get(7)?,
+                    proof_source_repo: r.get(8)?,
+                    proof_source_sha: r.get(9)?,
                 })
             })?
             .collect::<rusqlite::Result<_>>()?;
