@@ -39,7 +39,7 @@ tools/probe.mjs             diagnostics probe
 
 ```sh
 cd spikes/viewer
-pnpm install --ignore-workspace     # warns about msgpackr-extract build scripts (effect's); harmless
+pnpm install                        # pnpm-workspace.yaml skips msgpackr-extract's build script on purpose
 pnpm dev                            # http://localhost:5173/?book=19-PSA  (&mode=usfm, book=08-RUT, 08-RUT-broken)
 pnpm typecheck                      # the WHOLE fork typechecks against src/host
 pnpm build && pnpm sizes            # default: galley engine, verbatim compose.ts

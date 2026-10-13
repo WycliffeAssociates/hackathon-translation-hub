@@ -67,8 +67,8 @@ if [[ "${1:-}" == "--test" ]]; then
   (cd "$T" && unzip -q "$OUT")
   cd "$T/$NAME"
   git status --short | head -5
-  (cd spikes/viewer && pnpm install --ignore-workspace >/dev/null 2>&1)
-  (cd web && pnpm install >/dev/null 2>&1 && pnpm build >/dev/null)
+  (cd spikes/viewer && pnpm install | tail -1)
+  (cd web && pnpm install | tail -1 && pnpm build | tail -1)
   python3 scripts/verify.py
   echo "the unzipped copy passed; remove it with: rm -rf $T"
 fi

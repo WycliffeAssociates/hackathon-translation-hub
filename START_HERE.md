@@ -36,7 +36,7 @@ commands; that needs cmake). Docker is optional.
 ls dev-data/repositories dev-data/sql
 
 # 2. The web app's dependencies (the viewer is built from spikes/viewer)
-(cd spikes/viewer && pnpm install --ignore-workspace)
+(cd spikes/viewer && pnpm install)
 (cd web && pnpm install && pnpm build)
 
 # 3. Check everything end to end: builds the server, runs it on dev-data,

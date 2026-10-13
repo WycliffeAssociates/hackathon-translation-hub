@@ -24,7 +24,7 @@ pnpm smoke [base-url]   # drives the app in headless Chromium; screenshots → s
   aliases (`@viewer`, plus the spike's `#core/*` and `virtual:viewer-layers`),
   in the spike's build C: onion-only engine wasm, reading-only layers. It is
   lazy-loaded with the repo page. The spike's own dependencies resolve from
-  `spikes/viewer/node_modules`, so run `pnpm install --ignore-workspace` there
+  `spikes/viewer/node_modules`, so run `pnpm install` there
   first.
 - **Smoke** borrows Playwright from Sefer's `node_modules` (set
   `PLAYWRIGHT_FROM=/path/to/package.json` to borrow it elsewhere). It starts no
