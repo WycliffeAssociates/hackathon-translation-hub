@@ -32,6 +32,8 @@ reasoned about but has not run against the real thing.
 - `delimiter-surplus` (lint, info): 35k findings in 414 repos. This is formatter-level (doubled spaces); it could leave the summary counts.
 - `missing-paragraph` (lint, warning): fires in 952 of 983 Writer books, once per chapter. Writer never writes `\p`, and Sefer's stitch template adds none. Fix it in Sefer's template (so the hub's stitch stays byte-identical) or count it apart for synthetic books. Will to decide.
 
+- **Stored Sous rows: cap of 200 per book and check, or 25?** Will to decide. On dev-data the rows are 43 MB of a 64 MB database (112k rows); at about 32k repos that is roughly 1 GB. The per-book counts (`finding_count`) are 0.6 MB and stay either way. With 25, the page would say "showing 25 of N" and rows would be about 100 MB in production. The change is `ROWS_PER_BOOK_CODE` in `crates/server/src/proof.rs`, then one re-proofread. The other option is to store no rows and re-run Sous for the repo on click (~0.2 s, Hebrew 5 s).
+
 ## Known gaps in what is built
 
 - **MariaDB reader: verified against stock Forgejo, not yet against wacs2.** `dev/forgejo/check.sh` runs Forgejo 11.0.16 (rootless) on MariaDB 10.11 and reads it as `dashboard_ro` with production's grants. It checks that the public repo is indexed, the private one is not, a push lands within a poll, and a repo made private disappears. wacs2 itself still needs a run (ask first).
