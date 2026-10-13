@@ -63,7 +63,7 @@ echo "wrote $OUT ($(du -h "$OUT" | cut -f1)) at $(git rev-parse --short HEAD)"
 
 if [[ "${1:-}" == "--test" ]]; then
   T=$(mktemp -d)
-  echo "testing in $T…"
+  echo "testing in ${T}…"
   (cd "$T" && unzip -q "$OUT")
   cd "$T/$NAME"
   git status --short | head -5
