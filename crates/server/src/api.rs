@@ -339,7 +339,7 @@ fn content_type(path: &str) -> &'static str {
 /// Sous Chef findings over the repo's books, from the last run.
 #[utoipa::path(get, path = "/v1/repos/{owner}/{name}/proof",
     params(("owner" = String, Path), ("name" = String, Path)),
-    responses((status = 200, description = "The findings, as hub-proof serializes them"), (status = 404, body = ApiError)))]
+    responses((status = 200, body = crate::proof::ProofBody), (status = 404, body = ApiError)))]
 async fn repo_proof(
     State(s): State<AppState>,
     Path((owner, name)): Path<(String, String)>,
@@ -437,4 +437,23 @@ async fn blocking<T: Send + 'static>(
 
 fn internal(e: impl std::fmt::Display) -> Failure {
     Failure(StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Why: web/openapi.json is the contract between this server and the web
+    // app (its types are generated from it). A shape change that is not
+    // regenerated and committed would compile on both sides and break at
+    // runtime. Fix a failure with `cd web && pnpm gen`, then review the diff.
+    #[test]
+    fn openapi_matches_the_committed_contract() {
+        let committed = include_str!("../../../web/openapi.json");
+        let current = ApiDoc::openapi().to_pretty_json().expect("serialize");
+        assert!(
+            committed.trim() == current.trim(),
+            "web/openapi.json is stale: run `cd web && pnpm gen` and commit it"
+        );
+    }
 }

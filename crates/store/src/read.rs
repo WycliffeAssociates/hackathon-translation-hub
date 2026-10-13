@@ -28,8 +28,8 @@ pub struct RepoSummary {
     pub head_unix: Option<i64>,
     pub topics: Vec<String>,
     /// Served as a synthetic repo (a Writer project stitched into one book).
-    pub synthetic: bool,
-    pub books: i64,
+    pub is_synthetic: bool,
+    pub book_count: i64,
     pub errors: i64,
     pub warnings: i64,
     /// The catalog's label, when the public data API lists this repo.
@@ -59,8 +59,8 @@ fn summary(r: &Row) -> rusqlite::Result<RepoSummary> {
         title: r.get(6)?,
         head_unix: r.get(7)?,
         topics: json_col(r.get::<_, String>(8)?),
-        synthetic: r.get(9)?,
-        books: r.get(10)?,
+        is_synthetic: r.get(9)?,
+        book_count: r.get(10)?,
         errors: r.get(11)?,
         warnings: r.get(12)?,
         status: r.get(13)?,
@@ -105,7 +105,9 @@ pub fn repos(conn: &Connection, f: &RepoFilter) -> Result<RepoPage> {
     if let Some(q) = f.q.as_deref().filter(|q| !q.trim().is_empty()) {
         let p = bind(format!("%{}%", q.trim().to_lowercase()));
         wh.push(format!(
-            "(r.owner || '/' || r.name LIKE {p} OR lower(coalesce(r.title, '')) LIKE {p} OR coalesce(r.language, '') LIKE {p})"
+            "(r.owner || '/' || r.name LIKE {p} OR lower(coalesce(r.title, '')) LIKE {p} OR coalesce(r.language, '') LIKE {p}
+              OR EXISTS (SELECT 1 FROM language l WHERE l.ietf = r.language
+                AND (lower(coalesce(l.name, '')) LIKE {p} OR lower(coalesce(l.english_name, '')) LIKE {p})))"
         ));
     }
     if let Some(v) = &f.language {
@@ -233,8 +235,42 @@ pub struct ProofSummary {
     pub current: bool,
 }
 
+/// The manifest as the scan read it.
+#[derive(Debug, Clone, Serialize, serde::Deserialize, ToSchema)]
+pub struct ManifestInfo {
+    /// `manifest.yaml`, `manifest.json` or `metadata.json`.
+    pub file: String,
+    pub language: Option<String>,
+    pub resource: Option<String>,
+    pub subject: Option<String>,
+    pub title: Option<String>,
+    pub books: Vec<String>,
+    /// Declared source texts, as `lang/resource`.
+    pub sources: Vec<String>,
+    /// Writer only: chunks marked finished.
+    pub finished_chunks: Option<i64>,
+    /// Why the manifest did not parse, when it did not.
+    pub error: Option<String>,
+    /// The whole normalized manifest (format-specific detail).
+    #[schema(value_type = Object)]
+    pub normalized: Option<Value>,
+}
+
+/// What the hub serves in place of a Writer repo's chunk files.
+#[derive(Debug, Clone, Serialize, serde::Deserialize, ToSchema)]
+pub struct SyntheticInfo {
+    /// The stitched book, `NN-BOOK.usfm`.
+    pub file: String,
+    pub title: String,
+    /// Chapters that have at least one chunk.
+    pub chapters: Vec<i64>,
+    /// How many Writer files it was stitched from.
+    pub chunk_files: i64,
+}
+
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct RepoDetail {
+    /// The same fields the lists show, at the top level.
     #[serde(flatten)]
     pub summary: RepoSummary,
     pub default_branch: Option<String>,
@@ -242,12 +278,9 @@ pub struct RepoDetail {
     pub head_sha: Option<String>,
     pub scanned_unix: Option<i64>,
     pub sk_tag: Option<String>,
-    /// The manifest as read: file, language, sources, the normalized manifest.
-    #[schema(value_type = Object)]
-    pub manifest: Option<Value>,
+    pub manifest: Option<ManifestInfo>,
     /// Set when the repo is a Writer project served as a synthetic repo.
-    #[schema(value_type = Object)]
-    pub synthetic: Option<Value>,
+    pub synthetic: Option<SyntheticInfo>,
     pub scan_error: Option<String>,
     pub books: Vec<BookRow>,
     pub catalog: Vec<CatalogRef>,

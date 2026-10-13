@@ -16,7 +16,7 @@ use serde::Serialize;
 pub const KEEP_PER_CODE: usize = 500;
 
 /// What `/v1/repos/{owner}/{name}/proof` serves.
-#[derive(Serialize)]
+#[derive(Serialize, utoipa::ToSchema)]
 pub struct ProofBody {
     pub books: Vec<hub_proof::ProofBook>,
     pub skipped: Vec<hub_proof::Skipped>,

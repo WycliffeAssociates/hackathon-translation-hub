@@ -11,6 +11,8 @@ publish.workspace = true
 usfm_galley = { git = "https://github.com/WycliffeAssociates/scripture-kitchen", tag = "v0.1.9" }
 sous-core = { git = "https://github.com/WycliffeAssociates/scripture-kitchen", tag = "v0.1.9" }
 serde.workspace = true
+# The findings are an API response body; the server documents them in OpenAPI.
+utoipa = "5"
 thiserror.workspace = true
 
 [dev-dependencies]

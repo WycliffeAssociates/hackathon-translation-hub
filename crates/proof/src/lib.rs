@@ -55,7 +55,7 @@ pub struct Book<'a> {
 }
 
 /// What Sous found over one corpus.
-#[derive(Debug, Clone, Default, PartialEq, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, utoipa::ToSchema)]
 pub struct Proof {
     /// The books that formed the corpus, in input order.
     pub books: Vec<ProofBook>,
@@ -65,7 +65,7 @@ pub struct Proof {
     pub findings: Vec<Finding>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, utoipa::ToSchema)]
 pub struct ProofBook {
     pub id: String,
     /// The `\id` code as written, first three bytes: `MAT`.
@@ -73,7 +73,7 @@ pub struct ProofBook {
     pub findings: u32,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, utoipa::ToSchema)]
 pub struct Skipped {
     pub id: String,
     pub reason: String,
@@ -85,7 +85,7 @@ pub struct Skipped {
 /// half-open), which is what CodeMirror positions are. A site whose content
 /// crosses removed markup (a footnote, a marker) gets the BOUNDING raw range:
 /// first content character through last.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, utoipa::ToSchema)]
 pub struct Finding {
     /// The host id of the book ([`Book::id`]).
     pub id: String,
@@ -119,7 +119,7 @@ pub struct Finding {
 
 /// The fraction behind one convention finding. Every site of one pattern
 /// carries the same evidence; `pattern` says which sites belong together.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, utoipa::ToSchema)]
 pub struct Evidence {
     /// The pattern's row in this corpus's table; stable only within one
     /// [`Proof`].
@@ -135,7 +135,7 @@ pub struct Evidence {
     pub usual: Option<Usual>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, utoipa::ToSchema)]
 pub struct Usual {
     /// A mark in brackets (`[']`), a word form, or a class (`a letter`).
     pub text: String,
