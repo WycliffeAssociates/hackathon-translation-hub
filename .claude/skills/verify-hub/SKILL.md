@@ -30,7 +30,7 @@ HUB_DB=target/dev.sqlite HUB_LOG_DIR=target/dev-logs HUB_WEB_DIR=web/dist \
   cargo run --release -p hub-server &      # note the PID; default port 8787
 ```
 
-Docker: `docker compose up --build -d`, then drive with `scripts/verify.py --base http://localhost:8787`.
+Docker: `docker compose up -d db && docker compose up --build -d hub`, then drive with `scripts/verify.py --base http://localhost:8787`.
 
 ## Doctor
 
@@ -69,8 +69,8 @@ dump), update the expected numbers and say so in the commit.
 
 `verify.py` stops the PID it launched (unless `--keep`). For a server you
 started by hand, `kill <the PID you noted>`; never `pkill hub-server`, another
-session may be running one. `docker compose down` (add `-v` only to drop the
-SQLite volume). Keep `target/verify/` until the work is merged; it is gitignored.
+session may be running one. `docker compose stop hub` (leave `db` alone: it is the
+local Forgejo DB stand-in, and `down -v` would drop its loaded dumps; the hub's SQLite is in `./var/data`). Keep `target/verify/` until the work is merged; it is gitignored.
 
 ## Helpers
 
