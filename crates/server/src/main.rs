@@ -57,6 +57,11 @@ async fn main() {
         config.repo_root.display()
     );
 
+    // Bind before starting the poll, so a taken port fails fast.
+    let listener = tokio::net::TcpListener::bind(config.listen)
+        .await
+        .expect("bind HUB_LISTEN");
+
     let poller = Arc::new(poll::Poller {
         config: config.clone(),
         store: store.clone(),
@@ -75,9 +80,6 @@ async fn main() {
         .layer(middleware::from_fn(wide_event))
         .layer(CompressionLayer::new());
 
-    let listener = tokio::net::TcpListener::bind(config.listen)
-        .await
-        .expect("bind HUB_LISTEN");
     info!(listen = %config.listen, "listening");
     axum::serve(listener, app)
         .with_graceful_shutdown(async {

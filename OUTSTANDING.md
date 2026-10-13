@@ -22,7 +22,7 @@ reasoned about but has not run against the real thing.
 | Chapter coverage | ✅ verified | `coverage` per book with per-chapter gaps. Uses onion's TOC (the engine sous-chef also reads), not a sous-chef pass |
 | Backend observability: JSON logs, rotation | ✅ verified | wide events per request/poll/catalog; `HUB_LOG_DIR` daily rotation, `HUB_LOG_KEEP` |
 | Trace response times | ✅ verified | `duration_ms`/`db_ms` per request; `scripts/latency.py`; verify.py enforces a p95 budget |
-| OTel-ish export | ⚠️ unverified | `--features otel` + `OTEL_EXPORTER_OTLP_ENDPOINT`; compiles, not yet run against a collector (try `docker run -p 4318:4318 -p 16686:16686 jaegertracing/all-in-one`) |
+| OTel-ish export | ✅ verified locally | `--features otel` + `OTEL_EXPORTER_OTLP_ENDPOINT`. Checked against Jaeger 1.62 (`docker run -p 4318:4318 -p 16686:16686 jaegertracing/all-in-one:1.62.0`): the request span joined the caller's `traceparent` trace, with `route` and `db_ms` |
 | Thin front end (Solid + Effect, calls the API) | 🚧 in progress | `web/` |
 | Docker to deploy | ⚠️ written, image build not yet run | `Dockerfile`, `docker-compose.yml` |
 | Clear run + verify instructions | ✅ | `AGENTS.md`, `.claude/skills/verify-hub/`, `scripts/verify.py` |
@@ -37,6 +37,7 @@ reasoned about but has not run against the real thing.
   - A one-book Writer corpus gives noisy `Rarity` findings.
   - The proof pass does not register `\s5`.
   - At most 500 findings per code are stored.
+- **An idle poll costs ~1.3 s** on dev-data (re-reading the 32k-row dump plus HEAD on 1,441 repos); with MariaDB it is one SELECT. Measure on production's ~30k repos.
 - **The first poll after start rescans everything** (~11 s on dev-data with proofreading; `wa-catalog/hbo_uhb` alone takes ~5 s). Production has ~30k repos: measure the first poll there, and consider proofreading lazily or with a time budget.
 - **`book_history` key** is (repo, book, time): two files with the same `\id` in one repo collapse to one history row.
 - **scripture-kitchen v0.1.10** is only local. Push the tag, then bump every pin (see AGENTS.md).
