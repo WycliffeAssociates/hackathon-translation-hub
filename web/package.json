@@ -1,0 +1,24 @@
+{
+  "name": "hub-web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "gen": "cd .. && cargo run -q -p hub-server -- --openapi > web/openapi.json && cd web && openapi-typescript openapi.json -o src/api/schema.d.ts",
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc -p .",
+    "smoke": "node tools/smoke.mjs"
+  },
+  "dependencies": {
+    "@solidjs/router": "1.0.0",
+    "effect": "4.0.0-rc.112",
+    "solid-js": "1.9.17"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "openapi-typescript": "7.13.0",
+    "typescript": "^5.9.3",
+    "vite": "8.3.0",
+    "vite-plugin-solid": "2.11.14"
+  }
+}

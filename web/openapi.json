@@ -1,0 +1,1677 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Translation Hub",
+    "description": "Read-only views of Bible translation work on WACS: repos, books, checks, catalog status.",
+    "license": {
+      "name": ""
+    },
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/v1/biel/conflicts": {
+      "get": {
+        "tags": [],
+        "summary": "Books BIEL shows twice: two repos both Primary and shown on BIEL.",
+        "operationId": "biel_conflicts",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BielConflict"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/languages": {
+      "get": {
+        "tags": [],
+        "summary": "Languages that have repos here, most repos first.",
+        "operationId": "list_languages",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Matches the code, the names and the alternate names.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Default 50.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LanguageSummary"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/languages/{ietf}": {
+      "get": {
+        "tags": [],
+        "summary": "One language: its facts, its repos, and per book which repo is Official.",
+        "operationId": "get_language",
+        "parameters": [
+          {
+            "name": "ietf",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LanguageDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/repos": {
+      "get": {
+        "tags": [],
+        "summary": "Repos, newest HEAD first: the home feed and search.",
+        "operationId": "list_repos",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Matches owner/name, title or language code.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "language",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "shape",
+            "in": "query",
+            "description": "`ts`, `rc`, `burrito`, `usfm`, `other`, `empty`.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "subject",
+            "in": "query",
+            "description": "e.g. `Bible`, `Open Bible Stories`, `Translation Notes`.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "topic",
+            "in": "query",
+            "description": "A Forgejo topic, e.g. `consolidated`.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "synthetic",
+            "in": "query",
+            "description": "Only synthetic (Writer) repos, or only real ones.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Default 50, at most 500.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepoPage"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/repos/{owner}/{name}": {
+      "get": {
+        "tags": [],
+        "summary": "One repo at HEAD: manifest, books with lint and coverage, catalog rows,\nthe sous-chef summary.",
+        "operationId": "get_repo",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepoDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/repos/{owner}/{name}/books/{book}/history": {
+      "get": {
+        "tags": [],
+        "summary": "What the hub saw each time the book changed: lint and coverage over time.",
+        "operationId": "book_history",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "book",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/HistoryPoint"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/repos/{owner}/{name}/file/{path}": {
+      "get": {
+        "tags": [],
+        "summary": "One file's bytes at HEAD, with a content type from its extension (text as\nUTF-8, audio playable in the browser).",
+        "operationId": "repo_file",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "path",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "description": "For a synthetic repo, read the real Writer file at `path` instead of the\nsynthetic one.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file's bytes"
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/repos/{owner}/{name}/proof": {
+      "get": {
+        "tags": [],
+        "summary": "Sous Chef findings over the repo's books, from the last run.",
+        "operationId": "repo_proof",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProofBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/repos/{owner}/{name}/tree": {
+      "get": {
+        "tags": [],
+        "summary": "The repo's files at HEAD. A Writer repo answers with its synthetic files.",
+        "operationId": "repo_tree",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepoTree"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/status": {
+      "get": {
+        "tags": [],
+        "summary": "Totals and watermarks: how much is indexed and how fresh it is.",
+        "operationId": "status",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Totals"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ApiError": {
+        "type": "object",
+        "description": "Every error body: `{\"error\": \"...\"}`.",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        }
+      },
+      "BielConflict": {
+        "type": "object",
+        "description": "A book BIEL shows twice: two repos both Primary and shown, for one\nlanguage, domain, resource type and track (workTracker's rule).",
+        "required": [
+          "language",
+          "domain",
+          "resource_type",
+          "track",
+          "book",
+          "repos"
+        ],
+        "properties": {
+          "book": {
+            "type": "string"
+          },
+          "domain": {
+            "type": "string"
+          },
+          "language": {
+            "type": "string"
+          },
+          "language_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "repos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogRef"
+            }
+          },
+          "resource_type": {
+            "type": "string"
+          },
+          "track": {
+            "type": "string"
+          }
+        }
+      },
+      "BookPick": {
+        "type": "object",
+        "description": "One book of one version (resource type + track) in a language, with the\nrepos that could be its text and the rules' verdicts on them.",
+        "required": [
+          "resource_type",
+          "track",
+          "book",
+          "state",
+          "shown_twice_on_biel",
+          "candidates"
+        ],
+        "properties": {
+          "book": {
+            "type": "string"
+          },
+          "candidates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogRef"
+            }
+          },
+          "official": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Sefer's `defaultCandidate`: which repo is Official."
+          },
+          "resource_type": {
+            "type": "string"
+          },
+          "shown_twice_on_biel": {
+            "type": "boolean",
+            "description": "BIEL stitches two sources for this book (both Primary and shown)."
+          },
+          "state": {
+            "type": "string",
+            "description": "`official`, `draft`, `conflict`, `inactive`, `empty`."
+          },
+          "track": {
+            "type": "string"
+          }
+        }
+      },
+      "BookRow": {
+        "type": "object",
+        "description": "One book of a repo at HEAD.",
+        "required": [
+          "book",
+          "path",
+          "content_key",
+          "chapters",
+          "verses"
+        ],
+        "properties": {
+          "book": {
+            "type": "string"
+          },
+          "chapters": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "content_key": {
+            "type": "string"
+          },
+          "coverage": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CoverageRow"
+              }
+            ]
+          },
+          "lint": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/LintRow"
+              }
+            ]
+          },
+          "path": {
+            "type": "string"
+          },
+          "verses": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "CatalogRef": {
+        "type": "object",
+        "description": "A catalog row that points at this repo.",
+        "required": [
+          "content_id",
+          "show_on_biel",
+          "books"
+        ],
+        "properties": {
+          "books": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "content_id": {
+            "type": "string"
+          },
+          "domain": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "modified_on": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "owner": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "resource_type": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "show_on_biel": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "track": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "CoverageRow": {
+        "type": "object",
+        "required": [
+          "source",
+          "source_verses",
+          "present",
+          "missing",
+          "extra",
+          "gaps"
+        ],
+        "properties": {
+          "extra": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Verses the source does not have; usually versification, not an error."
+          },
+          "gaps": {
+            "type": "object",
+            "description": "Chapter → missing verse numbers; only chapters with gaps.",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "format": "int64"
+              }
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "missing": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "present": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "source": {
+            "type": "string",
+            "description": "`owner/name` of the source text, e.g. `wa-catalog/en_ulb`."
+          },
+          "source_verses": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "Evidence": {
+        "type": "object",
+        "description": "The fraction behind one convention finding. Every site of one pattern\ncarries the same evidence; `pattern` says which sites belong together.",
+        "required": [
+          "pattern",
+          "numerator",
+          "denominator",
+          "books"
+        ],
+        "properties": {
+          "books": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Books holding part of the numerator (saturates at 255), out of\n`Proof::books.len()`.",
+            "minimum": 0
+          },
+          "denominator": {
+            "type": "integer",
+            "format": "int32",
+            "description": "…out of how many chances (the comparison population).",
+            "minimum": 0
+          },
+          "numerator": {
+            "type": "integer",
+            "format": "int32",
+            "description": "How often this form occurs…",
+            "minimum": 0
+          },
+          "pattern": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The pattern's row in this corpus's table; stable only within one\n[`Proof`].",
+            "minimum": 0
+          },
+          "usual": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Usual",
+                "description": "What the corpus usually does instead, when the pattern names it."
+              }
+            ]
+          }
+        }
+      },
+      "Finding": {
+        "type": "object",
+        "description": "One reviewable site.\n\n**Offsets are UTF-16 code units into the raw book text** (`from..to`,\nhalf-open), which is what CodeMirror positions are. A site whose content\ncrosses removed markup (a footnote, a marker) gets the BOUNDING raw range:\nfirst content character through last.",
+        "required": [
+          "id",
+          "book",
+          "chapter",
+          "from",
+          "to",
+          "rule",
+          "code",
+          "reasons",
+          "message",
+          "text"
+        ],
+        "properties": {
+          "book": {
+            "type": "string",
+            "description": "The `\\id` code: `MAT`."
+          },
+          "chapter": {
+            "type": "integer",
+            "format": "int32",
+            "description": "0 for front matter, before the first `\\c`.",
+            "minimum": 0
+          },
+          "code": {
+            "type": "string",
+            "description": "Sous's own name for what fired: a hygiene class (`StrayCarriageReturn`)\nor the pattern's channel (`Rarity`, `Casing`, …)."
+          },
+          "evidence": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Evidence",
+                "description": "Convention: the counts behind the claim."
+              }
+            ]
+          },
+          "from": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "id": {
+            "type": "string",
+            "description": "The host id of the book ([`Book::id`])."
+          },
+          "message": {
+            "type": "string",
+            "description": "One plain English sentence. The claim is narrow on purpose: rare, not\nwrong."
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Every way a convention site is unusual, Sous's `Reasons` names; the\n`code` is the finest of them. Empty for hygiene."
+          },
+          "rule": {
+            "type": "string",
+            "description": "The lane: `hygiene` (deterministic: the text should never hold this)\nor `convention` (corpus-relative: this corpus rarely does this)."
+          },
+          "run": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Hygiene: how many offending characters are in the run.",
+            "minimum": 0
+          },
+          "text": {
+            "type": "string",
+            "description": "The site's content, markup removed."
+          },
+          "to": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "verse": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "`None` before the chapter's first `\\v`.",
+            "minimum": 0
+          }
+        }
+      },
+      "HistoryPoint": {
+        "type": "object",
+        "description": "One point of a book's history: what the hub saw when it changed.",
+        "required": [
+          "at_unix",
+          "head_sha",
+          "sk_tag",
+          "chapters",
+          "verses",
+          "errors",
+          "warnings"
+        ],
+        "properties": {
+          "at_unix": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "chapters": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "errors": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "head_sha": {
+            "type": "string"
+          },
+          "head_unix": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "missing": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "sk_tag": {
+            "type": "string"
+          },
+          "verses": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "warnings": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "LanguageDetail": {
+        "type": "object",
+        "required": [
+          "ietf",
+          "repos",
+          "books"
+        ],
+        "properties": {
+          "books": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BookPick"
+            },
+            "description": "From the catalog: per version and book, which repo is Official."
+          },
+          "facts": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/LanguageSummary"
+              }
+            ]
+          },
+          "ietf": {
+            "type": "string"
+          },
+          "repos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RepoSummary"
+            }
+          }
+        }
+      },
+      "LanguageSummary": {
+        "type": "object",
+        "required": [
+          "ietf",
+          "alternate_names",
+          "repos"
+        ],
+        "properties": {
+          "alternate_names": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "direction": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "english_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "gateway": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "ietf": {
+            "type": "string"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "region": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "repos": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Scanned public repos whose manifest names this language."
+          }
+        }
+      },
+      "LintRow": {
+        "type": "object",
+        "required": [
+          "errors",
+          "warnings",
+          "infos",
+          "by_code",
+          "by_chapter"
+        ],
+        "properties": {
+          "by_chapter": {
+            "type": "object",
+            "description": "Chapter → `[errors, warnings, infos]`; chapter 0 is before the first `\\c`.",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "format": "int64"
+              }
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "by_code": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "errors": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "infos": {
+            "type": "integer",
+            "format": "int64",
+            "description": "`info` and `hint` together."
+          },
+          "warnings": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "ManifestInfo": {
+        "type": "object",
+        "description": "The manifest as the scan read it.",
+        "required": [
+          "file",
+          "books",
+          "sources",
+          "normalized"
+        ],
+        "properties": {
+          "books": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why the manifest did not parse, when it did not."
+          },
+          "file": {
+            "type": "string",
+            "description": "`manifest.yaml`, `manifest.json` or `metadata.json`."
+          },
+          "finished_chunks": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Writer only: chunks marked finished."
+          },
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "normalized": {
+            "type": "object",
+            "description": "The whole normalized manifest (format-specific detail)."
+          },
+          "resource": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Declared source texts, as `lang/resource`."
+          },
+          "subject": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "ProofBody": {
+        "type": "object",
+        "description": "What `/v1/repos/{owner}/{name}/proof` serves.",
+        "required": [
+          "books",
+          "skipped",
+          "findings",
+          "dropped"
+        ],
+        "properties": {
+          "books": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProofBook"
+            }
+          },
+          "dropped": {
+            "type": "object",
+            "description": "Code → findings left out of `findings` past the per-code cap.",
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Finding"
+            }
+          },
+          "skipped": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Skipped"
+            }
+          }
+        }
+      },
+      "ProofBook": {
+        "type": "object",
+        "required": [
+          "id",
+          "book",
+          "findings"
+        ],
+        "properties": {
+          "book": {
+            "type": "string",
+            "description": "The `\\id` code as written, first three bytes: `MAT`."
+          },
+          "findings": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "id": {
+            "type": "string"
+          }
+        }
+      },
+      "ProofSummary": {
+        "type": "object",
+        "required": [
+          "head_sha",
+          "sk_tag",
+          "ran_unix",
+          "millis",
+          "findings",
+          "by_book",
+          "by_rule",
+          "current"
+        ],
+        "properties": {
+          "by_book": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "by_rule": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "current": {
+            "type": "boolean",
+            "description": "False when HEAD moved since the run; a new run is queued."
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "findings": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "head_sha": {
+            "type": "string"
+          },
+          "millis": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "ran_unix": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "sk_tag": {
+            "type": "string"
+          }
+        }
+      },
+      "RepoDetail": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/RepoSummary",
+            "description": "The same fields the lists show, at the top level."
+          },
+          {
+            "type": "object",
+            "required": [
+              "books",
+              "catalog"
+            ],
+            "properties": {
+              "books": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/BookRow"
+                }
+              },
+              "catalog": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CatalogRef"
+                }
+              },
+              "default_branch": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "head_branch": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "head_sha": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "manifest": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ManifestInfo"
+                  }
+                ]
+              },
+              "proof": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ProofSummary"
+                  }
+                ]
+              },
+              "scan_error": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "scanned_unix": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "int64"
+              },
+              "sk_tag": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "synthetic": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/SyntheticInfo",
+                    "description": "Set when the repo is a Writer project served as a synthetic repo."
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "RepoPage": {
+        "type": "object",
+        "required": [
+          "total",
+          "repos"
+        ],
+        "properties": {
+          "repos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RepoSummary"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "RepoSummary": {
+        "type": "object",
+        "description": "One repo in a list: the feed, search, a language page.",
+        "required": [
+          "owner",
+          "name",
+          "topics",
+          "is_synthetic",
+          "book_count",
+          "errors",
+          "warnings",
+          "show_on_biel"
+        ],
+        "properties": {
+          "book_count": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "errors": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "head_unix": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Committer time of HEAD, Unix seconds."
+          },
+          "is_synthetic": {
+            "type": "boolean",
+            "description": "Served as a synthetic repo (a Writer project stitched into one book)."
+          },
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "resource": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "shape": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`ts`, `rc`, `burrito`, `usfm`, `other`, `empty`; null before the first scan."
+          },
+          "show_on_biel": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The catalog's label, when the public data API lists this repo."
+          },
+          "subject": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "topics": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "warnings": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "RepoTree": {
+        "type": "object",
+        "description": "A repo's files at HEAD.",
+        "required": [
+          "head_sha",
+          "synthetic",
+          "files"
+        ],
+        "properties": {
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TreeEntry"
+            }
+          },
+          "head_sha": {
+            "type": "string"
+          },
+          "source_files": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/TreeEntry"
+            }
+          },
+          "synthetic": {
+            "type": "boolean",
+            "description": "True for a Writer repo: `files` is the synthetic repo the hub serves\n(it is not a real repo), and `source_files` the Writer chunks it was\nstitched from."
+          }
+        }
+      },
+      "Skipped": {
+        "type": "object",
+        "required": [
+          "id",
+          "reason"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      },
+      "SyntheticInfo": {
+        "type": "object",
+        "description": "What the hub serves in place of a Writer repo's chunk files.",
+        "required": [
+          "file",
+          "title",
+          "chapters",
+          "chunk_files"
+        ],
+        "properties": {
+          "chapters": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "description": "Chapters that have at least one chunk."
+          },
+          "chunk_files": {
+            "type": "integer",
+            "format": "int64",
+            "description": "How many Writer files it was stitched from."
+          },
+          "file": {
+            "type": "string",
+            "description": "The stitched book, `NN-BOOK.usfm`."
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "Totals": {
+        "type": "object",
+        "required": [
+          "repos",
+          "scanned",
+          "synthetic",
+          "books",
+          "errors",
+          "warnings",
+          "languages",
+          "catalog_rows",
+          "proofread",
+          "state"
+        ],
+        "properties": {
+          "books": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "catalog_rows": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "errors": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "languages": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "proofread": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "repos": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "scanned": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "state": {
+            "type": "object",
+            "description": "Watermarks: last poll, last catalog fetch, and so on (Unix seconds).",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "synthetic": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "warnings": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "TreeEntry": {
+        "type": "object",
+        "description": "One file or directory in a repo's tree.",
+        "required": [
+          "path",
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "description": "`blob`, `tree` or `submodule`."
+          },
+          "path": {
+            "type": "string",
+            "description": "`/`-separated, relative to the repo root."
+          },
+          "size": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "Usual": {
+        "type": "object",
+        "required": [
+          "text",
+          "count"
+        ],
+        "properties": {
+          "count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "text": {
+            "type": "string",
+            "description": "A mark in brackets (`[']`), a word form, or a class (`a letter`)."
+          }
+        }
+      }
+    }
+  }
+}
