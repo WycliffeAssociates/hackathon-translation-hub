@@ -2,7 +2,7 @@
 
 A thin front end over `/v1`: Vite + Solid + TypeScript, with one Effect service
 (`src/api/client.ts`) for the API. Pages: home feed, repo (file tree, viewer,
-books, proofreading), language, search, BIEL conflicts, status.
+books, findings), language, search, BIEL conflicts, checks, status.
 
 ```sh
 pnpm install
@@ -13,10 +13,11 @@ pnpm build      # → dist/, served by hub-server with HUB_WEB_DIR=web/dist
 pnpm smoke [base-url]   # drives the app in headless Chromium; screenshots → smoke-shots/
 ```
 
-- **Types** come from the server's OpenAPI. Two shapes are patched by hand in
-  `src/api/types.ts`: `RepoDetail` (its `books`/`synthetic` clash with
-  `RepoSummary`'s in the generated intersection) and the proofreading body,
-  which OpenAPI does not describe and is decoded with Schema.
+- **Types** come from the server's OpenAPI; `src/api/types.ts` only names them.
+- **Findings are counts first.** The repo page loads `/findings` (one row per
+  check, both engines, per-book counts) and fetches Sous Chef rows from
+  `/proof?book=&code=` only for the book picked; lint rows are drawn by the
+  viewer's own engine. `/checks` is the same view across all repos.
 - **Tracing**: every `/v1` call sends `traceparent` (one trace id per page view,
   a new span id per call) and `x-hub-page`. The server logs the rest.
 - **The USFM viewer** is imported from `../spikes/viewer/src` through Vite

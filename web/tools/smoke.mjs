@@ -158,22 +158,85 @@ await step("chapter-nav-books", async () => {
   }
 });
 
-await step("repo-en_ulb-finding", async () => {
-  const group = page.locator(".proof-group").first();
-  await group.locator("summary").click();
-  const link = group.locator("button.linkish").first();
-  const where = await link.innerText();
-  await link.click();
-  await page.waitForURL(/at=\d+-\d+/);
+/** The findings table's rows: [code, engine, total]. */
+const checkRows = () =>
+  page.locator(".checks-table tbody tr.check-row").evaluateAll((trs) =>
+    trs.map((tr) => [tr.querySelector("th button")?.textContent?.replace(/^[▸▾]\s*/, "").trim(), tr.querySelector(".tag")?.textContent, Number(tr.querySelector(".total")?.textContent?.replace(/\D/g, ""))]),
+  );
+const sortedByTotal = (rows) => rows.every((r, i) => i === 0 || rows[i - 1][2] >= r[2]);
+
+await step("repo-en_ulb-findings", async () => {
+  // Sous Chef runs on the server's first poll; its counts land a few seconds after.
+  for (let i = 0; i < 60; i++) {
+    const list = await (await page.request.get(`${base}/v1/repos/wa-catalog/en_ulb/findings`)).json();
+    if (list.some((c) => c.engine === "sous")) break;
+    await page.waitForTimeout(1000);
+  }
+  await page.goto(`${base}/repos/wa-catalog/en_ulb`);
+  await page.locator(".checks-table tbody tr.check-row").first().waitFor();
+  const rows = await checkRows();
+  expect(rows.length > 0 && sortedByTotal(rows), `findings sorted by total (${rows.map((r) => r[2]).join(", ")})`);
+  expect(rows.some((r) => r[1] === "lint") && rows.some((r) => r[1] === "sous"), "both engines in the table");
+  results.push({ name: `  ${rows.length} checks; top ${rows.slice(0, 3).map((r) => `${r[0]} ${r[2]}`).join(", ")}`, ok: true, ms: 0, notes: [] });
+  // Open the top Sous Chef check, then its noisiest book.
+  const sous = page.locator(".checks-table tbody tr.check-row", { has: page.locator(".tag.eng-sous") }).first();
+  const code = (await sous.locator("th button").innerText()).replace(/^[▸▾]\s*/, "").trim();
+  await sous.click();
+  const chip = page.locator(".checks-table tr.check-books button.book-chip").first();
+  const book = (await chip.innerText()).split(/\s/)[0];
+  await sous.scrollIntoViewIfNeeded();
+  await shot("05a-repo-en_ulb-findings");
+  await chip.click();
+  await page.waitForURL(new RegExp(`check=sous(%3A|:)${code}`));
   await page.locator(".viewer-pane .cm-content").waitFor();
+  const first = page.locator(".finding-list li button").first();
+  await first.waitFor();
+  const where = await first.innerText();
+  await first.click();
+  await page.waitForURL(/at=\d+-\d+/);
   // The finding's range is selected and its underline drawn.
   await page.locator(".viewer-pane .cm-selectionBackground").first().waitFor();
   await page.waitForTimeout(300);
   const url = new URL(page.url());
-  results.push({ name: `  finding ${where} → ${url.searchParams.get("file")} @ ${url.searchParams.get("at")}`, ok: true, ms: 0, notes: [] });
+  results.push({ name: `  ${code} in ${book} ${where} → ${url.searchParams.get("file")} @ ${url.searchParams.get("at")}`, ok: true, ms: 0, notes: [] });
   await shot("05-repo-en_ulb-finding");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator(".check-rows").scrollIntoViewIfNeeded();
+  await shot("05b-repo-en_ulb-finding-390");
+  await page.locator(".checks-table").scrollIntoViewIfNeeded();
+  await shot("05c-repo-en_ulb-findings-390");
+  await page.setViewportSize({ width: 1280, height: 900 });
   await page.locator(".books").scrollIntoViewIfNeeded();
   await shot("06-repo-en_ulb-books");
+});
+
+await step("checks", async () => {
+  await page.goto(`${base}/checks`);
+  await page.locator(".checks-table tbody tr.check-row").first().waitFor();
+  const rows = await checkRows();
+  expect(sortedByTotal(rows), "checks sorted by total");
+  expect(rows[0][0] === "MisplacedFormat", `MisplacedFormat on top (got ${rows[0][0]})`);
+  await page.locator(".checks-table tbody tr.check-row").first().click();
+  const top = page.locator(".top-repos li a").first();
+  await top.waitFor();
+  expect((await top.innerText()) === "wa-catalog/km_ulb", `wa-catalog/km_ulb first (got ${await top.innerText()})`);
+  await shot("13-checks");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(150);
+  await shot("13b-checks-390");
+  await page.setViewportSize({ width: 1280, height: 900 });
+  // Through to the repo: the check is open there, and a book shows its kept rows against the true count.
+  await top.click();
+  await page.waitForURL(/\/repos\/wa-catalog\/km_ulb\?check=/);
+  const chip = page.locator(".checks-table tr.check-books button.book-chip").first();
+  await chip.waitFor();
+  await chip.click();
+  await page.locator(".finding-list li").first().waitFor();
+  const note = await page.locator(".check-rows p").innerText();
+  expect(/showing [\d,]+ of [\d,]+/.test(note), `"showing N of M" (got "${note}")`);
+  results.push({ name: `  km_ulb: ${note}`, ok: true, ms: 0, notes: [] });
+  await page.locator(".check-rows").scrollIntoViewIfNeeded();
+  await shot("14-km_ulb-MisplacedFormat");
 });
 
 await step("repo-coverage", async () => {

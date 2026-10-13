@@ -246,10 +246,40 @@ button.linkish.mono { font-family: var(--mono); }
 .chc.gap { box-shadow: inset 0 -4px 0 var(--ink); }
 .chc:hover { outline: 1px solid var(--ink); }
 
-/* proofreading */
-.proof-group { border-top: 1px solid var(--rule); padding: .35rem 0; }
-.proof-group summary { cursor: pointer; }
-.proof-group table { margin: .4rem 0 .6rem; }
+/* findings: counts first (repo page and /checks) */
+.checks-table { overflow-x: auto; }
+.check-row { cursor: pointer; }
+.check-row:hover { background: var(--paper-2); }
+.check-row .total { font-weight: 700; }
+.check-row th { white-space: normal; }
+.check-row th button { margin-right: .5rem; }
+.caret { display: inline-block; width: 1ch; margin-right: .4ch; color: var(--muted); }
+.check-badges { white-space: nowrap; font-weight: 400; }
+.tag.eng-lint { color: var(--lapis); border-color: var(--lapis); }
+.tag.eng-sous { color: var(--mock); border-color: var(--mock); }
+.sev.hygiene { background: var(--conflict); color: #fff; }
+.sev.convention { background: var(--paper-2); color: var(--muted); }
+.sev.hint { background: var(--paper-2); color: var(--muted); }
+.check-books > td { background: var(--paper-2); }
+.book-counts { display: flex; flex-wrap: wrap; gap: .3rem; }
+button.book-chip { padding: .1em .5em; font-size: .8rem; border-radius: 4px; }
+.viewer-col { min-width: 0; }
+.check-rows { margin: .6rem 0 0; }
+.finding-list { list-style: none; margin: 0; padding: 0; max-height: 18rem; overflow: auto; border: 1px solid var(--rule); border-radius: 10px; background: var(--wf-bg); font-size: .9rem; }
+.finding-list li { padding: .3rem .6rem; border-bottom: 1px solid var(--rule); display: flex; gap: .6rem; align-items: baseline; }
+.finding-list li:last-child { border-bottom: 0; }
+.finding-list .excerpt { margin-left: auto; }
+.share { white-space: nowrap; color: var(--muted); font-size: .85rem; }
+.share.loud { color: var(--ink); font-weight: 700; }
+.share-bar { display: inline-block; width: 3rem; height: .5rem; background: var(--empty); border-radius: 2px; vertical-align: 1px; overflow: hidden; }
+.share-bar i { display: block; height: 100%; background: var(--muted); }
+.share.loud .share-bar i { background: var(--draft); }
+.top-repos { margin: 0; padding-left: 1.4rem; }
+.top-repos li { margin: .15rem 0; }
+@media (max-width: 600px) {
+  .checks-table .opt, .share-bar { display: none; }
+  .share { white-space: normal; }
+}
 
 /* language, search, status */
 .group h3 { font-family: var(--ui); margin-top: 1rem; }

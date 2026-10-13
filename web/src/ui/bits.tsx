@@ -124,3 +124,22 @@ export function Pills<T extends string>(props: {
     </div>
   );
 }
+
+/** Which engine fired (`lint` = scripture-kitchen structure, `sous` = Sous Chef) and how severe. */
+export function CheckBadges(props: { engine: string; severity: string }) {
+  return (
+    <span class="check-badges">
+      <span class={`tag eng-${props.engine}`} title={props.engine === "lint" ? "scripture-kitchen structure check" : "Sous Chef proofreading"}>
+        {props.engine}
+      </span>{" "}
+      <span class={`sev ${props.severity}`}>{props.severity}</span>
+    </span>
+  );
+}
+
+/** `sous:Rarity` in a URL ↔ `{engine, code}`. */
+export const checkKey = (c: { engine: string; code: string }) => `${c.engine}:${c.code}`;
+export const parseCheck = (s: string | undefined) => {
+  const i = s?.indexOf(":") ?? -1;
+  return s && i > 0 ? { engine: s.slice(0, i), code: s.slice(i + 1) } : null;
+};

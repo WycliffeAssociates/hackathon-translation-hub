@@ -7,6 +7,7 @@ import Language from "./pages/Language";
 import Search from "./pages/Search";
 import Biel from "./pages/Biel";
 import Status from "./pages/Status";
+import Checks from "./pages/Checks";
 
 // The repo page carries the USFM viewer (CodeMirror + the engine wasm), so it
 // loads on demand.
@@ -30,6 +31,7 @@ function Layout(props: RouteSectionProps) {
         </form>
         <nav>
           <A href="/biel" activeClass="on">BIEL conflicts</A>
+          <A href="/checks" activeClass="on">Checks</A>
           <A href="/status" activeClass="on">Status</A>
         </nav>
       </header>
@@ -57,6 +59,7 @@ render(
       <Route path="/languages/:ietf" component={Language} />
       <Route path="/search" component={Search} />
       <Route path="/biel" component={Biel} />
+      <Route path="/checks" component={Checks} />
       <Route path="/status" component={Status} />
       <Route path="*" component={NotFound} />
     </Router>
