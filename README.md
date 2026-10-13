@@ -2,7 +2,7 @@
 
 A read-only service beside WACS (Forgejo) that shows Bible translation work in the shape translators think in — language → version (resource type) → track → book — instead of as repos. It reads the bare repos off disk and Forgejo's MariaDB read-only, keeps its own SQLite, and serves an API (OpenAPI, generated SDKs) plus light web pages.
 
-**Start here:** [AGENTS.md](AGENTS.md) — how to run it, how to verify a change (`scripts/verify.py`), observability, deploy. [OUTSTANDING.md](OUTSTANDING.md) — what is built, what is left, and what is the coworker's call.
+**New here?** [START_HERE.md](START_HERE.md). Then [AGENTS.md](AGENTS.md) — how to run it, how to verify a change (`scripts/verify.py`), observability, deploy. [OUTSTANDING.md](OUTSTANDING.md) — what is built, what is left, and what is the coworker's call.
 
 - `proto/` — clickable wireframe on live public data (no install; `python3 -m http.server` in that folder). Zipped as `translation-hub-proto.zip`.
 - `plans/` — architecture notes and the combined proposal.
