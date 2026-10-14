@@ -23,8 +23,6 @@ hub only pins the result. Numbers are from dev-data (1,441 repos) on
 - [ ] **Sous book keys**: `\id` is taken as written (first three bytes), so `\id gen` and `\id GEN` are two books. Upper-case it, as onion's canon does.
 - [ ] **Push tag v0.1.10** (it exists only in the local clone), then bump every pin together: root `Cargo.toml` (`usfm_onion`, `mise`), `crates/proof/Cargo.toml` (`usfm_galley`, `sous-core`), `spikes/viewer/package.json`, and `KITCHEN_TAG` in `crates/checks` and `crates/proof`. Bumping makes the hub rescan and re-proofread everything on its next poll.
 
-- [ ] **The scan and the viewer disagree on lint.** The server's scan (`hub-checks`, onion with Sefer's `\s5` registry) counts `empty-paragraph` in en_ulb (169 in Psalms, 855 in the repo), but the viewer's engine (`spikes/viewer`, onion in the browser) draws none of them in either mode; `numbering-mix` differs too. The rail says "Counted by the scan, not drawn here" for these. Find which side is right (likely the `\s5` handling: `\s5` then `\p`), and make both lint the same text the same way.
-
 ## Sefer
 
 - [ ] **The Writer stitch template opens no paragraph.** Writer never writes `\p`, and `writerBookToUsfm` adds none. So lint `missing-paragraph` fires once per chapter in 952 of 983 synthetic books (9,819 warnings), and migrated repos inherit it. Emitting `\p` after each `\c` (and `\cl`) in `src/core/migrate/writerBook.ts` fixes both. Then re-port `crates/stitch` (it is byte-identical to Sefer 50aa9cd on 987 repos) and re-run its golden.

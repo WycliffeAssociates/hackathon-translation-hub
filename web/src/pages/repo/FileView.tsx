@@ -2,7 +2,7 @@
 // images by URL, anything else as a download link.
 import { Match, Show, Switch, createResource, lazy } from "solid-js";
 import { api, urlOf } from "../../api/client";
-import type { BookRow } from "../../api/types";
+import type { BookRow, CodeCount } from "../../api/types";
 import { Async, Counts, Sparkline } from "../../ui/bits";
 import type { Range, ViewerFinding } from "../../viewer/UsfmViewer";
 
@@ -23,9 +23,9 @@ export default function FileView(props: {
   findings: readonly ViewerFinding[];
   focus: Range | null;
   chapter: string | null;
-  totals?: (engine: string, code: string) => number | undefined;
+  counts?: readonly CodeCount[];
   check?: string | null;
-  lintCounted?: readonly { code: string; n: number }[];
+  onBook?: (engine: string, code: string, book: string) => void;
 }) {
   const call = () => ({ path: { owner: props.owner, name: props.name, path: props.path }, query: { source: props.source || undefined } });
   const url = () => urlOf("/v1/repos/{owner}/{name}/file/{path}", call());
@@ -57,9 +57,9 @@ export default function FileView(props: {
                       focus={props.focus}
                       chapter={props.chapter}
                       book={props.book}
-                      totals={props.totals}
+                      counts={props.counts}
                       check={props.check}
-                      lintCounted={props.lintCounted}
+                      onBook={props.onBook}
                     />
                   )}
                 </Show>

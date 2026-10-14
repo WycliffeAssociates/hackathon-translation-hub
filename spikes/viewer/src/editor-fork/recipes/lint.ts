@@ -363,8 +363,11 @@ export function usfmLinter(
         // The second source moves without a document change, and a document
         // change is the only thing the lint plugin watches by default. This is
         // the hook that makes `sousField` a lint input.
+        // A reconfiguration (the reading/USFM projection) changes what is
+        // hidden by paint, so what is drawn must be decided again.
         needsRefresh: (update) =>
-          update.state.field(sousField, false) !== update.startState.field(sousField, false),
+          update.state.field(sousField, false) !== update.startState.field(sousField, false) ||
+          update.transactions.some((tr) => tr.reconfigured),
       },
     ),
   ];

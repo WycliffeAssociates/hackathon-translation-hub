@@ -12,7 +12,7 @@ import { bootEngine } from "@viewer/host/engine.onion";
 import { mountViewer, type Shown, type ViewerMount } from "@viewer/viewer/mountViewer";
 import { showCorpusFindings, type CorpusFinding } from "@viewer/editor-fork/recipes/lint";
 import { watchLocation } from "@viewer/editor-fork/recipes/whereAmI";
-import type { BookRow } from "../api/types";
+import type { BookRow, CodeCount } from "../api/types";
 import ChapterNav from "./ChapterNav";
 import FindingsRail, { type RailItem } from "./FindingsRail";
 
@@ -91,12 +91,12 @@ export default function UsfmViewer(props: {
   chapter: string | null;
   /** The book's lint and coverage, to mark chapters in the navigator. */
   book?: BookRow | undefined;
-  /** The true count of a check in this book, when the server keeps fewer rows. */
-  totals?: (engine: string, code: string) => number | undefined;
+  /** The repo's finding counts, every book (`/findings`), for the rail. */
+  counts?: readonly CodeCount[];
   /** `engine:code` for the rail to open first. */
   check?: string | null;
-  /** The server scan's lint counts for this book, by check. */
-  lintCounted?: readonly { code: string; n: number }[];
+  /** Open another book of the repo with a check (the rail's All books). */
+  onBook?: (engine: string, code: string, book: string) => void;
   onReady?: () => void;
 }) {
   let host!: HTMLDivElement;
@@ -117,7 +117,7 @@ export default function UsfmViewer(props: {
         to: d.to,
         engine: engine === "onion" ? "lint" : engine,
         code: d.source.slice(slash + 1),
-        severity: d.severity,
+        severity: d.severity === "hint" ? ("info" as const) : d.severity,
         message: d.message,
         ref: where(d.from),
         context: visible(doc.text.slice(Math.max(0, d.from - 12), d.to + 12)).trim(),
@@ -185,8 +185,9 @@ export default function UsfmViewer(props: {
   const undrawn = () => {
     const drawn = new Map<string, number>();
     for (const i of items()) if (i.engine === "lint") drawn.set(i.code, (drawn.get(i.code) ?? 0) + 1);
-    return (props.lintCounted ?? []).flatMap((c) => {
-      const n = c.n - (drawn.get(c.code) ?? 0);
+    return (props.counts ?? []).flatMap((c) => {
+      const counted = c.engine === "lint" ? (c.books.find((b) => b.book === props.book?.book)?.n ?? 0) : 0;
+      const n = counted - (drawn.get(c.code) ?? 0);
       return n > 0 ? [{ code: c.code, n }] : [];
     });
   };
@@ -264,16 +265,21 @@ export default function UsfmViewer(props: {
       </div>
       <Show when={failed()}>{(e) => <div class="failure">Viewer failed: {e()}</div>}</Show>
       <div class="viewer-body">
-        {/* Focusable, so a click in the text puts the [ ] keys here. */}
-        <div class="viewer-pane" ref={host} data-mode={mode()} tabIndex={0} aria-label="Book text" />
+        {/* Focusable, so a click in the text puts the [ ] keys here. `cm-host`
+            is what the fork's editor.css keys its popover and gutter on. */}
+        <div class="viewer-pane cm-host" ref={host} data-mode={mode()} tabIndex={0} aria-label="Book text" />
         <Show when={mount()}>
           {(m) => (
             <FindingsRail
               items={items()}
-              totals={props.totals ?? (() => undefined)}
+              counts={props.counts ?? []}
+              book={props.book?.book}
               initial={props.check ?? null}
               onPick={(item) => reveal(m(), item.from, item.to)}
+              onBook={(engine, code, book) => props.onBook?.(engine, code, book)}
               undrawn={undrawn()}
+              mode={mode()}
+              onShowMarkup={() => setMode("usfm")}
             />
           )}
         </Show>

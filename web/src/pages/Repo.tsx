@@ -46,16 +46,13 @@ export default function Repo() {
     },
     (c) => api.json("/v1/repos/{owner}/{name}/proof", c),
   );
-  /** A check's true count in the open book (the server keeps at most 200 rows of it). */
-  const total = (engine: string, code: string) =>
-    counts.latest?.find((x) => x.engine === engine && x.code === code)?.books.find((b) => b.book === openBookId())?.n;
 
   const show = (p: Params) => {
     setSearch({ file: p.file, source: p.source, at: p.at, ch: p.ch, check: p.check });
     requestAnimationFrame(() => document.getElementById("files")?.scrollIntoView({ block: "start" }));
   };
   const openBook = (path: string, ch?: string) => show({ file: path, ch });
-  const openCheck = (c: CodeCount, book: string) => {
+  const openCheck = (c: Pick<CodeCount, "engine" | "code">, book: string) => {
     const path = repo.latest?.books.find((b) => b.book === book)?.path;
     if (path) show({ file: path, check: checkKey(c) });
   };
@@ -131,12 +128,9 @@ export default function Repo() {
                       .map((f) => ({ ...f, severity: f.rule === "hygiene" ? ("warning" as const) : ("info" as const) }))}
                     focus={focus()}
                     chapter={search.ch ?? null}
-                    totals={total}
+                    counts={counts.latest ?? []}
                     check={search.check ?? null}
-                    lintCounted={(counts.latest ?? []).flatMap((c) => {
-                      const n = c.engine === "lint" ? c.books.find((b) => b.book === openBookId())?.n : undefined;
-                      return n ? [{ code: c.code, n }] : [];
-                    })}
+                    onBook={(engine, code, book) => openCheck({ engine, code }, book)}
                   />
                 </div>
               )}
