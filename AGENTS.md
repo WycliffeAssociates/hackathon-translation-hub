@@ -52,6 +52,12 @@ HUB_WEB_DIR=web/dist cargo run --release -p hub-server   # → http://127.0.0.1:
 
 # Docker, on dev-data: MariaDB like prod (loads the dumps once), then the hub reading it as dashboard_ro
 docker compose up -d db && docker compose up --build hub  # → http://localhost:8787/  (SQLite + logs persist in ./var)
+
+# WACS dev in miniature, for anything that writes: real Forgejo 15.0.6 + MariaDB + valkey with
+# wacsdev's settings, holding dev-data's repos adopted under their real owners (first run ~5 min).
+# Writes go here, never to a real server. See dev/wacs/compose.yml for how it differs from wacsdev.
+dev/wacs/up.sh                                            # → http://127.0.0.1:3400 (wacsadmin; target/wacs/admin)
+docker compose -f dev/wacs/compose.yml --profile hub up --build hub   # the hub beside it → :8788
 ```
 
 Configuration is environment variables, all optional in development:

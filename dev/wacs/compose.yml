@@ -1,0 +1,113 @@
+# WACS dev (content.wacsdev.org) in miniature, for building the hub's write
+# path without touching a real server: the same images and settings as
+# <wacsdev-host>'s wacs2 stack (Forgejo 15.0.6 rootless, MariaDB 10.11, valkey 7.2
+# for cache, sessions and queues), holding dev-data's 1,441 repos adopted into
+# Forgejo so it owns them like the real one does. Read from <wacsdev-host> on
+# 2026-10-14 (`docker inspect`, the container's GITEA__ env).
+#
+#   dev/wacs/up.sh                     first time: start, copy dev-data in, adopt (~5 min)
+#   docker compose -f dev/wacs/compose.yml up -d     later starts
+#   docker compose -f dev/wacs/compose.yml --profile hub up --build hub
+#
+# Forgejo: http://127.0.0.1:3400 (admin `wacsadmin`; password and token in
+# target/wacs/admin). Its data is target/wacs/gitea (gitignored); dev-data is
+# copied, never mounted, because Forgejo writes to what it holds.
+#
+# Differences from wacsdev, on purpose: http on localhost, no captcha (no
+# Turnstile keys), every owner is an organisation (the dumps have no user
+# table), and mirrors are plain repos.
+name: wacs-local
+services:
+  db:
+    image: mariadb:10.11
+    environment:
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_DATABASE: gitea
+      MARIADB_USER: gitea
+      MARIADB_PASSWORD: gitea
+    volumes:
+      - ./db-init:/docker-entrypoint-initdb.d:ro
+      - ../../dev-data/sql:/dumps:ro
+      - db:/var/lib/mysql
+    ports: ["127.0.0.1:3308:3306"]
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 2s
+      retries: 90
+
+  redis:
+    image: valkey/valkey:7.2
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 2s
+      retries: 30
+
+  gitea:
+    image: codeberg.org/forgejo/forgejo:15.0.6-rootless
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    environment:
+      # As on wacsdev (GITEA__ env of wacs2-gitea-1), minus secrets.
+      GITEA____APP_NAME: Wycliffe Associates Content Service (local)
+      GITEA____RUN_MODE: dev
+      GITEA__database__DB_TYPE: mysql
+      GITEA__database__HOST: db:3306
+      GITEA__database__NAME: gitea
+      GITEA__database__USER: gitea
+      GITEA__database__PASSWD: gitea
+      GITEA__cache__ADAPTER: redis
+      GITEA__cache__HOST: redis://redis:6379/0
+      GITEA__session__PROVIDER: redis
+      GITEA__session__PROVIDER_CONFIG: redis://redis:6379/0
+      GITEA__queue__TYPE: redis
+      GITEA__queue__CONN_STR: redis://redis:6379/0
+      GITEA__security__INSTALL_LOCK: "true"
+      GITEA__server__DOMAIN: 127.0.0.1
+      GITEA__server__ROOT_URL: http://127.0.0.1:3400/
+      GITEA__server__HTTP_PORT: "3000"
+      GITEA__server__LFS_START_SERVER: "false"
+      GITEA__server__START_SSH_SERVER: "false"
+      GITEA__server__DISABLE_SSH: "true"
+      GITEA__repository__ROOT: /var/lib/gitea/git/repositories
+      GITEA__repository__DEFAULT_BRANCH: master
+      GITEA__repository__DEFAULT_PRIVATE: public
+      GITEA__repository__MAX_CREATION_LIMIT: "2000"
+      GITEA__repository__DISABLED_REPO_UNITS: repo.packages,repo.actions
+      GITEA__repository_0X2E_upload__ENABLED: "true"
+      GITEA__attachment__ENABLED: "true"
+      GITEA__attachment__PATH: /var/lib/gitea/data/attachments
+      GITEA__mailer__ENABLED: "false"
+      GITEA__actions__ENABLED: "false"
+      GITEA__packages__ENABLED: "false"
+      GITEA__cors__ENABLED: "true"
+      GITEA__cors__ALLOW_DOMAIN: "*"
+      GITEA__service__DISABLE_REGISTRATION: "false"
+      GITEA__service__REGISTER_EMAIL_CONFIRM: "false"
+      GITEA__service__ENABLE_CAPTCHA: "false"
+      GITEA__indexer__ISSUE_INDEXER_TYPE: db
+      GITEA__cron__ENABLED: "true"
+      GITEA__cron__RUN_AT_START: "false"
+      GITEA__log__LEVEL: warn
+    volumes:
+      - ../../target/wacs/gitea:/var/lib/gitea
+    ports: ["127.0.0.1:3400:3000"]
+
+  # The hub beside it, as it would run on <wacsdev-host>: Forgejo's repo folder
+  # read-only, the repo list through dashboard_ro.
+  hub:
+    profiles: [hub]
+    build: ../..
+    depends_on:
+      gitea: { condition: service_started }
+    volumes:
+      - ../../target/wacs/gitea/git/repositories:/repos:ro
+      - ../../var/wacs/data:/data
+      - ../../var/wacs/logs:/logs
+    environment:
+      HUB_FORGEJO_DB: mysql://dashboard_ro:dev@db:3306/gitea
+      HUB_BASE_URL: http://127.0.0.1:3400
+    ports: ["127.0.0.1:8788:8787"]
+
+volumes:
+  db:
