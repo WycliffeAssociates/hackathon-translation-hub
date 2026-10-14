@@ -709,6 +709,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "hub-history"
+version = "0.1.0"
+dependencies = [
+ "git2",
+ "hub-stitch",
+ "rayon",
+ "thiserror",
+]
+
+[[package]]
 name = "hub-ingest"
 version = "0.1.0"
 dependencies = [
@@ -777,8 +787,10 @@ dependencies = [
  "axum",
  "base64 0.22.1",
  "getrandom 0.3.4",
+ "git2",
  "hub-biel",
  "hub-checks",
+ "hub-history",
  "hub-ingest",
  "hub-proof",
  "hub-repo-read",

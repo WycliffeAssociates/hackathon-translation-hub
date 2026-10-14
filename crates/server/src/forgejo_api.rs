@@ -306,7 +306,9 @@ impl Forgejo {
     }
 
     /// A new, empty official repo (one commit: a README), for books pulled in one by one.
-    pub async fn create_repo(&self, name: &str, description: &str) -> Result<Value> {
+    /// `init`: start it with a README commit (books pulled in one by one);
+    /// without, it is empty and waits for a push (a consolidated history).
+    pub async fn create_repo(&self, name: &str, description: &str, init: bool) -> Result<Value> {
         // Created in the official org by construction.
         let org = self.official_org.clone();
         self.send(
@@ -318,13 +320,87 @@ impl Forgejo {
                     "name": name,
                     "description": description,
                     "private": false,
-                    "auto_init": true,
+                    "auto_init": init,
                     "readme": "Default",
                     "default_branch": "master",
                 })),
         )
         .await?
         .ok_or_else(|| ForgejoError::Refused(format!("no org {org}")))
+    }
+
+    /// The service account's login (for git's basic auth, with the token as password).
+    pub async fn whoami(&self) -> Result<String> {
+        let v = self
+            .get("/user")
+            .await?
+            .ok_or_else(|| ForgejoError::Refused("the token has no user".into()))?;
+        Ok(v["login"].as_str().unwrap_or_default().to_owned())
+    }
+
+    /// Push `branch` of the local repository at `local` to an official repo,
+    /// as the service account. Through Forgejo's git endpoint, so its hooks run
+    /// and its database follows, like any push. Never forced. Blocking.
+    pub fn push(
+        &self,
+        login: &str,
+        local: &std::path::Path,
+        owner: &str,
+        name: &str,
+        branch: &str,
+    ) -> Result<()> {
+        self.may_write(owner)?;
+        let refused = |e: git2::Error| ForgejoError::Refused(format!("push: {}", e.message()));
+        let repo = git2::Repository::open(local).map_err(refused)?;
+        let mut remote = repo
+            .remote_anonymous(&format!("{}/{owner}/{name}.git", self.base))
+            .map_err(refused)?;
+        let mut callbacks = git2::RemoteCallbacks::new();
+        let (login, token) = (login.to_owned(), self.token.clone());
+        callbacks.credentials(move |_, _, _| git2::Cred::userpass_plaintext(&login, &token));
+        let rejected = std::sync::Arc::new(std::sync::Mutex::new(None::<String>));
+        let r = rejected.clone();
+        callbacks.push_update_reference(move |refname, status| {
+            if let Some(s) = status {
+                *r.lock().expect("push status") = Some(format!("{refname}: {s}"));
+            }
+            Ok(())
+        });
+        let mut opts = git2::PushOptions::new();
+        opts.remote_callbacks(callbacks);
+        remote
+            .push(
+                &[format!("refs/heads/{branch}:refs/heads/{branch}")],
+                Some(&mut opts),
+            )
+            .map_err(refused)?;
+        if let Some(why) = rejected.lock().expect("push status").take() {
+            return Err(ForgejoError::Refused(format!("push rejected: {why}")));
+        }
+        Ok(())
+    }
+
+    /// Delete an official repo the hub just created and could not fill (a
+    /// failed push), so a retry starts clean. Refused unless it is empty.
+    pub async fn delete_empty(&self, owner: &str, name: &str) -> Result<()> {
+        self.may_write(owner)?;
+        let empty = self
+            .get(&format!("/repos/{owner}/{name}"))
+            .await?
+            .is_some_and(|r| r["empty"].as_bool() == Some(true));
+        if !empty {
+            return Err(ForgejoError::Refused(format!(
+                "{owner}/{name} is not empty; not deleting it"
+            )));
+        }
+        self.send(
+            "delete",
+            self.http
+                .delete(self.url(&format!("/repos/{owner}/{name}")))
+                .bearer_auth(&self.token),
+        )
+        .await?;
+        Ok(())
     }
 
     /// One commit of one or more files to the default branch; returns the commit sha.

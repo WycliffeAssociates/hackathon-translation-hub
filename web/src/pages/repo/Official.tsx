@@ -2,12 +2,16 @@
 // and brand publish to, that repo's releases, and, for a publisher, the three
 // writes the hub makes: adopt (fork this consolidated repo in as the official
 // one), pull (one book, stitched for a Writer project, as one commit), publish
-// (a release tag). The server does the work and the checks; this only asks.
+// (a release tag), and, for a Writer project whose language has no official
+// repo yet, consolidate (every Writer book of the language and brand into a new
+// official repo, every save kept as a commit). The server does the work and the
+// checks; this only asks.
 import { For, Show, createResource, createSignal } from "solid-js";
 import { api } from "../../api/client";
 import type { BookRow, Done } from "../../api/types";
 import { ago } from "../../ui/bits";
 import { me, signInHref } from "../../ui/session";
+import Assemble from "./Assemble";
 
 /** The release after the newest one: v1.3 → v1.4; none → v1.0. */
 const nextTag = (tags: readonly string[]) => {
@@ -35,6 +39,7 @@ export default function Official(props: {
   const [done, setDone] = createSignal<Done>();
   const [failed, setFailed] = createSignal<string>();
   const [book, setBook] = createSignal<string>();
+  const [assembling, setAssembling] = createSignal(false);
   const pickBook = () => book() ?? props.openBook ?? props.books[0]?.book;
 
   const act = async (what: string, run: () => Promise<Done>) => {
@@ -108,6 +113,11 @@ export default function Official(props: {
                 }
               >
                 <div class="official-actions">
+                  <Show when={o().writer_books.length}>
+                    <button type="button" class="primary" aria-expanded={assembling()} onClick={() => setAssembling(!assembling())}>
+                      Assemble {label()} from {o().writer_books.length} Writer {o().writer_books.length === 1 ? "book" : "books"}…
+                    </button>
+                  </Show>
                   <Show when={o().can_adopt}>
                     <button
                       type="button"
@@ -165,6 +175,9 @@ export default function Official(props: {
               </Show>
             </Show>
 
+            <Show when={assembling() && o().can_publish && o().writer_books.length}>
+              <Assemble owner={props.owner} name={props.name} busy={busy()} onCreate={(what, run) => void act(what, run)} />
+            </Show>
             <Show when={done()}>
               {(d) => (
                 <p class="official-done small">
@@ -182,8 +195,8 @@ export default function Official(props: {
                 <For each={o().actions.slice(0, 12)}>
                   {(a) => (
                     <li>
-                      {ago(a.at_unix)}: <b>{a.username}</b> {a.kind === "adopt" ? "adopted" : a.kind === "pull" ? `pulled ${a.book}` : `published ${a.ref}`}{" "}
-                      <span class="mono">{a.kind === "publish" ? a.target : `${a.source?.split("@")[0]} → ${a.target}`}</span>
+                      {ago(a.at_unix)}: <b>{a.username}</b> {a.kind === "adopt" ? "adopted" : a.kind === "consolidate" ? "consolidated Writer projects into" : a.kind === "pull" ? `pulled ${a.book}` : `published ${a.ref}`}{" "}
+                      <span class="mono">{a.kind === "publish" || a.kind === "consolidate" ? a.target : `${a.source?.split("@")[0]} → ${a.target}`}</span>
                     </li>
                   )}
                 </For>

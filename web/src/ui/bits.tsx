@@ -86,12 +86,13 @@ export function StatusChip(props: { status: string | null | undefined }) {
 }
 
 /** A tiny line of numbers, drawn only when there is more than one point. */
-export function Sparkline(props: { values: readonly number[]; title: string }) {
+/** `max`: the top of the scale (a book's full verse count), when not the largest value. */
+export function Sparkline(props: { values: readonly number[]; title: string; max?: number }) {
   const w = 120;
   const h = 24;
   const points = () => {
     const v = props.values;
-    const max = Math.max(1, ...v);
+    const max = Math.max(1, props.max ?? 0, ...v);
     return v.map((y, i) => `${((i / (v.length - 1)) * w).toFixed(1)},${(h - 2 - (y / max) * (h - 4)).toFixed(1)}`).join(" ");
   };
   return (

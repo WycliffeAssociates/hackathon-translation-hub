@@ -131,3 +131,90 @@ pub fn actions(conn: &Connection, repo: &str) -> Result<Vec<Action>> {
     })?;
     Ok(rows.collect::<rusqlite::Result<_>>()?)
 }
+
+/// One book of a Writer project, a candidate for consolidation.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct WriterBook {
+    pub owner: String,
+    pub name: String,
+    /// Upper-case USFM id.
+    pub book: String,
+    pub chapters: i64,
+    pub verses: i64,
+    /// Against the declared source, when one resolves.
+    pub source_verses: Option<i64>,
+    pub present: Option<i64>,
+    pub head_sha: String,
+    /// Last updated: HEAD's committer time.
+    pub head_unix: i64,
+    /// The catalog's status for this repo (`Primary`, `Active`, `Inactive`), when listed.
+    pub status: Option<String>,
+    pub show_on_biel: bool,
+}
+
+/// Every Writer project (served as a synthetic repo) of one language and
+/// brand, by book, with what the catalog says about each.
+pub fn writer_candidates(conn: &Connection, language: &str, resource: &str) -> Result<Vec<WriterBook>> {
+    let mut stmt = conn.prepare(
+        "SELECT r.owner, r.name, b.book, b.chapters, b.verses, b.source_verses, b.present,
+                r.head_sha, coalesce(r.head_unix, 0),
+                (SELECT c.status FROM catalog_content c WHERE c.owner = r.owner AND c.name = r.name
+                 ORDER BY CASE c.status WHEN 'Primary' THEN 0 WHEN 'Active' THEN 1 ELSE 2 END LIMIT 1),
+                coalesce((SELECT max(c.show_on_biel) FROM catalog_content c
+                          WHERE c.owner = r.owner AND c.name = r.name), 0)
+         FROM repo r JOIN repo_book b ON b.repo_id = r.id
+         WHERE r.language = ?1 AND r.resource = ?2 AND r.synthetic IS NOT NULL
+           AND r.head_sha IS NOT NULL AND r.is_archived = 0 AND b.book != ''
+         ORDER BY b.book, r.owner, r.name",
+    )?;
+    let rows = stmt.query_map(params![language.to_lowercase(), resource.to_lowercase()], |r| {
+        Ok(WriterBook {
+            owner: r.get(0)?,
+            name: r.get(1)?,
+            book: r.get(2)?,
+            chapters: r.get(3)?,
+            verses: r.get(4)?,
+            source_verses: r.get(5)?,
+            present: r.get(6)?,
+            head_sha: r.get(7)?,
+            head_unix: r.get(8)?,
+            status: r.get(9)?,
+            show_on_biel: r.get::<_, i64>(10)? != 0,
+        })
+    })?;
+    Ok(rows.collect::<rusqlite::Result<_>>()?)
+}
+
+/// The default pick among one book's candidates: Primary and shown on BIEL
+/// (what BIEL shows today); else Primary; else the newest Active; else the
+/// most verses, then the newest. Mirrors Sefer's `defaultCandidate`, with
+/// show-on-BIEL first because that is what "published" means today.
+pub fn default_pick(candidates: &[&WriterBook]) -> Option<usize> {
+    let rank = |b: &WriterBook| match (b.status.as_deref(), b.show_on_biel) {
+        (Some("Primary"), true) => 0,
+        (Some("Primary"), false) => 1,
+        (Some("Active"), _) => 2,
+        (None, _) => 3,
+        _ => 4,
+    };
+    (0..candidates.len()).min_by(|&a, &b| {
+        let (x, y) = (candidates[a], candidates[b]);
+        rank(x)
+            .cmp(&rank(y))
+            .then(y.verses.cmp(&x.verses))
+            .then(y.head_unix.cmp(&x.head_unix))
+    })
+}
+
+/// One per book, by `default_pick`.
+pub fn writer_books(conn: &Connection, language: &str, resource: &str) -> Result<Vec<WriterBook>> {
+    let all = writer_candidates(conn, language, resource)?;
+    let mut out = Vec::new();
+    for group in all.chunk_by(|a, b| a.book == b.book) {
+        let refs: Vec<&WriterBook> = group.iter().collect();
+        if let Some(i) = default_pick(&refs) {
+            out.push(group[i].clone());
+        }
+    }
+    Ok(out)
+}

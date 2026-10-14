@@ -27,7 +27,7 @@ use axum::routing::{get, post};
 use base64::Engine as _;
 use hub_ingest::synthetic_at;
 use hub_repo_read::RepoReader;
-use hub_store::publishing::{self, Action, Me, NewAction};
+use hub_store::publishing::{self, Action, Me, NewAction, WriterBook};
 use hub_store::read;
 use serde::{Deserialize, Serialize};
 use utoipa::{OpenApi, ToSchema};
@@ -48,7 +48,7 @@ const SESSION_SECS: i64 = 7 * 24 * 3600;
 
 #[derive(OpenApi)]
 #[openapi(
-    paths(me, official, adopt, pull, publish_release),
+    paths(me, official, adopt, pull, publish_release, consolidate, assemble),
     components(schemas(
         MeResponse,
         Me,
@@ -56,6 +56,11 @@ const SESSION_SECS: i64 = 7 * 24 * 3600;
         OfficialRepo,
         Release,
         Action,
+        WriterBook,
+        Candidate,
+        AssembleBook,
+        Assembly,
+        ConsolidateBody,
         PullBody,
         ReleaseBody,
         Done
@@ -73,6 +78,8 @@ pub fn router() -> axum::Router<AppState> {
         .route("/v1/repos/{owner}/{name}/adopt", post(adopt))
         .route("/v1/repos/{owner}/{name}/pull", post(pull))
         .route("/v1/repos/{owner}/{name}/releases", post(publish_release))
+        .route("/v1/repos/{owner}/{name}/consolidate", post(consolidate))
+        .route("/v1/repos/{owner}/{name}/assemble", get(assemble))
 }
 
 fn fail(status: StatusCode, msg: impl Into<String>) -> Failure {
@@ -338,6 +345,9 @@ pub struct Official {
     pub can_publish: bool,
     /// Adopt is offered: a consolidated (not Writer) repo, and no official repo yet.
     pub can_adopt: bool,
+    /// Consolidate is offered (a Writer project, no official repo yet): the
+    /// language and brand's Writer books it would gather, one per book.
+    pub writer_books: Vec<WriterBook>,
     /// What the hub wrote from this repo, or to it.
     pub actions: Vec<Action>,
 }
@@ -444,6 +454,14 @@ async fn official(
     };
     let can_adopt =
         !is_official && f.detail.synthetic.is_none() && target.as_ref().is_some_and(|t| !t.exists);
+    let writer_books = if !is_official
+        && f.detail.synthetic.is_some()
+        && target.as_ref().is_some_and(|t| !t.exists)
+    {
+        writer_books_of(&s, &f.detail).await?
+    } else {
+        Vec::new()
+    };
     let mut actions = f.actions;
     if let Some(t) = &target {
         // The official repo's own log too, when looking from a source.
@@ -476,7 +494,404 @@ async fn official(
         reason,
         can_publish: me.is_some_and(|m| m.publisher),
         can_adopt,
+        writer_books,
         actions,
+    }))
+}
+
+async fn writer_books_of(s: &AppState, d: &read::RepoDetail) -> Result<Vec<WriterBook>, Failure> {
+    let (Some(lang), Some(res)) = (d.summary.language.clone(), d.summary.resource.clone()) else {
+        return Ok(Vec::new());
+    };
+    let store = s.store.clone();
+    tokio::task::spawn_blocking(move || publishing::writer_books(&store.reader()?, &lang, &res))
+        .await
+        .map_err(|e| fail(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .map_err(|e| fail(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))
+}
+
+#[derive(Deserialize, ToSchema, Default)]
+pub struct ConsolidateBody {
+    /// Per book (`MRK`), the Writer project to take (`owner/name`), or `""` to
+    /// leave the book out. A book not named gets the default pick.
+    #[serde(default)]
+    pub picks: std::collections::BTreeMap<String, String>,
+}
+
+/// One candidate for a book, with what helps pick it.
+#[derive(Serialize, ToSchema)]
+pub struct Candidate {
+    #[serde(flatten)]
+    pub repo: WriterBook,
+    /// The default pick: Primary and shown on BIEL first (`default_pick`).
+    pub default: bool,
+    /// Writer saves that changed the book's text.
+    pub saves: usize,
+    pub first_unix: Option<i64>,
+    /// Verses present at 30 evenly spaced times from the first save to the
+    /// last: the book's progress toward its full count.
+    pub progress: Vec<i64>,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct AssembleBook {
+    pub book: String,
+    pub candidates: Vec<Candidate>,
+}
+
+/// What a consolidation would gather, book by book, before it runs.
+#[derive(Serialize, ToSchema)]
+pub struct Assembly {
+    /// The official repo it would create: `TextTranslation/twx_reg`.
+    pub target: String,
+    pub exists: bool,
+    pub books: Vec<AssembleBook>,
+}
+
+async fn candidates_of(s: &AppState, d: &read::RepoDetail) -> Result<Vec<WriterBook>, Failure> {
+    let (Some(lang), Some(res)) = (d.summary.language.clone(), d.summary.resource.clone()) else {
+        return Ok(Vec::new());
+    };
+    let store = s.store.clone();
+    tokio::task::spawn_blocking(move || {
+        publishing::writer_candidates(&store.reader()?, &lang, &res)
+    })
+    .await
+    .map_err(|e| fail(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+    .map_err(|e| fail(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))
+}
+
+/// One Writer project per book: the person's pick, else the default.
+async fn picked_books(
+    s: &AppState,
+    d: &read::RepoDetail,
+    picks: &std::collections::BTreeMap<String, String>,
+) -> Result<Vec<WriterBook>, Failure> {
+    let all = candidates_of(s, d).await?;
+    let mut out = Vec::new();
+    for group in all.chunk_by(|a, b| a.book == b.book) {
+        let book = &group[0].book;
+        match picks.get(book).map(String::as_str) {
+            Some("") => {}
+            Some(want) => {
+                let found = group
+                    .iter()
+                    .find(|c| format!("{}/{}", c.owner, c.name).eq_ignore_ascii_case(want))
+                    .ok_or_else(|| {
+                        fail(
+                            StatusCode::BAD_REQUEST,
+                            format!("{want} is not a Writer project of {book} here"),
+                        )
+                    })?;
+                out.push(found.clone());
+            }
+            None => {
+                let refs: Vec<&WriterBook> = group.iter().collect();
+                if let Some(i) = publishing::default_pick(&refs) {
+                    out.push(group[i].clone());
+                }
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// Verses present at 30 evenly spaced times, first save to last.
+fn sampled(points: &[(i64, i64)]) -> Vec<i64> {
+    let (Some(first), Some(last)) = (points.first(), points.last()) else {
+        return Vec::new();
+    };
+    let span = (last.0 - first.0).max(1);
+    let mut at = 0;
+    (0..30)
+        .map(|i| {
+            let t = first.0 + span * i / 29;
+            while at + 1 < points.len() && points[at + 1].0 <= t {
+                at += 1;
+            }
+            points[at].1
+        })
+        .collect()
+}
+
+/// Every Writer candidate per book for this repo's language and brand, the
+/// default pick marked, each with its saves and progress over time (read
+/// from the repos' history, in parallel).
+#[utoipa::path(get, path = "/v1/repos/{owner}/{name}/assemble",
+    params(("owner" = String, Path), ("name" = String, Path)),
+    responses((status = 200, body = Assembly), (status = 409, body = crate::api::ApiError)))]
+async fn assemble(
+    State(s): State<AppState>,
+    Path((owner, name)): Path<(String, String)>,
+) -> Result<Json<Assembly>, Failure> {
+    let pb = publisher(&s)?.clone();
+    let f = facts(&s, &owner, &name).await?;
+    let (org, target) = target_of(&pb, &f.detail).map_err(|e| fail(StatusCode::CONFLICT, e))?;
+    let exists = pb
+        .forgejo
+        .repo_exists(&org, &target)
+        .await
+        .map_err(upstream)?;
+    let all = candidates_of(&s, &f.detail).await?;
+    let scanner = s.scanner.clone();
+    let books = tokio::task::spawn_blocking(move || {
+        use rayon::prelude::*;
+        let history: Vec<(usize, Option<i64>, Vec<i64>)> = all
+            .par_iter()
+            .map(|c| {
+                match hub_history::read_writer_history(
+                    &scanner.repo_path(&c.owner, &c.name),
+                    &c.book,
+                    &c.book,
+                    "",
+                ) {
+                    Ok(h) => {
+                        let points = hub_history::progress(&h);
+                        (h.saves.len(), points.first().map(|p| p.0), sampled(&points))
+                    }
+                    Err(_) => (0, None, Vec::new()),
+                }
+            })
+            .collect();
+        let mut books: Vec<AssembleBook> = Vec::new();
+        let mut start = 0;
+        while start < all.len() {
+            let end = start
+                + all[start..]
+                    .iter()
+                    .take_while(|c| c.book == all[start].book)
+                    .count();
+            let refs: Vec<&WriterBook> = all[start..end].iter().collect();
+            let pick = publishing::default_pick(&refs);
+            let candidates = (start..end)
+                .map(|i| {
+                    let (saves, first_unix, progress) = history[i].clone();
+                    Candidate {
+                        repo: all[i].clone(),
+                        default: Some(i - start) == pick,
+                        saves,
+                        first_unix,
+                        progress,
+                    }
+                })
+                .collect();
+            books.push(AssembleBook {
+                book: all[start].book.clone(),
+                candidates,
+            });
+            start = end;
+        }
+        books
+    })
+    .await
+    .map_err(|e| fail(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    Ok(Json(Assembly {
+        target: format!("{org}/{target}"),
+        exists,
+        books,
+    }))
+}
+
+/// The consolidated history, built in a scratch repository: every Writer save
+/// replayed (read in parallel), then one commit adding the RC manifest.
+fn build_consolidated(
+    scanner: &hub_ingest::Scanner,
+    books: &[WriterBook],
+    lang: &str,
+    resource: &str,
+    target: &str,
+    who: &str,
+) -> Result<(std::path::PathBuf, hub_history::Replayed, usize), String> {
+    use rayon::prelude::*;
+    let err = |e: git2::Error| e.message().to_owned();
+    let histories: Vec<hub_history::WriterHistory> = books
+        .par_iter()
+        .map(|b| {
+            // The template's fallback title: the stitched book's, at HEAD.
+            let title = synthetic_at(scanner, &b.owner, &b.name, &b.head_sha)
+                .ok()
+                .flatten()
+                .map_or_else(|| b.book.clone(), |syn| syn.title);
+            hub_history::read_writer_history(
+                &scanner.repo_path(&b.owner, &b.name),
+                &b.book,
+                &title,
+                &format!("{}/{}", b.owner, b.name),
+            )
+            .map_err(|e| format!("{}/{}: {e}", b.owner, b.name))
+        })
+        .collect::<Result<_, _>>()?;
+    let saves = histories.iter().map(|h| h.saves.len()).sum();
+    let dir = std::env::temp_dir().join(format!("hub-consolidate-{}", random_id()));
+    let repo = git2::Repository::init(&dir).map_err(err)?;
+    let replayed = hub_history::replay(&histories, &repo, None).map_err(|e| e.to_string())?;
+    let Some(mut head) = replayed.head else {
+        let _ = std::fs::remove_dir_all(&dir);
+        return Err("no Writer save changed any book".into());
+    };
+    // The last commit: the RC manifest listing every book, by the hub, naming
+    // who asked and the commit each book was read at.
+    let mut manifest: Option<String> = None;
+    for b in books {
+        let file = hub_stitch::usfm_file_name(&b.book).unwrap_or_default();
+        if let Some(m) = manifest_with_book(manifest.as_deref(), lang, resource, &b.book, &file) {
+            manifest = Some(m);
+        }
+    }
+    if let Some(m) = manifest {
+        let parent = repo.find_commit(head).map_err(err)?;
+        let mut tb = repo
+            .treebuilder(Some(&parent.tree().map_err(err)?))
+            .map_err(err)?;
+        tb.insert(
+            "manifest.yaml",
+            repo.blob(m.as_bytes()).map_err(err)?,
+            0o100644,
+        )
+        .map_err(err)?;
+        let tree = repo.find_tree(tb.write().map_err(err)?).map_err(err)?;
+        let sig =
+            git2::Signature::now("Translation Hub", "hub@translation-hub.invalid").map_err(err)?;
+        let sources: String = books
+            .iter()
+            .map(|b| format!("Source: {}/{}@{}\n", b.owner, b.name, b.head_sha))
+            .collect();
+        let message = format!(
+            "Consolidate {target} from {} Writer projects\n\nEvery save that changed a book is a commit before this one, by its own author.\n\n{sources}Consolidated-by: {who}\nConsolidated-with: translation-hub\n",
+            books.len()
+        );
+        head = repo
+            .commit(None, &sig, &sig, &message, &tree, &[&parent])
+            .map_err(err)?;
+    }
+    repo.reference("refs/heads/master", head, true, "consolidate")
+        .map_err(err)?;
+    Ok((dir, replayed, saves))
+}
+
+/// Consolidate: every Writer project of this one's language and brand (one per
+/// book) into a NEW official repo, every save that changed a book kept as a
+/// commit (crates/history, ported from Sefer's writerHistory.ts), then the RC
+/// manifest. Built locally and pushed as the service account. Only when the
+/// official repo does not exist: after that, books come in by pull, and a repo
+/// that is already consolidated is adopted instead.
+#[utoipa::path(post, path = "/v1/repos/{owner}/{name}/consolidate",
+    params(("owner" = String, Path), ("name" = String, Path)),
+    responses((status = 200, body = Done), (status = 403, body = crate::api::ApiError), (status = 409, body = crate::api::ApiError)))]
+async fn consolidate(
+    State(s): State<AppState>,
+    headers: HeaderMap,
+    Path((owner, name)): Path<(String, String)>,
+    Json(body): Json<ConsolidateBody>,
+) -> Result<Json<Done>, Failure> {
+    let pb = publisher(&s)?.clone();
+    let me = require_publisher(&s, &headers).await?;
+    let f = facts(&s, &owner, &name).await?;
+    if f.detail.synthetic.is_none() {
+        return Err(fail(
+            StatusCode::CONFLICT,
+            "not a Writer project: adopt a consolidated repo instead",
+        ));
+    }
+    let (org, target) = target_of(&pb, &f.detail).map_err(|e| fail(StatusCode::CONFLICT, e))?;
+    if pb
+        .forgejo
+        .repo_exists(&org, &target)
+        .await
+        .map_err(upstream)?
+    {
+        return Err(fail(
+            StatusCode::CONFLICT,
+            format!("{org}/{target} exists: pull books into it instead"),
+        ));
+    }
+    let books = picked_books(&s, &f.detail, &body.picks).await?;
+    if books.is_empty() {
+        return Err(fail(
+            StatusCode::CONFLICT,
+            "no Writer books picked for this language and brand",
+        ));
+    }
+    let login = pb.forgejo.whoami().await.map_err(upstream)?;
+    let lang = f.detail.summary.language.clone().unwrap_or_default();
+    let resource = f.detail.summary.resource.clone().unwrap_or_default();
+
+    let started = std::time::Instant::now();
+    let (dir, replayed, saves) = {
+        let (scanner, books, who) = (s.scanner.clone(), books.clone(), me.username.clone());
+        let (lang, resource, target) = (lang.clone(), resource.clone(), target.clone());
+        tokio::task::spawn_blocking(move || {
+            build_consolidated(&scanner, &books, &lang, &resource, &target, &who)
+        })
+        .await
+        .map_err(|e| fail(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .map_err(|e| fail(StatusCode::INTERNAL_SERVER_ERROR, e))?
+    };
+    let replay_ms = started.elapsed().as_millis() as u64;
+
+    let pushed = async {
+        pb.forgejo
+            .create_repo(
+                &target,
+                &format!("Official {lang} {resource}: consolidated from Writer projects, with their history"),
+                false,
+            )
+            .await?;
+        let (p, dir, login, org, target) = (pb.clone(), dir.clone(), login.clone(), org.clone(), target.clone());
+        tokio::task::spawn_blocking(move || p.forgejo.push(&login, &dir, &org, &target, "master"))
+            .await
+            .map_err(|e| ForgejoError::Refused(e.to_string()))?
+    }
+    .await;
+    let _ = std::fs::remove_dir_all(&dir);
+    if let Err(e) = pushed {
+        // Do not leave an empty official repo behind: the next try would refuse.
+        if let Err(cleanup) = pb.forgejo.delete_empty(&org, &target).await {
+            tracing::warn!(error = %cleanup, "could not remove the empty repo after a failed push");
+        }
+        return Err(upstream(e));
+    }
+
+    let source = format!(
+        "{}/{}@{}",
+        f.detail.summary.owner,
+        f.detail.summary.name,
+        f.detail.head_sha.clone().unwrap_or_default()
+    );
+    tracing::info!(
+        event = "consolidate",
+        target = %format!("{org}/{target}"),
+        books = books.len(),
+        saves,
+        commits = replayed.commits,
+        unchanged = replayed.unchanged,
+        replay_ms,
+        "consolidated Writer history"
+    );
+    log(&s, NewAction {
+        username: &me.username,
+        kind: "consolidate",
+        target: &format!("{org}/{target}").to_lowercase(),
+        source: Some(&source.to_lowercase()),
+        book: None,
+        reference: None,
+        detail: Some(serde_json::json!({
+            "books": books.iter().map(|b| format!("{} {}/{}", b.book, b.owner, b.name)).collect::<Vec<_>>(),
+            "saves": saves, "commits": replayed.commits, "replay_ms": replay_ms,
+        })),
+    })
+    .await;
+    Ok(Json(Done {
+        message: format!(
+            "{org}/{target} created from {} Writer projects: {} commits, every save kept with its author and date (built in {replay_ms} ms).",
+            books.len(),
+            replayed.commits + 1,
+        ),
+        target: format!("{org}/{target}"),
+        html_url: format!(
+            "{}/{org}/{target}/commits/branch/master",
+            pb.config.forgejo_public_url
+        ),
     }))
 }
 
@@ -641,6 +1056,7 @@ async fn pull(
             .create_repo(
                 &target,
                 &format!("Official {lang} {res}: books pulled in through the Translation Hub"),
+                true,
             )
             .await
             .map_err(upstream)?;

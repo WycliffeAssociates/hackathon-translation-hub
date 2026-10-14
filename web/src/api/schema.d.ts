@@ -160,6 +160,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/repos/{owner}/{name}/assemble": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every Writer candidate per book for this repo's language and brand, the
+         *     default pick marked, each with its saves and progress over time (read
+         *     from the repos' history, in parallel).
+         */
+        get: operations["assemble"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/repos/{owner}/{name}/books/{book}/history": {
         parameters: {
             query?: never;
@@ -171,6 +192,30 @@ export interface paths {
         get: operations["book_history"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/repos/{owner}/{name}/consolidate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Consolidate: every Writer project of this one's language and brand (one per
+         *     book) into a NEW official repo, every save that changed a book kept as a
+         *     commit (crates/history, ported from Sefer's writerHistory.ts), then the RC
+         *     manifest. Built locally and pushed as the service account. Only when the
+         *     official repo does not exist: after that, books come in by pull, and a repo
+         *     that is already consolidated is adopted instead.
+         */
+        post: operations["consolidate"];
         delete?: never;
         options?: never;
         head?: never;
@@ -342,6 +387,17 @@ export interface components {
         ApiError: {
             error: string;
         };
+        AssembleBook: {
+            book: string;
+            candidates: components["schemas"]["Candidate"][];
+        };
+        /** @description What a consolidation would gather, book by book, before it runs. */
+        Assembly: {
+            books: components["schemas"]["AssembleBook"][];
+            exists: boolean;
+            /** @description The official repo it would create: `TextTranslation/twx_reg`. */
+            target: string;
+        };
         /**
          * @description A book BIEL shows twice: two repos both Primary and shown, for one
          *     language, domain, resource type and track (workTracker's rule).
@@ -389,6 +445,20 @@ export interface components {
             /** Format: int64 */
             verses: number;
         };
+        /** @description One candidate for a book, with what helps pick it. */
+        Candidate: components["schemas"]["WriterBook"] & {
+            /** @description The default pick: Primary and shown on BIEL first (`default_pick`). */
+            default: boolean;
+            /** Format: int64 */
+            first_unix?: number | null;
+            /**
+             * @description Verses present at 30 evenly spaced times from the first save to the
+             *     last: the book's progress toward its full count.
+             */
+            progress: number[];
+            /** @description Writer saves that changed the book's text. */
+            saves: number;
+        };
         /** @description A catalog row that points at this repo. */
         CatalogRef: {
             books: string[];
@@ -413,6 +483,15 @@ export interface components {
             severity: string;
             /** Format: int64 */
             total: number;
+        };
+        ConsolidateBody: {
+            /**
+             * @description Per book (`MRK`), the Writer project to take (`owner/name`), or `""` to
+             *     leave the book out. A book not named gets the default pick.
+             */
+            picks?: {
+                [key: string]: string;
+            };
         };
         CoverageRow: {
             /**
@@ -655,6 +734,11 @@ export interface components {
             /** @description Why there is no target. */
             reason?: string | null;
             target?: null | components["schemas"]["OfficialRepo"];
+            /**
+             * @description Consolidate is offered (a Writer project, no official repo yet): the
+             *     language and brand's Writer books it would gather, one per book.
+             */
+            writer_books: components["schemas"]["WriterBook"][];
         };
         OfficialRepo: {
             /** @description Whether it exists on Forgejo yet. */
@@ -907,6 +991,33 @@ export interface components {
             /** @description A mark in brackets (`[']`), a word form, or a class (`a letter`). */
             text: string;
         };
+        /** @description One book of a Writer project, a candidate for consolidation. */
+        WriterBook: {
+            /** @description Upper-case USFM id. */
+            book: string;
+            /** Format: int64 */
+            chapters: number;
+            head_sha: string;
+            /**
+             * Format: int64
+             * @description Last updated: HEAD's committer time.
+             */
+            head_unix: number;
+            name: string;
+            owner: string;
+            /** Format: int64 */
+            present?: number | null;
+            show_on_biel: boolean;
+            /**
+             * Format: int64
+             * @description Against the declared source, when one resolves.
+             */
+            source_verses?: number | null;
+            /** @description The catalog's status for this repo (`Primary`, `Active`, `Inactive`), when listed. */
+            status?: string | null;
+            /** Format: int64 */
+            verses: number;
+        };
     };
     responses: never;
     parameters: never;
@@ -1154,6 +1265,36 @@ export interface operations {
             };
         };
     };
+    assemble: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Assembly"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     book_history: {
         parameters: {
             query?: never;
@@ -1173,6 +1314,48 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HistoryPoint"][];
+                };
+            };
+        };
+    };
+    consolidate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsolidateBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Done"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
                 };
             };
         };

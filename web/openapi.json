@@ -406,6 +406,53 @@
         }
       }
     },
+    "/v1/repos/{owner}/{name}/assemble": {
+      "get": {
+        "tags": [],
+        "summary": "Every Writer candidate per book for this repo's language and brand, the\ndefault pick marked, each with its saves and progress over time (read\nfrom the repos' history, in parallel).",
+        "operationId": "assemble",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Assembly"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/repos/{owner}/{name}/books/{book}/history": {
       "get": {
         "tags": [],
@@ -447,6 +494,73 @@
                   "items": {
                     "$ref": "#/components/schemas/HistoryPoint"
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/repos/{owner}/{name}/consolidate": {
+      "post": {
+        "tags": [],
+        "summary": "Consolidate: every Writer project of this one's language and brand (one per\nbook) into a NEW official repo, every save that changed a book kept as a\ncommit (crates/history, ported from Sefer's writerHistory.ts), then the RC\nmanifest. Built locally and pushed as the service account. Only when the\nofficial repo does not exist: after that, books come in by pull, and a repo\nthat is already consolidated is adopted instead.",
+        "operationId": "consolidate",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsolidateBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Done"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -936,6 +1050,48 @@
           }
         }
       },
+      "AssembleBook": {
+        "type": "object",
+        "required": [
+          "book",
+          "candidates"
+        ],
+        "properties": {
+          "book": {
+            "type": "string"
+          },
+          "candidates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Candidate"
+            }
+          }
+        }
+      },
+      "Assembly": {
+        "type": "object",
+        "description": "What a consolidation would gather, book by book, before it runs.",
+        "required": [
+          "target",
+          "exists",
+          "books"
+        ],
+        "properties": {
+          "books": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AssembleBook"
+            }
+          },
+          "exists": {
+            "type": "boolean"
+          },
+          "target": {
+            "type": "string",
+            "description": "The official repo it would create: `TextTranslation/twx_reg`."
+          }
+        }
+      },
       "BielConflict": {
         "type": "object",
         "description": "A book BIEL shows twice: two repos both Primary and shown, for one\nlanguage, domain, resource type and track (workTracker's rule).",
@@ -1088,6 +1244,48 @@
           }
         }
       },
+      "Candidate": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WriterBook"
+          },
+          {
+            "type": "object",
+            "required": [
+              "default",
+              "saves",
+              "progress"
+            ],
+            "properties": {
+              "default": {
+                "type": "boolean",
+                "description": "The default pick: Primary and shown on BIEL first (`default_pick`)."
+              },
+              "first_unix": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "int64"
+              },
+              "progress": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "description": "Verses present at 30 evenly spaced times from the first save to the\nlast: the book's progress toward its full count."
+              },
+              "saves": {
+                "type": "integer",
+                "description": "Writer saves that changed the book's text.",
+                "minimum": 0
+              }
+            }
+          }
+        ],
+        "description": "One candidate for a book, with what helps pick it."
+      },
       "CatalogRef": {
         "type": "object",
         "description": "A catalog row that points at this repo.",
@@ -1190,6 +1388,21 @@
           "total": {
             "type": "integer",
             "format": "int64"
+          }
+        }
+      },
+      "ConsolidateBody": {
+        "type": "object",
+        "properties": {
+          "picks": {
+            "type": "object",
+            "description": "Per book (`MRK`), the Writer project to take (`owner/name`), or `\"\"` to\nleave the book out. A book not named gets the default pick.",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
           }
         }
       },
@@ -1789,6 +2002,7 @@
           "is_official",
           "can_publish",
           "can_adopt",
+          "writer_books",
           "actions"
         ],
         "properties": {
@@ -1828,6 +2042,13 @@
                 "description": "Where this repo's language and brand publish: `{org}/{ietf}_{resource}`.\nNull when the repo declares no language or resource."
               }
             ]
+          },
+          "writer_books": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WriterBook"
+            },
+            "description": "Consolidate is offered (a Writer project, no official repo yet): the\nlanguage and brand's Writer books it would gather, one per book."
           }
         }
       },
@@ -2570,6 +2791,73 @@
           "text": {
             "type": "string",
             "description": "A mark in brackets (`[']`), a word form, or a class (`a letter`)."
+          }
+        }
+      },
+      "WriterBook": {
+        "type": "object",
+        "description": "One book of a Writer project, a candidate for consolidation.",
+        "required": [
+          "owner",
+          "name",
+          "book",
+          "chapters",
+          "verses",
+          "head_sha",
+          "head_unix",
+          "show_on_biel"
+        ],
+        "properties": {
+          "book": {
+            "type": "string",
+            "description": "Upper-case USFM id."
+          },
+          "chapters": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "head_sha": {
+            "type": "string"
+          },
+          "head_unix": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Last updated: HEAD's committer time."
+          },
+          "name": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "present": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "show_on_biel": {
+            "type": "boolean"
+          },
+          "source_verses": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Against the declared source, when one resolves."
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The catalog's status for this repo (`Primary`, `Active`, `Inactive`), when listed."
+          },
+          "verses": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       }

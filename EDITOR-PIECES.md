@@ -52,6 +52,8 @@ What the package would export, because the hub already uses it unchanged:
 | Verse pairing between panes | `editor-fork/recipes/pairing.ts`, `align.ts` (in the fork, unused) | Click a verse, its source lights; about a day more |
 | Lint Fix actions | `lint.ts` (refused here by the read-only change filter) | For an installable *editor*, these come back |
 
+Not editor, but ported from Sefer too: `crates/history` is `src/core/migrate/writerHistory.ts` (Writer saves replayed as book-file commits) in Rust; Sefer's hand-written pack (`src/core/git/pack.ts`) is replaced by libgit2's in-memory store dumped as one pack.
+
 ## 4. Packaging notes for when it is cut
 
 - The engine wasm is an asset (`?url` import); a package must let the host serve it.
