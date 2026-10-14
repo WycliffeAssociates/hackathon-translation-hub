@@ -189,19 +189,20 @@ await step("repo-en_ulb-findings", async () => {
   await chip.click();
   await page.waitForURL(new RegExp(`check=sous(%3A|:)${code}`));
   await page.locator(".viewer-pane .cm-content").waitFor();
-  const first = page.locator(".finding-list li button").first();
+  // The rail beside the text has the check open; a row lights its exact span.
+  const group = page.locator(".rail-group", { has: page.locator(`.rail-check[aria-expanded="true"] .code`, { hasText: new RegExp(`^${code}$`) }) });
+  const first = group.locator(".rail-items button").first();
   await first.waitFor();
-  const where = await first.innerText();
+  const where = (await first.locator(".ref").innerText()).trim();
   await first.click();
-  await page.waitForURL(/at=\d+-\d+/);
-  // The finding's range is selected and its underline drawn.
-  await page.locator(".viewer-pane .cm-selectionBackground").first().waitFor();
-  await page.waitForTimeout(300);
+  await page.locator(".viewer-pane .usfm-flash").first().waitFor();
+  const lit = (await page.locator(".viewer-pane .usfm-flash").first().innerText()).trim();
+  expect((await page.locator(".rail-items button.on").count()) === 1, "the picked row is marked");
   const url = new URL(page.url());
-  results.push({ name: `  ${code} in ${book} ${where} → ${url.searchParams.get("file")} @ ${url.searchParams.get("at")}`, ok: true, ms: 0, notes: [] });
+  results.push({ name: `  ${code} in ${book} ${where} → ${url.searchParams.get("file")}, lit "${lit.slice(0, 30)}"`, ok: true, ms: 0, notes: [] });
   await shot("05-repo-en_ulb-finding");
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.locator(".check-rows").scrollIntoViewIfNeeded();
+  await page.locator(".rail").scrollIntoViewIfNeeded();
   await shot("05b-repo-en_ulb-finding-390");
   await page.locator(".checks-table").scrollIntoViewIfNeeded();
   await shot("05c-repo-en_ulb-findings-390");
@@ -231,11 +232,12 @@ await step("checks", async () => {
   const chip = page.locator(".checks-table tr.check-books button.book-chip").first();
   await chip.waitFor();
   await chip.click();
-  await page.locator(".finding-list li").first().waitFor();
-  const note = await page.locator(".check-rows p").innerText();
-  expect(/showing [\d,]+ of [\d,]+/.test(note), `"showing N of M" (got "${note}")`);
+  const capped = page.locator(".rail-capped").first();
+  await capped.waitFor();
+  const note = await capped.innerText();
+  expect(/[\d,]+ in this book; the first [\d,]+ are kept/.test(note), `"N in this book; the first M are kept" (got "${note}")`);
   results.push({ name: `  km_ulb: ${note}`, ok: true, ms: 0, notes: [] });
-  await page.locator(".check-rows").scrollIntoViewIfNeeded();
+  await page.locator(".rail").scrollIntoViewIfNeeded();
   await shot("14-km_ulb-MisplacedFormat");
 });
 

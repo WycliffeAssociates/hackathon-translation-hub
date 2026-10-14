@@ -1,10 +1,9 @@
 // Every check that fired in the repo, counts first: one row per check, sorted
 // by total (the server's order). A row opens to its per-book counts; a book
-// opens the viewer. Rows themselves are fetched only for the book picked
-// (see CheckRows), since the server keeps at most 200 per book and check.
+// opens the viewer, whose rail lists that book's rows with the check open.
 import { For, Show, createSignal } from "solid-js";
-import type { CodeCount, Finding } from "../../api/types";
-import { CheckBadges, checkKey, plural } from "../../ui/bits";
+import type { CodeCount } from "../../api/types";
+import { CheckBadges, checkKey } from "../../ui/bits";
 
 export default function Findings(props: {
   counts: readonly CodeCount[];
@@ -72,38 +71,3 @@ export default function Findings(props: {
   );
 }
 
-/** The stored rows of one Sous Chef check in the open book, each opening its range. */
-export function CheckRows(props: {
-  code: string;
-  book: string;
-  /** The true count, from /findings. */
-  total: number | undefined;
-  rows: readonly Finding[];
-  onOpen: (f: Finding) => void;
-}) {
-  const more = () => (props.total ?? 0) > props.rows.length;
-  return (
-    <div class="check-rows">
-      <p class="small">
-        <b class="mono">{props.code}</b> in <b class="mono">{props.book}</b>:{" "}
-        <Show when={more()} fallback={plural(props.rows.length, "finding")}>
-          showing {props.rows.length.toLocaleString()} of {props.total!.toLocaleString()} · the rest are counted, not kept
-        </Show>
-      </p>
-      <Show when={props.rows.length}>
-        <ol class="finding-list">
-          <For each={props.rows}>
-            {(f) => (
-              <li>
-                <button type="button" class="linkish mono" onClick={() => props.onOpen(f)} title={`Select ${f.book} ${f.chapter}:${f.verse ?? "–"} in the viewer`}>
-                  {f.chapter}:{f.verse ?? "–"}
-                </button>{" "}
-                <span>{f.message}</span> <span class="excerpt mono">{f.text}</span>
-              </li>
-            )}
-          </For>
-        </ol>
-      </Show>
-    </div>
-  );
-}

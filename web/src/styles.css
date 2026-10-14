@@ -266,11 +266,6 @@ button.linkish.mono { font-family: var(--mono); }
 .book-counts { display: flex; flex-wrap: wrap; gap: .3rem; }
 button.book-chip { padding: .1em .5em; font-size: .8rem; border-radius: 4px; }
 .viewer-col { min-width: 0; }
-.check-rows { margin: .6rem 0 0; }
-.finding-list { list-style: none; margin: 0; padding: 0; max-height: 18rem; overflow: auto; border: 1px solid var(--rule); border-radius: 10px; background: var(--wf-bg); font-size: .9rem; }
-.finding-list li { padding: .3rem .6rem; border-bottom: 1px solid var(--rule); display: flex; gap: .6rem; align-items: baseline; }
-.finding-list li:last-child { border-bottom: 0; }
-.finding-list .excerpt { margin-left: auto; }
 .share { white-space: nowrap; color: var(--muted); font-size: .85rem; }
 .share.loud { color: var(--ink); font-weight: 700; }
 .share-bar { display: inline-block; width: 3rem; height: .5rem; background: var(--empty); border-radius: 2px; vertical-align: 1px; overflow: hidden; }
@@ -330,3 +325,52 @@ kbd { font-family: var(--mono); font-size: .8em; border: 1px solid var(--rule); 
   .chnav-open { width: 7.5rem; }
   .chnav-keys { display: none; }
 }
+
+/* --- repo: the browser, wider than the page --- */
+/* Tree | text | findings rail. The browser breaks out of main's 1100px so the
+   text keeps a reading width with the rail beside it. Margins, not a
+   transform: a transform would become the containing block of CodeMirror's
+   fixed-position tooltips. 48px leaves room for a scrollbar inside 100vw. */
+.browser {
+  width: min(1560px, calc(100vw - 48px));
+  margin-left: calc(50% - min(780px, 50vw - 24px));
+  grid-template-columns: minmax(160px, 220px) minmax(0, 1fr);
+}
+@media (max-width: 760px) { .browser { width: auto; margin-left: 0; grid-template-columns: minmax(0, 1fr); } }
+.viewer-body { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: .75rem; align-items: stretch; }
+@media (max-width: 1100px) { .viewer-body { grid-template-columns: minmax(0, 1fr); } }
+.viewer-pane, .rail { height: max(420px, calc(100vh - 200px)); }
+@media (max-width: 1100px) { .rail { height: auto; max-height: 50vh; } }
+.tree { max-height: max(420px, calc(100vh - 140px)); }
+
+/* The rail: one row per check (worst, then noisiest, first); open a check to
+   list its marks; a mark is chapter:verse and the message, one line. */
+.rail { display: flex; flex-direction: column; border: 1px solid var(--rule); border-radius: 10px; background: var(--wf-bg); font-size: .85rem; min-width: 0; }
+.rail-head { padding: .45rem .7rem; border-bottom: 1px solid var(--rule); display: flex; gap: .5rem; align-items: baseline; }
+.rail-empty { padding: .6rem .7rem; }
+.rail-groups { list-style: none; margin: 0; padding: 0; overflow: auto; flex: 1; }
+.rail-group { border-bottom: 1px solid var(--rule); }
+.rail-check { display: flex; gap: .4rem; align-items: center; width: 100%; border: 0; border-radius: 0; background: none; padding: .35rem .6rem; text-align: left; font: inherit; color: var(--ink); cursor: pointer; }
+.rail-check:hover { background: var(--paper-2); }
+.rail-check .code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rail-check .n { margin-left: auto; font-variant-numeric: tabular-nums; font-weight: 600; }
+.rail-check .tag { font-size: .72rem; color: var(--muted); }
+.dot { flex: none; width: .6rem; height: .6rem; border-radius: 50%; background: var(--lapis); }
+.dot.error { background: var(--conflict); }
+.dot.warning { background: var(--draft); }
+.rail-capped { margin: 0; padding: .1rem .7rem .3rem 1.9rem; color: var(--muted); }
+.rail-items { list-style: none; margin: 0; padding: 0 0 .3rem; }
+.rail-items button { display: flex; gap: .55rem; width: 100%; border: 0; border-radius: 0; background: none; padding: .18rem .6rem .18rem 1.9rem; text-align: left; font: inherit; color: var(--ink); cursor: pointer; }
+.rail-items button:hover { background: var(--paper-2); }
+.rail-items button.on { background: color-mix(in srgb, var(--lapis) 16%, transparent); }
+.rail-items .ref { flex: none; min-width: 4.2ch; color: var(--lapis); font-size: .8rem; }
+.rail-items .msg { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+.rail-items button.on .msg, .rail-items button:hover .msg { color: var(--ink); }
+
+/* Marks you can see. The editor's default is a 1px wavy line, and info (most
+   marks: lint info, all of Sous Chef's convention) gets no fill at all. */
+.usfm-viewer .viewer-pane .cm-editor .cm-lintRange { text-decoration-thickness: 2px; text-underline-offset: 4px; }
+.usfm-viewer .viewer-pane .cm-editor .usfm-lint-info { background: color-mix(in srgb, var(--lapis) 12%, transparent); border-radius: 2px; }
+.usfm-viewer .viewer-pane .cm-editor .cm-lintRange-warning { text-decoration-color: var(--draft); }
+.rail-hidden { margin: 0; padding: .45rem .7rem; border-top: 1px solid var(--rule); color: var(--muted); }
+.rail-same { margin: 0; padding: .1rem .7rem .3rem 1.9rem; color: var(--ink); }

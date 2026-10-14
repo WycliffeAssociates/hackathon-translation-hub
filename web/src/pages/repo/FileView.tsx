@@ -23,6 +23,9 @@ export default function FileView(props: {
   findings: readonly ViewerFinding[];
   focus: Range | null;
   chapter: string | null;
+  totals?: (engine: string, code: string) => number | undefined;
+  check?: string | null;
+  lintCounted?: readonly { code: string; n: number }[];
 }) {
   const call = () => ({ path: { owner: props.owner, name: props.name, path: props.path }, query: { source: props.source || undefined } });
   const url = () => urlOf("/v1/repos/{owner}/{name}/file/{path}", call());
@@ -47,7 +50,18 @@ export default function FileView(props: {
               <Show when={USFM.has(kind())} fallback={<pre class="code">{t()}</pre>}>
                 {/* Keyed on the text: a new file is a new editor. */}
                 <Show when={t()} keyed>
-                  {(body) => <UsfmViewer text={body} findings={props.findings} focus={props.focus} chapter={props.chapter} book={props.book} />}
+                  {(body) => (
+                    <UsfmViewer
+                      text={body}
+                      findings={props.findings}
+                      focus={props.focus}
+                      chapter={props.chapter}
+                      book={props.book}
+                      totals={props.totals}
+                      check={props.check}
+                      lintCounted={props.lintCounted}
+                    />
+                  )}
                 </Show>
               </Show>
             )}

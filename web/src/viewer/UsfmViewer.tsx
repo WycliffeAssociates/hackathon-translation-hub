@@ -3,16 +3,18 @@
 // `mountViewer` is Sefer's editor in read-only mode with the engine's
 // diagnostics drawn inline; this component adds the mode toggle, a chapter
 // navigator that follows the scroll (the fork's `watchLocation`), proofreading
-// findings as underlines, and "go to this range".
-import { Show, createEffect, createSignal, on, onCleanup, onMount } from "solid-js";
+// findings as underlines, "go to this range", and the rail beside the text
+// listing every mark it draws.
+import { Show, createEffect, createMemo, createSignal, on, onCleanup, onMount } from "solid-js";
 import "@viewer/host/tokens.css";
 import "@viewer/editor-fork/editor.css";
 import { bootEngine } from "@viewer/host/engine.onion";
-import { mountViewer, type ViewerMount } from "@viewer/viewer/mountViewer";
+import { mountViewer, type Shown, type ViewerMount } from "@viewer/viewer/mountViewer";
 import { showCorpusFindings, type CorpusFinding } from "@viewer/editor-fork/recipes/lint";
 import { watchLocation } from "@viewer/editor-fork/recipes/whereAmI";
 import type { BookRow } from "../api/types";
 import ChapterNav from "./ChapterNav";
+import FindingsRail, { type RailItem } from "./FindingsRail";
 
 export interface Range {
   readonly from: number;
@@ -22,6 +24,7 @@ export interface Range {
 export interface ViewerFinding extends Range {
   readonly code: string;
   readonly message: string;
+  readonly severity: "error" | "warning" | "info";
 }
 
 type Mode = "regular" | "usfm";
@@ -31,6 +34,37 @@ type Mode = "regular" | "usfm";
  * the raw file, so a file with CRs needs its offsets moved back by the CRs
  * before them.
  */
+/**
+ * Chapter:verse for an offset into the (LF) text, from its `\c` and `\v`
+ * markers: `3:16`, `3` before the chapter's first verse, `intro` before `\c`.
+ */
+function addresses(text: string): (offset: number) => string {
+  const marks: { at: number; c?: string; v?: string }[] = [];
+  for (const m of text.matchAll(/\\(c|v)\s+(\d+[a-z]?(?:-\d+[a-z]?)?)/g)) {
+    marks.push(m[1] === "c" ? { at: m.index, c: m[2] } : { at: m.index, v: m[2] });
+  }
+  return (offset) => {
+    let lo = 0;
+    let hi = marks.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (marks[mid]!.at <= offset) lo = mid + 1;
+      else hi = mid;
+    }
+    let verse: string | undefined;
+    for (let i = lo - 1; i >= 0; i--) {
+      const m = marks[i]!;
+      if (m.v !== undefined) verse ??= m.v;
+      if (m.c !== undefined) return verse ? `${m.c}:${verse}` : m.c;
+    }
+    return "intro";
+  };
+}
+
+/** Format characters (zero-width space, joiners, marks) as `⟨200B⟩`, so a row can show what it is about. */
+const visible = (s: string) =>
+  s.replace(/[\n\t]+/g, " ").replace(/\p{Cf}/gu, (c) => `⟨${c.codePointAt(0)!.toString(16).toUpperCase().padStart(4, "0")}⟩`);
+
 function canonical(raw: string): { text: string; at: (offset: number) => number } {
   if (!raw.includes("\r")) return { text: raw, at: (o) => o };
   const crs: number[] = [];
@@ -57,6 +91,12 @@ export default function UsfmViewer(props: {
   chapter: string | null;
   /** The book's lint and coverage, to mark chapters in the navigator. */
   book?: BookRow | undefined;
+  /** The true count of a check in this book, when the server keeps fewer rows. */
+  totals?: (engine: string, code: string) => number | undefined;
+  /** `engine:code` for the rail to open first. */
+  check?: string | null;
+  /** The server scan's lint counts for this book, by check. */
+  lintCounted?: readonly { code: string; n: number }[];
   onReady?: () => void;
 }) {
   let host!: HTMLDivElement;
@@ -66,20 +106,41 @@ export default function UsfmViewer(props: {
   const [mode, setMode] = createSignal<Mode>("regular");
   const [failed, setFailed] = createSignal<string>();
   const doc = canonical(props.text);
+  const where = addresses(doc.text);
+  const [shown, setShown] = createSignal<readonly Shown[]>([]);
+  const items = createMemo<RailItem[]>(() =>
+    shown().map((d) => {
+      const slash = d.source.indexOf("/");
+      const engine = d.source.slice(0, slash);
+      return {
+        from: d.from,
+        to: d.to,
+        engine: engine === "onion" ? "lint" : engine,
+        code: d.source.slice(slash + 1),
+        severity: d.severity,
+        message: d.message,
+        ref: where(d.from),
+        context: visible(doc.text.slice(Math.max(0, d.from - 12), d.to + 12)).trim(),
+      };
+    }),
+  );
 
   onMount(() => {
     let alive = true;
     let unwatch = () => {};
+    let unlisten = () => {};
     onCleanup(() => {
       alive = false;
       unwatch();
+      unlisten();
       mount()?.destroy();
     });
     bootEngine().then(
       (engine) => {
         if (!alive) return;
         const m = mountViewer({ parent: host, text: doc.text, analyze: engine.memoize(), mode: mode() });
-        unwatch = watchLocation(m.view, (where) => follow(m, where?.label ?? ""));
+        unwatch = watchLocation(m.view, (at) => follow(m, at?.label ?? ""));
+        unlisten = m.onDiagnostics(setShown);
         setMount(m);
         props.onReady?.();
       },
@@ -103,7 +164,7 @@ export default function UsfmViewer(props: {
     const list: CorpusFinding[] = props.findings.map((f, i) => ({
       id: `${i}`,
       code: f.code,
-      severity: "info",
+      severity: f.severity,
       message: f.message,
       from: doc.at(f.from),
       to: doc.at(f.to),
@@ -116,17 +177,25 @@ export default function UsfmViewer(props: {
     const m = mount();
     const f = props.focus;
     if (!m || !f) return;
-    const anchor = Math.min(doc.at(f.from), doc.text.length);
-    const head = Math.min(doc.at(f.to), doc.text.length);
     m.clipTo(null);
-    m.view.dispatch({ selection: { anchor, head }, scrollIntoView: true });
-    // Centre it: CodeMirror's minimal scroll leaves it at the bottom edge.
-    requestAnimationFrame(() => {
-      const at = m.view.coordsAtPos(anchor);
-      const box = m.view.scrollDOM.getBoundingClientRect();
-      if (at) m.view.scrollDOM.scrollTop += at.top - box.top - box.height / 3;
-    });
+    reveal(m, doc.at(f.from), doc.at(f.to));
   });
+
+  /** Lint the scan counted that the viewer draws less of (the two engines' policies differ). */
+  const undrawn = () => {
+    const drawn = new Map<string, number>();
+    for (const i of items()) if (i.engine === "lint") drawn.set(i.code, (drawn.get(i.code) ?? 0) + 1);
+    return (props.lintCounted ?? []).flatMap((c) => {
+      const n = c.n - (drawn.get(c.code) ?? 0);
+      return n > 0 ? [{ code: c.code, n }] : [];
+    });
+  };
+
+  /** Select a range, a third of the way down the pane, lit for a moment; the chapter indicator follows. */
+  function reveal(m: ViewerMount, from: number, to: number) {
+    pinned = null;
+    m.reveal(from, to);
+  }
 
   const labels = () => mount()?.chapters().flatMap((c) => (c.label ? [c.label] : [])) ?? [];
 
@@ -194,8 +263,21 @@ export default function UsfmViewer(props: {
         <Show when={!mount() && !failed()}><span class="loading small">Starting the viewer…</span></Show>
       </div>
       <Show when={failed()}>{(e) => <div class="failure">Viewer failed: {e()}</div>}</Show>
-      {/* Focusable, so a click in the text puts the [ ] keys here. */}
-      <div class="viewer-pane" ref={host} data-mode={mode()} tabIndex={0} aria-label="Book text" />
+      <div class="viewer-body">
+        {/* Focusable, so a click in the text puts the [ ] keys here. */}
+        <div class="viewer-pane" ref={host} data-mode={mode()} tabIndex={0} aria-label="Book text" />
+        <Show when={mount()}>
+          {(m) => (
+            <FindingsRail
+              items={items()}
+              totals={props.totals ?? (() => undefined)}
+              initial={props.check ?? null}
+              onPick={(item) => reveal(m(), item.from, item.to)}
+              undrawn={undrawn()}
+            />
+          )}
+        </Show>
+      </div>
     </div>
   );
 }

@@ -1,16 +1,16 @@
-// One repo: the file tree is the navigation; findings and books below both
-// open places in the viewer. Which file is open, where, and for which check
+// One repo: the file tree is the navigation; the viewer's rail lists the open
+// book's findings, and the books and findings below open places in it. Which file is open, where, and for which check
 // lives in the URL (?file=…&at=from-to&ch=…&source=true&check=sous:Rarity), so
 // every view is a link.
 import { A, useParams, useSearchParams } from "@solidjs/router";
 import { For, Show, createMemo, createResource } from "solid-js";
 import { api, startPageView } from "../api/client";
-import type { CodeCount, Finding } from "../api/types";
-import { Async, Counts, FORGEJO, StatusChip, ago, checkKey, dateOf, parseCheck } from "../ui/bits";
+import type { CodeCount } from "../api/types";
+import { Async, Counts, FORGEJO, StatusChip, ago, checkKey, dateOf } from "../ui/bits";
 import Books from "./repo/Books";
 import FileTree from "./repo/FileTree";
 import FileView from "./repo/FileView";
-import Findings, { CheckRows } from "./repo/Findings";
+import Findings from "./repo/Findings";
 
 type Params = { file?: string; source?: string; at?: string; ch?: string; check?: string };
 
@@ -35,30 +35,26 @@ export default function Repo() {
     return m ? { from: Number(m[1]), to: Number(m[2]) } : null;
   };
 
-  // The check picked in Findings, and the open book's id (`MAT`).
-  const check = () => parseCheck(search.check);
+  // The open book's id (`MAT`).
   const openBookId = () => (source() ? undefined : repo.latest?.books.find((b) => b.path === file())?.book);
-  // A Sous Chef check's stored rows for the open book. Lint rows are not
+  // Sous Chef's stored rows for the open book, every check. Lint rows are not
   // served: the viewer's engine draws lint for the open book itself.
   const [rows] = createResource(
     () => {
-      const c = check();
       const book = openBookId();
-      return c?.engine === "sous" && book ? { ...id(), query: { book, code: c.code } } : false;
+      return book ? { ...id(), query: { book } } : false;
     },
     (c) => api.json("/v1/repos/{owner}/{name}/proof", c),
   );
-  const total = () => {
-    const c = check();
-    return counts.latest?.find((x) => x.engine === c?.engine && x.code === c?.code)?.books.find((b) => b.book === openBookId())?.n;
-  };
+  /** A check's true count in the open book (the server keeps at most 200 rows of it). */
+  const total = (engine: string, code: string) =>
+    counts.latest?.find((x) => x.engine === engine && x.code === code)?.books.find((b) => b.book === openBookId())?.n;
 
   const show = (p: Params) => {
     setSearch({ file: p.file, source: p.source, at: p.at, ch: p.ch, check: p.check });
     requestAnimationFrame(() => document.getElementById("files")?.scrollIntoView({ block: "start" }));
   };
   const openBook = (path: string, ch?: string) => show({ file: path, ch });
-  const openFinding = (f: Finding) => show({ file: f.id, at: `${f.from}-${f.to}`, check: search.check });
   const openCheck = (c: CodeCount, book: string) => {
     const path = repo.latest?.books.find((b) => b.book === book)?.path;
     if (path) show({ file: path, check: checkKey(c) });
@@ -129,22 +125,19 @@ export default function Repo() {
                     path={file}
                     source={source()}
                     book={source() ? undefined : r().books.find((b) => b.path === file)}
-                    findings={rows.latest?.findings.filter((f) => f.id === file) ?? []}
+                    findings={(rows.latest?.findings ?? [])
+                      .filter((f) => f.id === file)
+                      // Hygiene is "the text should never hold this"; convention is "rare here".
+                      .map((f) => ({ ...f, severity: f.rule === "hygiene" ? ("warning" as const) : ("info" as const) }))}
                     focus={focus()}
                     chapter={search.ch ?? null}
+                    totals={total}
+                    check={search.check ?? null}
+                    lintCounted={(counts.latest ?? []).flatMap((c) => {
+                      const n = c.engine === "lint" ? c.books.find((b) => b.book === openBookId())?.n : undefined;
+                      return n ? [{ code: c.code, n }] : [];
+                    })}
                   />
-                  <Show when={check()?.engine === "sous" && openBookId()}>
-                    {(book) => (
-                      <Async of={rows} what={`${check()!.code} in ${book()}`}>
-                        {(p) => <CheckRows code={check()!.code} book={book()} total={total()} rows={p().findings} onOpen={openFinding} />}
-                      </Async>
-                    )}
-                  </Show>
-                  <Show when={check()?.engine === "lint" && openBookId()}>
-                    <p class="small check-rows">
-                      <b class="mono">{check()!.code}</b> is a lint check: the viewer underlines it where it fires.
-                    </p>
-                  </Show>
                 </div>
               )}
             </Show>
