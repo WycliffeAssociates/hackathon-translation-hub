@@ -8,6 +8,7 @@ import Search from "./pages/Search";
 import Biel from "./pages/Biel";
 import Status from "./pages/Status";
 import Checks from "./pages/Checks";
+import { SessionCorner } from "./ui/session";
 
 // The repo page carries the USFM viewer (CodeMirror + the engine wasm), so it
 // loads on demand.
@@ -34,6 +35,7 @@ function Layout(props: RouteSectionProps) {
           <A href="/checks" activeClass="on">Checks</A>
           <A href="/status" activeClass="on">Status</A>
         </nav>
+        <SessionCorner />
       </header>
       <main>{props.children}</main>
     </>

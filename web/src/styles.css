@@ -401,3 +401,21 @@ kbd { font-family: var(--mono); font-size: .8em; border: 1px solid var(--rule); 
 .compare-why { margin: 0; color: var(--muted); }
 .compare-why b { color: var(--ink); }
 .muted { color: var(--muted); }
+
+/* --- sign-in and publishing (proposal) --- */
+.session, .session-link { display: inline-flex; gap: .45rem; align-items: center; font-size: .9rem; }
+.session img { border-radius: 50%; }
+.official-tag { border-color: var(--official); color: var(--official); }
+.official { border: 1px solid var(--rule); border-left: 4px solid var(--official); border-radius: 10px; padding: .7rem 1rem; margin: 1rem 0; background: var(--wf-bg); display: grid; gap: .55rem; }
+.official.none { border-left-color: var(--rule); }
+.official-line { margin: 0; display: flex; flex-wrap: wrap; gap: .4rem .8rem; align-items: baseline; }
+.official-actions { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; }
+.official-actions form { display: inline-flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
+.official-actions input, .official-actions select { font: inherit; padding: .35em .6em; border: 1px solid var(--rule); border-radius: 8px; background: var(--paper); color: var(--ink); }
+.official-actions input[name="tag"] { width: 6.5em; }
+.official-actions input[name="notes"] { width: min(22rem, 60vw); }
+button.primary { background: var(--official); border-color: var(--official); color: #fff; }
+button.primary:disabled { opacity: .5; cursor: progress; }
+.official-log { margin: 0; padding-left: 1.2rem; font-size: .85rem; color: var(--muted); max-height: 8rem; overflow: auto; }
+.official-done { margin: 0; color: var(--official); }
+.releases { display: inline-flex; flex-wrap: wrap; gap: .3rem; }

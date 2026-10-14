@@ -188,6 +188,25 @@
         }
       }
     },
+    "/v1/me": {
+      "get": {
+        "tags": [],
+        "summary": "Who is signed in.",
+        "operationId": "me",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/repos": {
       "get": {
         "tags": [],
@@ -318,6 +337,63 @@
             }
           },
           "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/repos/{owner}/{name}/adopt": {
+      "post": {
+        "tags": [],
+        "summary": "Adopt: fork this consolidated repo into the official org as its language and brand's official repo.",
+        "operationId": "adopt",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Done"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
             "description": "",
             "content": {
               "application/json": {
@@ -475,6 +551,53 @@
         }
       }
     },
+    "/v1/repos/{owner}/{name}/official": {
+      "get": {
+        "tags": [],
+        "summary": "The official repo this one publishes to, its releases, and what the signed-in person may do.",
+        "operationId": "official",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Official"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/repos/{owner}/{name}/proof": {
       "get": {
         "tags": [],
@@ -539,6 +662,140 @@
             }
           },
           "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/repos/{owner}/{name}/pull": {
+      "post": {
+        "tags": [],
+        "summary": "Pull one book of this repo (a Writer project's stitched book) into the official repo, as one commit.",
+        "operationId": "pull",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PullBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Done"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/repos/{owner}/{name}/releases": {
+      "post": {
+        "tags": [],
+        "summary": "Publish: a release tag at the head of this official repo (or of this repo's official one).",
+        "operationId": "publish_release",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReleaseBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Done"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
             "description": "",
             "content": {
               "application/json": {
@@ -620,6 +877,53 @@
   },
   "components": {
     "schemas": {
+      "Action": {
+        "type": "object",
+        "description": "One write the hub made.",
+        "required": [
+          "at_unix",
+          "username",
+          "kind",
+          "target"
+        ],
+        "properties": {
+          "at_unix": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "book": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "description": "`adopt`, `pull` or `publish`."
+          },
+          "ref": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The commit (pull) or tag (publish)."
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Where it came from, `owner/name@sha`."
+          },
+          "target": {
+            "type": "string",
+            "description": "The official repo, `owner/name`."
+          },
+          "username": {
+            "type": "string"
+          }
+        }
+      },
       "ApiError": {
         "type": "object",
         "description": "Every error body: `{\"error\": \"...\"}`.",
@@ -934,6 +1238,28 @@
           "source_verses": {
             "type": "integer",
             "format": "int64"
+          }
+        }
+      },
+      "Done": {
+        "type": "object",
+        "required": [
+          "message",
+          "target",
+          "html_url"
+        ],
+        "properties": {
+          "html_url": {
+            "type": "string",
+            "description": "Forgejo's page for what was written."
+          },
+          "message": {
+            "type": "string",
+            "description": "What was written, in a sentence."
+          },
+          "target": {
+            "type": "string",
+            "description": "The official repo."
           }
         }
       },
@@ -1397,6 +1723,146 @@
           }
         }
       },
+      "Me": {
+        "type": "object",
+        "description": "A signed-in person, as the API shows them.",
+        "required": [
+          "username",
+          "publisher"
+        ],
+        "properties": {
+          "avatar_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "full_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "publisher": {
+            "type": "boolean",
+            "description": "In the official org's publishers team at sign-in."
+          },
+          "username": {
+            "type": "string"
+          }
+        }
+      },
+      "MeResponse": {
+        "type": "object",
+        "required": [
+          "publishing"
+        ],
+        "properties": {
+          "me": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Me",
+                "description": "The signed-in person, or null."
+              }
+            ]
+          },
+          "official_org": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The official org (`TextTranslation`), when publishing is on."
+          },
+          "publishing": {
+            "type": "boolean",
+            "description": "Whether this hub can sign people in and publish at all."
+          }
+        }
+      },
+      "Official": {
+        "type": "object",
+        "description": "What the official side looks like from one repo's page.",
+        "required": [
+          "is_official",
+          "can_publish",
+          "can_adopt",
+          "actions"
+        ],
+        "properties": {
+          "actions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Action"
+            },
+            "description": "What the hub wrote from this repo, or to it."
+          },
+          "can_adopt": {
+            "type": "boolean",
+            "description": "Adopt is offered: a consolidated (not Writer) repo, and no official repo yet."
+          },
+          "can_publish": {
+            "type": "boolean",
+            "description": "The signed-in person may adopt, pull and publish."
+          },
+          "is_official": {
+            "type": "boolean",
+            "description": "This repo is itself in the official org."
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why there is no target."
+          },
+          "target": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OfficialRepo",
+                "description": "Where this repo's language and brand publish: `{org}/{ietf}_{resource}`.\nNull when the repo declares no language or resource."
+              }
+            ]
+          }
+        }
+      },
+      "OfficialRepo": {
+        "type": "object",
+        "required": [
+          "owner",
+          "name",
+          "exists",
+          "html_url",
+          "releases"
+        ],
+        "properties": {
+          "exists": {
+            "type": "boolean",
+            "description": "Whether it exists on Forgejo yet."
+          },
+          "html_url": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "releases": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Release"
+            },
+            "description": "Its releases, newest first."
+          }
+        }
+      },
       "PairedEvidence": {
         "type": "object",
         "description": "The facts behind one source-compared finding (`rule: \"source\"`). Source\ncopy's run of shared words is [`Finding::run`].",
@@ -1604,6 +2070,72 @@
           },
           "sk_tag": {
             "type": "string"
+          }
+        }
+      },
+      "PullBody": {
+        "type": "object",
+        "required": [
+          "book"
+        ],
+        "properties": {
+          "book": {
+            "type": "string",
+            "description": "The book to pull: `RUT`."
+          }
+        }
+      },
+      "Release": {
+        "type": "object",
+        "description": "A release, as the hub shows it.",
+        "required": [
+          "tag_name"
+        ],
+        "properties": {
+          "body": {
+            "type": "string"
+          },
+          "html_url": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "published_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tag_name": {
+            "type": "string"
+          },
+          "target_commitish": {
+            "type": "string"
+          }
+        }
+      },
+      "ReleaseBody": {
+        "type": "object",
+        "required": [
+          "tag"
+        ],
+        "properties": {
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tag": {
+            "type": "string",
+            "description": "`v1.0`."
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },

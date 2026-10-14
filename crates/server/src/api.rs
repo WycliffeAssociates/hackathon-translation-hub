@@ -22,6 +22,15 @@ use utoipa::{IntoParams, OpenApi, ToSchema};
 pub struct AppState {
     pub store: Arc<Store>,
     pub scanner: Arc<Scanner>,
+    /// Sign-in and writes to the official org, when configured.
+    pub publish: Option<Arc<crate::publish::Publisher>>,
+}
+
+/// The whole contract: the read API plus sign-in and publishing.
+pub fn openapi() -> utoipa::openapi::OpenApi {
+    let mut doc = ApiDoc::openapi();
+    doc.merge(crate::publish::PublishDoc::openapi());
+    doc
 }
 
 #[derive(OpenApi)]
@@ -86,10 +95,8 @@ pub fn router(state: AppState) -> axum::Router {
         .route("/v1/languages/{ietf}", get(get_language))
         .route("/v1/biel/conflicts", get(biel_conflicts))
         .route("/v1/status", get(status))
-        .route(
-            "/v1/openapi.json",
-            get(|| async { Json(ApiDoc::openapi()) }),
-        )
+        .route("/v1/openapi.json", get(|| async { Json(openapi()) }))
+        .merge(crate::publish::router())
         .with_state(state)
 }
 
@@ -99,7 +106,7 @@ pub struct ApiError {
     pub error: String,
 }
 
-pub struct Failure(StatusCode, String);
+pub struct Failure(pub StatusCode, pub String);
 
 impl IntoResponse for Failure {
     fn into_response(self) -> Response {
@@ -542,7 +549,7 @@ mod tests {
     #[test]
     fn openapi_matches_the_committed_contract() {
         let committed = include_str!("../../../web/openapi.json");
-        let current = ApiDoc::openapi().to_pretty_json().expect("serialize");
+        let current = openapi().to_pretty_json().expect("serialize");
         assert!(
             committed.trim() == current.trim(),
             "web/openapi.json is stale: run `cd web && pnpm gen` and commit it"

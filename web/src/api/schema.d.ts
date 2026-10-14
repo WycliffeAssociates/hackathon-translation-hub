@@ -89,6 +89,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Who is signed in. */
+        get: operations["me"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/repos": {
         parameters: {
             query?: never;
@@ -120,6 +137,23 @@ export interface paths {
         get: operations["get_repo"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/repos/{owner}/{name}/adopt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Adopt: fork this consolidated repo into the official org as its language and brand's official repo. */
+        post: operations["adopt"];
         delete?: never;
         options?: never;
         head?: never;
@@ -183,6 +217,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/repos/{owner}/{name}/official": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The official repo this one publishes to, its releases, and what the signed-in person may do. */
+        get: operations["official"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/repos/{owner}/{name}/proof": {
         parameters: {
             query?: never;
@@ -194,6 +245,40 @@ export interface paths {
         get: operations["repo_proof"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/repos/{owner}/{name}/pull": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Pull one book of this repo (a Writer project's stitched book) into the official repo, as one commit. */
+        post: operations["pull"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/repos/{owner}/{name}/releases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publish: a release tag at the head of this official repo (or of this repo's official one). */
+        post: operations["publish_release"];
         delete?: never;
         options?: never;
         head?: never;
@@ -238,6 +323,21 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @description One write the hub made. */
+        Action: {
+            /** Format: int64 */
+            at_unix: number;
+            book?: string | null;
+            /** @description `adopt`, `pull` or `publish`. */
+            kind: string;
+            /** @description The commit (pull) or tag (publish). */
+            ref?: string | null;
+            /** @description Where it came from, `owner/name@sha`. */
+            source?: string | null;
+            /** @description The official repo, `owner/name`. */
+            target: string;
+            username: string;
+        };
         /** @description Every error body: `{"error": "..."}`. */
         ApiError: {
             error: string;
@@ -332,6 +432,14 @@ export interface components {
             source: string;
             /** Format: int64 */
             source_verses: number;
+        };
+        Done: {
+            /** @description Forgejo's page for what was written. */
+            html_url: string;
+            /** @description What was written, in a sentence. */
+            message: string;
+            /** @description The official repo. */
+            target: string;
         };
         /**
          * @description The fraction behind one convention finding. Every site of one pattern
@@ -519,6 +627,44 @@ export interface components {
             subject?: string | null;
             title?: string | null;
         };
+        /** @description A signed-in person, as the API shows them. */
+        Me: {
+            avatar_url?: string | null;
+            full_name?: string | null;
+            /** @description In the official org's publishers team at sign-in. */
+            publisher: boolean;
+            username: string;
+        };
+        MeResponse: {
+            me?: null | components["schemas"]["Me"];
+            /** @description The official org (`TextTranslation`), when publishing is on. */
+            official_org?: string | null;
+            /** @description Whether this hub can sign people in and publish at all. */
+            publishing: boolean;
+        };
+        /** @description What the official side looks like from one repo's page. */
+        Official: {
+            /** @description What the hub wrote from this repo, or to it. */
+            actions: components["schemas"]["Action"][];
+            /** @description Adopt is offered: a consolidated (not Writer) repo, and no official repo yet. */
+            can_adopt: boolean;
+            /** @description The signed-in person may adopt, pull and publish. */
+            can_publish: boolean;
+            /** @description This repo is itself in the official org. */
+            is_official: boolean;
+            /** @description Why there is no target. */
+            reason?: string | null;
+            target?: null | components["schemas"]["OfficialRepo"];
+        };
+        OfficialRepo: {
+            /** @description Whether it exists on Forgejo yet. */
+            exists: boolean;
+            html_url: string;
+            name: string;
+            owner: string;
+            /** @description Its releases, newest first. */
+            releases: components["schemas"]["Release"][];
+        };
         /**
          * @description The facts behind one source-compared finding (`rule: "source"`). Source
          *     copy's run of shared words is [`Finding::run`].
@@ -615,6 +761,25 @@ export interface components {
             /** Format: int64 */
             ran_unix: number;
             sk_tag: string;
+        };
+        PullBody: {
+            /** @description The book to pull: `RUT`. */
+            book: string;
+        };
+        /** @description A release, as the hub shows it. */
+        Release: {
+            body?: string;
+            html_url?: string;
+            name?: string;
+            published_at?: string | null;
+            tag_name: string;
+            target_commitish?: string;
+        };
+        ReleaseBody: {
+            notes?: string | null;
+            /** @description `v1.0`. */
+            tag: string;
+            title?: string | null;
         };
         /** @description One repo's count for one check. */
         RepoCodeCount: {
@@ -868,6 +1033,25 @@ export interface operations {
             };
         };
     };
+    me: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeResponse"];
+                };
+            };
+        };
+    };
     list_repos: {
         parameters: {
             query?: {
@@ -923,6 +1107,44 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    adopt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Done"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1013,6 +1235,36 @@ export interface operations {
             };
         };
     };
+    official: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Official"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     repo_proof: {
         parameters: {
             query?: {
@@ -1041,6 +1293,90 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    pull: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PullBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Done"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    publish_release: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReleaseBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Done"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

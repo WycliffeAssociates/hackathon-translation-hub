@@ -60,4 +60,8 @@ done
   FROM repository" > "$DATA/dump.tsv"
 
 python3 -I "$ROOT/dev/wacs/adopt.py" "$URL" "$TOKEN" "$DATA/dump.tsv" "$DATA/gitea/git/repositories"
+
+# The publishing proposal: official org, publishers team, hub-bot, an OAuth app.
+python3 -I "$ROOT/dev/wacs/publishing.py" "$URL" "$TOKEN" "$DATA/hub.env" "${HUB_PUBLIC_URL:-http://127.0.0.1:8788}" "$ROOT/dev/wacs/compose.yml"
 echo "WACS-local: $URL (wacsadmin; password in target/wacs/admin)"
+echo "hub with publishing: set -a; . target/wacs/hub.env; set +a; then run hub-server (see AGENTS.md)"

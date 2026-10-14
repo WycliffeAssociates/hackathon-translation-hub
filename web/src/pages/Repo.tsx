@@ -11,6 +11,7 @@ import Books from "./repo/Books";
 import FileTree from "./repo/FileTree";
 import FileView from "./repo/FileView";
 import Findings from "./repo/Findings";
+import Official from "./repo/Official";
 
 type Params = { file?: string; source?: string; at?: string; ch?: string; check?: string };
 
@@ -89,6 +90,8 @@ export default function Repo() {
             </p>
             <Show when={r().scan_error}><div class="failure">Scan failed: {r().scan_error}</div></Show>
           </header>
+
+          <Official owner={r().owner} name={r().name} books={r().books} openBook={openBookId()} />
 
           <Show when={r().synthetic}>
             <div class="synthetic-note" role="note">

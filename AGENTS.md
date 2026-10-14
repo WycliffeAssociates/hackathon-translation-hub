@@ -58,6 +58,13 @@ docker compose up -d db && docker compose up --build hub  # → http://localhost
 # Writes go here, never to a real server. See dev/wacs/compose.yml for how it differs from wacsdev.
 dev/wacs/up.sh                                            # → http://127.0.0.1:3400 (wacsadmin; target/wacs/admin)
 docker compose -f dev/wacs/compose.yml --profile hub up --build hub   # the hub beside it → :8788
+
+# Publishing (proposal) against WACS-local: up.sh also writes target/wacs/hub.env
+# (official org TextTranslation, publishers team, hub-bot, an OAuth app; sign in as
+# wacsadmin, a publisher, or translator, who is not). Run the hub natively with it:
+set -a; . target/wacs/hub.env; set +a
+HUB_FORGEJO_DB=mysql://dashboard_ro:dev@127.0.0.1:3308/gitea HUB_REPO_ROOT=target/wacs/gitea/git/repositories \
+  HUB_LISTEN=127.0.0.1:8788 HUB_WEB_DIR=web/dist HUB_POLL_SECS=30 cargo run --release -p hub-server --features mariadb
 ```
 
 Configuration is environment variables, all optional in development:
@@ -76,6 +83,12 @@ Configuration is environment variables, all optional in development:
 | `HUB_LOG_FORMAT` | `json` | `pretty` for humans |
 | `RUST_LOG` | hub crates `info` | standard filter |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | — | export spans over OTLP/HTTP (build `--features otel`) |
+| `HUB_FORGEJO_URL`, `HUB_FORGEJO_TOKEN` | — | publishing (proposal): Forgejo's API and the service account; both set turns sign-in and writes on |
+| `HUB_FORGEJO_PUBLIC_URL` | `HUB_FORGEJO_URL` | Forgejo as a browser reaches it (the sign-in page) |
+| `HUB_OFFICIAL_ORG`, `HUB_PUBLISHERS_TEAM` | `TextTranslation`, `publishers` | the only owner the hub writes to; the team whose members may |
+| `HUB_OAUTH_CLIENT_ID`, `HUB_OAUTH_CLIENT_SECRET` | — | the hub's OAuth app on Forgejo |
+| `HUB_PUBLIC_URL` | `http://HUB_LISTEN` | the hub as a browser reaches it, for the OAuth redirect |
+| `HUB_WRITE_HOSTS` | `127.0.0.1,localhost,gitea,content.wacsdev.org` | hosts the hub may write to; production WACS is refused regardless |
 
 ## Verify your work — required before you say it is done
 

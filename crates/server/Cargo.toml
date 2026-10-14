@@ -15,8 +15,13 @@ hub-checks.workspace = true
 hub-repo-read.workspace = true
 hub-biel.workspace = true
 hub-proof.workspace = true
+hub-stitch.workspace = true
+# Publishing: file contents for Forgejo's contents API, and session ids.
+base64 = "0.22"
+getrandom = "0.3"
 serde.workspace = true
 serde_json.workspace = true
+thiserror.workspace = true
 rayon.workspace = true
 axum = "0.8"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "gzip"] }

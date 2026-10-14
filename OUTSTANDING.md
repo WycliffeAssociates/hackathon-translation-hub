@@ -64,15 +64,41 @@ reasoned about but has not run against the real thing.
   - Audio, image and raw links are plain URLs, so those requests carry no `traceparent`.
   - The app uses Solid 1.9 (the router targets it), while Sefer is on Solid 2 rc.
 
+## Publishing (proposal, built 2026-10-14 against WACS-local; revert freely)
+
+Will's model after reading Joe's repo: a published translation is a **pointer**,
+one official repo per language and brand plus a release tag in it, so two
+`matthew.usfm` files cannot both be official. Joe's org/name template and pulls,
+with Will's choices: run on WACS dev, read off disk, write only through
+Forgejo's API, roles from a Forgejo team.
+
+Built, and driven end to end in a browser against WACS-local (`dev/wacs/`):
+
+- **Sign in** with Forgejo OAuth (`/v1/auth/login` → Forgejo → `/v1/auth/callback`); sessions in SQLite (migration 0004), a cookie, 7 days. `/v1/me`; the header shows who you are.
+- **Who may publish**: members of the official org's `publishers` team, read with the service account at sign-in. Others see the panel and get 403 from the routes.
+- **Writes**: only through Forgejo's API, as a service account (`hub-bot`), naming the person; only to `HUB_OFFICIAL_ORG`; only on a host in `HUB_WRITE_HOSTS`, never production WACS (`crates/server/src/forgejo_api.rs`).
+- **Adopt**: fork a consolidated repo into `TextTranslation/{ietf}_{resource}` (history kept; Forgejo shows "forked from"). Releases are switched on after the fork (Forgejo forks get only code and pulls).
+- **Pull**: one book (a Writer project's book stitched) committed into the official repo, created if missing, with `Source:`, `Source-path:`, `Pulled-by:` trailers.
+- **Publish**: a release tag at the official repo's head (`v1.0`, then `v1.1`).
+- The repo page's **Official** panel shows the target, its releases, the buttons for a publisher, and the hub's log of writes (`action` table).
+
+Gaps, in the order they would bite:
+
+- **A pulled-into repo has no `manifest.yaml`**, so the hub reads no language for it. Joe's spec: create an RC manifest and add each pulled book to `projects`.
+- **Running it on wacsdev** (ask first; nothing has run there): create `dashboard_ro` from `dev/db-init/10-readonly-user.sql` with a real password, e.g. `PW=$(openssl rand -hex 16); sed "s/'dev'/'$PW'/" dev/db-init/10-readonly-user.sql | ssh <wacsdev-host> 'docker exec -i wacs2-db-1 sh -c "exec mariadb -uroot -p\"\$MARIADB_ROOT_PASSWORD\""'`; then what `dev/wacs/publishing.py` does locally (a `TextTranslation` org with `publishers`, a service account with a token, an OAuth app); then the hub beside `wacs2-gitea-1` with the `wacs2_gitea_data` volume mounted `:ro` on the compose network.
+- **Port and BIEL** still mark Primary by hand. The pointer could feed them later; not touched.
+- **Editions** (`_e2`), bulletins, overwrite-with-confirmation for a pull that replaces a book: not built. A pull that replaces a book says so in the commit and the log, but does not ask twice.
+- **CSRF**: writes rely on `SameSite=Lax` and a JSON body. Enough for a POC; add a token before anyone else's browser can reach it.
+- Team membership is read at sign-in; removal takes effect at the next sign-in.
+
 ## Not built yet, but agreed earlier
 
-- WACS sign-in (needed only when something is not public; today nothing needs it).
-- Writes through Forgejo's API: none exist. A person overriding the Official pick (`picked_by = person`) has no table yet.
+- A person overriding the Official pick (`picked_by = person`) has no table yet.
 - Burn-down and velocity charts. `book_history` collects the data from now on; the web app draws a sparkline per book.
 
 ## Out of scope here: the coworker's proposals, left for him
 
-- Publications, releases, bulletins (release notes).
+- Publications and bulletins (release notes). Releases as tags are now proposed above.
 - Audio beyond playing a file from the tree.
 - The language → version → track grid as a page. The API returns `books[]` picks per language; the grid's shape is his call.
 - "Bring in chapters" / the assembled-version view (parked as a funky model).

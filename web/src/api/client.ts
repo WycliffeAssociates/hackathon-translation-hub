@@ -41,6 +41,16 @@ export type JsonPath = {
 export type JsonOf<P extends JsonPath> =
   Get<P> extends { responses: { 200: { content: { "application/json": infer J } } } } ? J : never;
 
+type Post<P extends keyof paths> = paths[P] extends { post: infer G } ? G : never;
+/** The paths that take a POST and answer JSON (sign-in's writes: adopt, pull, publish). */
+export type PostPath = {
+  [P in keyof paths]: Post<P> extends { responses: { 200: { content: { "application/json": unknown } } } } ? P : never;
+}[keyof paths];
+export type PostOf<P extends PostPath> =
+  Post<P> extends { responses: { 200: { content: { "application/json": infer J } } } } ? J : never;
+export type BodyOf<P extends PostPath> =
+  Post<P> extends { requestBody: { content: { "application/json": infer B } } } ? B : Record<string, never>;
+
 export interface Call<P extends keyof paths> {
   readonly path?: PathParams<P>;
   readonly query?: QueryParams<P>;
@@ -70,6 +80,8 @@ export class Api extends Context.Service<
       call?: Call<P>,
     ) => Effect.Effect<A, ApiError>;
     readonly text: <P extends keyof paths>(path: P, call?: Call<P>) => Effect.Effect<string, ApiError>;
+    /** A write. The session cookie goes with it (same origin). */
+    readonly post: <P extends PostPath>(path: P, call: Call<P>, body: BodyOf<P>) => Effect.Effect<PostOf<P>, ApiError>;
   }
 >()("Api") {}
 
@@ -85,8 +97,8 @@ export const ApiLive = Layer.effect(
       ),
     );
 
-    const send = (url: string) =>
-      client.get(url).pipe(
+    const send = (url: string, req: HttpClientRequest.HttpClientRequest = HttpClientRequest.get(url)) =>
+      client.execute(req).pipe(
         // The headers above are the whole of the browser's tracing: no client
         // spans, and no Effect-generated trace headers beside ours.
         Effect.provideService(HttpClient.TracerDisabledWhen, () => true),
@@ -96,8 +108,12 @@ export const ApiLive = Layer.effect(
         Effect.catchTag("HttpClientError", (e) => fail(url, null, e.message)),
       );
 
-    const body = <A>(url: string, read: (r: HttpClientResponse.HttpClientResponse) => Effect.Effect<A, unknown>) =>
-      send(url).pipe(
+    const body = <A>(
+      url: string,
+      read: (r: HttpClientResponse.HttpClientResponse) => Effect.Effect<A, unknown>,
+      req?: HttpClientRequest.HttpClientRequest,
+    ) =>
+      send(url, req).pipe(
         Effect.flatMap(read),
         Effect.mapError((e) => (e instanceof ApiError ? e : new ApiError({ url, status: null, message: String(e) }))),
       );
@@ -114,6 +130,11 @@ export const ApiLive = Layer.effect(
       text: (path, call) => {
         const url = urlOf(path, call);
         return body(url, (r) => r.text);
+      },
+      post: (path, call, payload) => {
+        const url = urlOf(path, call as Call<typeof path>);
+        const req = HttpClientRequest.post(url).pipe(HttpClientRequest.bodyText(JSON.stringify(payload), "application/json"));
+        return body(url, (r) => r.json, req) as Effect.Effect<never, ApiError>;
       },
     };
   }),
@@ -146,5 +167,9 @@ export const api = {
   text: <P extends keyof paths>(path: P, call?: Call<P>) =>
     run(Effect.gen(function* () {
       return yield* (yield* Api).text(path, call);
+    })),
+  post: <P extends PostPath>(path: P, call: Call<P>, body: BodyOf<P>) =>
+    run(Effect.gen(function* () {
+      return yield* (yield* Api).post(path, call, body);
     })),
 };

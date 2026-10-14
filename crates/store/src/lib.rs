@@ -8,6 +8,7 @@
 //! The read models in [`read`] are the API's response bodies, so they derive
 //! `utoipa::ToSchema` here rather than being copied into the server.
 
+pub mod publishing;
 pub mod read;
 mod write;
 
@@ -38,6 +39,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/0001_init.sql"),
     include_str!("../migrations/0002_finding_counts.sql"),
     include_str!("../migrations/0003_proof_source.sql"),
+    include_str!("../migrations/0004_publishing.sql"),
 ];
 
 pub struct Store {
@@ -92,7 +94,7 @@ fn migrate(conn: &mut Connection) -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn now_unix() -> i64 {
+pub fn now_unix() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |d| d.as_secs() as i64)

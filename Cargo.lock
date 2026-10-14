@@ -775,11 +775,14 @@ name = "hub-server"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "base64 0.22.1",
+ "getrandom 0.3.4",
  "hub-biel",
  "hub-checks",
  "hub-ingest",
  "hub-proof",
  "hub-repo-read",
+ "hub-stitch",
  "hub-store",
  "opentelemetry",
  "opentelemetry-otlp",
@@ -788,6 +791,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "thiserror",
  "tokio",
  "tower-http",
  "tracing",

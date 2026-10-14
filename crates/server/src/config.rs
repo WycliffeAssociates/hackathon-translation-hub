@@ -25,6 +25,45 @@ pub struct Config {
     pub catalog_url: Option<String>,
     /// `HUB_WEB_DIR`: the built web app, served at `/`, when set.
     pub web_dir: Option<PathBuf>,
+    /// Publishing (sign-in and writes through Forgejo's API), when configured.
+    pub publishing: Option<Publishing>,
+}
+
+/// Sign-in with Forgejo, and the hub's writes to its official org. Off unless
+/// `HUB_FORGEJO_URL` and `HUB_FORGEJO_TOKEN` are both set.
+#[derive(Clone)]
+pub struct Publishing {
+    /// `HUB_FORGEJO_URL`: Forgejo as the hub reaches it (API, token exchange).
+    pub forgejo_url: String,
+    /// `HUB_FORGEJO_PUBLIC_URL`: Forgejo as a browser reaches it (the sign-in
+    /// page); defaults to `forgejo_url`.
+    pub forgejo_public_url: String,
+    /// `HUB_FORGEJO_TOKEN`: the service account that writes, and reads team membership.
+    pub token: String,
+    /// `HUB_OFFICIAL_ORG` (`TextTranslation`): the only owner the hub writes to.
+    pub official_org: String,
+    /// `HUB_PUBLISHERS_TEAM` (`publishers`): who may adopt, pull and publish.
+    pub publishers_team: String,
+    /// `HUB_OAUTH_CLIENT_ID`, `HUB_OAUTH_CLIENT_SECRET`: the hub's OAuth app on Forgejo.
+    pub oauth_client_id: String,
+    pub oauth_client_secret: String,
+    /// `HUB_PUBLIC_URL`: the hub as a browser reaches it, for the OAuth redirect.
+    pub public_url: String,
+    /// `HUB_WRITE_HOSTS`: hosts the hub may write to. Production WACS is never
+    /// one of them, whatever this says.
+    pub write_hosts: Vec<String>,
+}
+
+impl std::fmt::Debug for Publishing {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Publishing")
+            .field("forgejo_url", &self.forgejo_url)
+            .field("official_org", &self.official_org)
+            .field("publishers_team", &self.publishers_team)
+            .field("public_url", &self.public_url)
+            .field("write_hosts", &self.write_hosts)
+            .finish_non_exhaustive()
+    }
 }
 
 #[derive(Clone)]
@@ -63,6 +102,36 @@ impl Config {
             Some(url) => Some(url.to_owned()),
             None => Some("https://api.bibleineverylanguage.org/v1/graphql".to_owned()),
         };
+        let listen: SocketAddr = var("HUB_LISTEN")
+            .unwrap_or("127.0.0.1:8787".into())
+            .parse()
+            .expect("HUB_LISTEN must be host:port");
+        let publishing = match (var("HUB_FORGEJO_URL"), var("HUB_FORGEJO_TOKEN")) {
+            (Some(url), Some(token)) => {
+                let url = url.trim_end_matches('/').to_owned();
+                Some(Publishing {
+                    forgejo_public_url: var("HUB_FORGEJO_PUBLIC_URL")
+                        .map_or_else(|| url.clone(), |u| u.trim_end_matches('/').to_owned()),
+                    forgejo_url: url,
+                    token,
+                    official_org: var("HUB_OFFICIAL_ORG").unwrap_or("TextTranslation".into()),
+                    publishers_team: var("HUB_PUBLISHERS_TEAM").unwrap_or("publishers".into()),
+                    oauth_client_id: var("HUB_OAUTH_CLIENT_ID").unwrap_or_default(),
+                    oauth_client_secret: var("HUB_OAUTH_CLIENT_SECRET").unwrap_or_default(),
+                    public_url: var("HUB_PUBLIC_URL").map_or_else(
+                        || format!("http://{listen}"),
+                        |u| u.trim_end_matches('/').to_owned(),
+                    ),
+                    write_hosts: var("HUB_WRITE_HOSTS")
+                        .unwrap_or("127.0.0.1,localhost,gitea,content.wacsdev.org".into())
+                        .split(',')
+                        .map(|h| h.trim().to_lowercase())
+                        .filter(|h| !h.is_empty())
+                        .collect(),
+                })
+            }
+            _ => None,
+        };
         Self {
             repo_root: var("HUB_REPO_ROOT")
                 .unwrap_or("dev-data/repositories".into())
@@ -71,14 +140,12 @@ impl Config {
             forgejo,
             base_url: var("HUB_BASE_URL")
                 .unwrap_or("https://content.bibletranslationtools.org".into()),
-            listen: var("HUB_LISTEN")
-                .unwrap_or("127.0.0.1:8787".into())
-                .parse()
-                .expect("HUB_LISTEN must be host:port"),
+            listen,
             poll_every: secs("HUB_POLL_SECS", 300),
             catalog_every: secs("HUB_CATALOG_SECS", 3600),
             catalog_url,
             web_dir: var("HUB_WEB_DIR").map(Into::into),
+            publishing,
         }
     }
 }

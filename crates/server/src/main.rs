@@ -11,8 +11,10 @@
 
 mod api;
 mod config;
+mod forgejo_api;
 mod poll;
 mod proof;
+mod publish;
 mod telemetry;
 
 use std::sync::Arc;
@@ -26,16 +28,13 @@ use hub_store::Store;
 use tower_http::compression::CompressionLayer;
 use tower_http::services::{ServeDir, ServeFile};
 use tracing::{Instrument, field::Empty, info, info_span};
-use utoipa::OpenApi;
 
 #[tokio::main]
 async fn main() {
     if std::env::args().any(|a| a == "--openapi") {
         println!(
             "{}",
-            api::ApiDoc::openapi()
-                .to_pretty_json()
-                .expect("serialize OpenAPI")
+            api::openapi().to_pretty_json().expect("serialize OpenAPI")
         );
         return;
     }
@@ -70,7 +69,29 @@ async fn main() {
     tokio::spawn(poller.clone().run_repos());
     tokio::spawn(poller.run_catalog());
 
-    let mut app = api::router(api::AppState { store, scanner });
+    // Publishing is off unless configured, and refused outright for a host the
+    // write guard will not accept (production WACS never is).
+    let publish = config
+        .publishing
+        .as_ref()
+        .and_then(|p| match forgejo_api::Forgejo::new(p) {
+            Ok(forgejo) => {
+                tracing::info!(forgejo = %p.forgejo_url, org = %p.official_org, "publishing on");
+                Some(Arc::new(publish::Publisher {
+                    config: p.clone(),
+                    forgejo,
+                }))
+            }
+            Err(e) => {
+                tracing::error!(error = %e, "publishing off");
+                None
+            }
+        });
+    let mut app = api::router(api::AppState {
+        store,
+        scanner,
+        publish,
+    });
     if let Some(dir) = &config.web_dir {
         // The web app is a single page: unknown paths get index.html.
         let index = dir.join("index.html");
@@ -132,7 +153,8 @@ async fn wide_event(req: Request, next: Next) -> Response {
         method = %req.method(),
         route = %route,
         path = %req.uri().path(),
-        query = %req.uri().query().unwrap_or(""),
+        // The sign-in callback's query is a one-time OAuth code; it stays out of the logs.
+        query = %if route == "/v1/auth/callback" { "<redacted>" } else { req.uri().query().unwrap_or("") },
         traceparent = %traceparent,
         // Set by the web app: which page made the call.
         page = %page,
