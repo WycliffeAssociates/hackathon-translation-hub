@@ -77,6 +77,7 @@ Forgejo's database.
 | `AGENTS.md` | how to run, verify, observe, deploy; the hard rules |
 | `OUTSTANDING.md` | scope: verified, unverified, in progress, undecided |
 | `TODO.md` | fixes for scripture-kitchen and Sefer |
+| `EDITOR-PIECES.md` | everything the hub uses, adds or wants from Sefer's editor, for making it installable |
 | `crates/` | the Rust side (README.md has a table of crates) |
 | `web/` | the web app (`web/README.md`) |
 | `scripts/verify.py`, `scripts/latency.py` | end-to-end check; response times from the logs |
