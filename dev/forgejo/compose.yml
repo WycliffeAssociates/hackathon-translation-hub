@@ -21,7 +21,7 @@ services:
       interval: 2s
       retries: 60
   forgejo:
-    image: codeberg.org/forgejo/forgejo:11-rootless
+    image: codeberg.org/forgejo/forgejo:${FORGEJO_TAG:-15}-rootless
     depends_on:
       db: { condition: service_healthy }
     environment:

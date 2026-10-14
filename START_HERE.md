@@ -80,7 +80,7 @@ Forgejo's database.
 | `crates/` | the Rust side (README.md has a table of crates) |
 | `web/` | the web app (`web/README.md`) |
 | `scripts/verify.py`, `scripts/latency.py` | end-to-end check; response times from the logs |
-| `dev/forgejo/check.sh` | the hub against stock Forgejo 11 in Docker |
+| `dev/forgejo/check.sh` | the hub against stock Forgejo 15 in Docker |
 | `proto/` | the first clickable wireframe (no build; historical) |
 | `HANDOFF.md`, `plans/` | the first session's brief and plans (historical) |
 

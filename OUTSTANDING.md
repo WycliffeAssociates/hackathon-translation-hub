@@ -44,8 +44,8 @@ reasoned about but has not run against the real thing.
 
 ## Known gaps in what is built
 
-- **MariaDB reader: verified against stock Forgejo, not yet against wacs2.** `dev/forgejo/check.sh` runs Forgejo 11.0.16 (rootless) on MariaDB 10.11 and reads it as `dashboard_ro` with production's grants. It checks that the public repo is indexed, the private one is not, a push lands within a poll, and a repo made private disappears. wacs2 itself still needs a run (ask first).
-- **A push bumps `repository.updated_unix`: confirmed** on Forgejo 11.0.16 (`check.sh`, step 1). The poll still also compares HEAD on disk, which covers writes that skip Forgejo.
+- **MariaDB reader: verified against stock Forgejo, not yet against wacs2.** `dev/forgejo/check.sh` runs Forgejo 15.0.10 (rootless; WACS dev runs 15.0.6) on MariaDB 10.11 and reads it as `dashboard_ro` with production's grants. It checks that the public repo is indexed, the private one is not, a push lands within a poll, and a repo made private disappears. wacs2 itself still needs a run (ask first).
+- **A push bumps `repository.updated_unix`: confirmed** on Forgejo 11.0.16 and 15.0.10 (`check.sh`, step 1). On 15 it happens from a queue a few seconds after the push returns. The poll still also compares HEAD on disk, which covers writes that skip Forgejo.
 - **Sous-chef:**
   - Thai `th_ulb` flags every U+200B (3,221 findings); this is likely a kitchen rule to revisit.
   - A one-book Writer corpus gives noisy `Rarity` findings.

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The hub against stock Forgejo, end to end. Run from anywhere:
 #
-#   dev/forgejo/check.sh          start Forgejo 11 (rootless) + MariaDB 10.11, check, tear down
+#   dev/forgejo/check.sh          start Forgejo 15 (rootless; FORGEJO_TAG=11 for 11) + MariaDB 10.11, check, tear down
 #   KEEP=1 dev/forgejo/check.sh   leave Forgejo and the hub running afterwards
 #
 # Checks, in order:
@@ -78,8 +78,11 @@ push() {  # push a commit that adds $1 to ulb_test
 before=$(sql "SELECT updated_unix FROM repository WHERE lower_name='ulb_test'")
 sleep 2
 sha1=$(push 08-RUT.usfm RUT)
-sleep 1
-after=$(sql "SELECT updated_unix FROM repository WHERE lower_name='ulb_test'")
+# Forgejo 15 bumps it from a queue after the push returns, so wait for it.
+for _ in $(seq 30); do
+  after=$(sql "SELECT updated_unix FROM repository WHERE lower_name='ulb_test'")
+  (( after > before )) && break; sleep 1
+done
 (( after > before )) && ok "push bumps repository.updated_unix ($before → $after)" \
   || bad "push left updated_unix at $before"
 
