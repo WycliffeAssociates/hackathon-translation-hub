@@ -248,6 +248,31 @@ impl Forgejo {
             .and_then(|v| v["sha"].as_str().map(str::to_owned)))
     }
 
+    /// A text file on the default branch: its blob sha and contents.
+    pub async fn file_text(
+        &self,
+        owner: &str,
+        name: &str,
+        path: &str,
+    ) -> Result<Option<(String, String)>> {
+        let Some(v) = self
+            .get(&format!("/repos/{owner}/{name}/contents/{path}"))
+            .await?
+        else {
+            return Ok(None);
+        };
+        let sha = v["sha"].as_str().unwrap_or_default().to_owned();
+        let raw: String = v["content"]
+            .as_str()
+            .unwrap_or_default()
+            .split_whitespace()
+            .collect();
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(raw)
+            .map_err(|e| ForgejoError::Refused(format!("{path}: {e}")))?;
+        Ok(Some((sha, String::from_utf8_lossy(&bytes).into_owned())))
+    }
+
     // --- writes (official org only) ----------------------------------------
 
     /// Adopt: fork `src` into the official org as `name`. A fork keeps the

@@ -78,13 +78,12 @@ Built, and driven end to end in a browser against WACS-local (`dev/wacs/`):
 - **Who may publish**: members of the official org's `publishers` team, read with the service account at sign-in. Others see the panel and get 403 from the routes.
 - **Writes**: only through Forgejo's API, as a service account (`hub-bot`), naming the person; only to `HUB_OFFICIAL_ORG`; only on a host in `HUB_WRITE_HOSTS`, never production WACS (`crates/server/src/forgejo_api.rs`).
 - **Adopt**: fork a consolidated repo into `TextTranslation/{ietf}_{resource}` (history kept; Forgejo shows "forked from"). Releases are switched on after the fork (Forgejo forks get only code and pulls).
-- **Pull**: one book (a Writer project's book stitched) committed into the official repo, created if missing, with `Source:`, `Source-path:`, `Pulled-by:` trailers.
+- **Pull**: one book (a Writer project's book stitched) committed into the official repo, created if missing, with `Source:`, `Source-path:`, `Pulled-by:` trailers. The same commit starts an RC `manifest.yaml` or adds the book to its `projects` (Joe's spec), so the hub and BIEL read the language and books. A manifest that is not YAML is left alone.
 - **Publish**: a release tag at the official repo's head (`v1.0`, then `v1.1`).
 - The repo page's **Official** panel shows the target, its releases, the buttons for a publisher, and the hub's log of writes (`action` table).
 
 Gaps, in the order they would bite:
 
-- **A pulled-into repo has no `manifest.yaml`**, so the hub reads no language for it. Joe's spec: create an RC manifest and add each pulled book to `projects`.
 - **Running it on wacsdev** (ask first; nothing has run there): create `dashboard_ro` from `dev/db-init/10-readonly-user.sql` with a real password, e.g. `PW=$(openssl rand -hex 16); sed "s/'dev'/'$PW'/" dev/db-init/10-readonly-user.sql | ssh <wacsdev-host> 'docker exec -i wacs2-db-1 sh -c "exec mariadb -uroot -p\"\$MARIADB_ROOT_PASSWORD\""'`; then what `dev/wacs/publishing.py` does locally (a `TextTranslation` org with `publishers`, a service account with a token, an OAuth app); then the hub beside `wacs2-gitea-1` with the `wacs2_gitea_data` volume mounted `:ro` on the compose network.
 - **Port and BIEL** still mark Primary by hand. The pointer could feed them later; not touched.
 - **Editions** (`_e2`), bulletins, overwrite-with-confirmation for a pull that replaces a book: not built. A pull that replaces a book says so in the commit and the log, but does not ask twice.

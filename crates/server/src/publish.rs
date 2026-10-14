@@ -651,25 +651,51 @@ async fn pull(
         .file_sha(&org, &target, &file_name)
         .await
         .map_err(upstream)?;
+    // The RC manifest says what language and books the repo holds; a pulled
+    // book is added to its `projects` (Joe's spec), or a manifest is started.
+    let lang = f.detail.summary.language.clone().unwrap_or_default();
+    let resource = f.detail.summary.resource.clone().unwrap_or_default();
+    let existing = pb
+        .forgejo
+        .file_text(&org, &target, "manifest.yaml")
+        .await
+        .map_err(upstream)?;
+    let manifest = manifest_with_book(
+        existing.as_ref().map(|(_, t)| t.as_str()),
+        &lang,
+        &resource,
+        &book,
+        &file_name,
+    );
     let src = format!("{}/{}", f.detail.summary.owner, f.detail.summary.name);
     let message = format!(
-        "{} {book} from {src}\n\nSource: {src}@{sha}\nSource-path: {}\nPulled-by: {}\nPulled-with: translation-hub\n",
+        "{} {book} from {src}{}\n\nSource: {src}@{sha}\nSource-path: {}\nPulled-by: {}\nPulled-with: translation-hub\n",
         if replaces.is_some() { "Replace" } else { "Add" },
+        if manifest.is_some() {
+            " (and list it in manifest.yaml)"
+        } else {
+            ""
+        },
         row.path,
         me.username,
     );
     let commit = pb
         .forgejo
-        .commit(
-            &org,
-            &target,
-            &message,
-            &[FileChange {
+        .commit(&org, &target, &message, &{
+            let mut files = vec![FileChange {
                 path: &file_name,
                 text: &text,
                 replaces: replaces.clone(),
-            }],
-        )
+            }];
+            if let Some(m) = &manifest {
+                files.push(FileChange {
+                    path: "manifest.yaml",
+                    text: m,
+                    replaces: existing.as_ref().map(|(sha, _)| sha.clone()),
+                });
+            }
+            files
+        })
         .await
         .map_err(upstream)?;
     log(&s, NewAction {
@@ -791,6 +817,52 @@ async fn publish_release(
         target: format!("{org}/{target}"),
         html_url: release.html_url,
     }))
+}
+
+/// The manifest after adding `book`, or `None` when it already lists it (or is
+/// not YAML the hub can safely rewrite; then it is left alone). A new one is
+/// the least RC 0.2 that names the language, the brand and the book.
+fn manifest_with_book(
+    existing: Option<&str>,
+    lang: &str,
+    resource: &str,
+    book: &str,
+    file: &str,
+) -> Option<String> {
+    use serde_yaml::{Mapping, Value};
+    let sort: i64 = file
+        .split('-')
+        .next()
+        .and_then(|n| n.parse().ok())
+        .unwrap_or(0);
+    let mut project = Mapping::new();
+    project.insert("identifier".into(), book.to_lowercase().into());
+    project.insert("title".into(), book.into());
+    project.insert("path".into(), format!("./{file}").into());
+    project.insert("sort".into(), sort.into());
+    project.insert("versification".into(), "ufw".into());
+    // RC file numbers skip 40: Matthew is 41.
+    let category = if sort >= 41 { "bible-nt" } else { "bible-ot" };
+    project.insert("categories".into(), Value::Sequence(vec![category.into()]));
+    let mut doc: Value = match existing {
+        Some(text) => serde_yaml::from_str(text).ok()?,
+        None => serde_yaml::from_str(&format!(
+            "dublin_core:\n  conformsto: rc0.2\n  type: bundle\n  format: text/usfm\n  subject: Bible\n  identifier: {resource}\n  title: {lang} {resource}\n  language:\n    identifier: {lang}\n    direction: ltr\n  publisher: Translation Hub\nchecking:\n  checking_level: '1'\nprojects: []\n"
+        ))
+        .ok()?,
+    };
+    let projects = doc.get_mut("projects")?.as_sequence_mut()?;
+    let id = book.to_lowercase();
+    if projects.iter().any(|p| {
+        p.get("identifier")
+            .and_then(Value::as_str)
+            .is_some_and(|i| i.eq_ignore_ascii_case(&id))
+    }) {
+        return None;
+    }
+    projects.push(Value::Mapping(project));
+    projects.sort_by_key(|p| p.get("sort").and_then(Value::as_i64).unwrap_or(i64::MAX));
+    serde_yaml::to_string(&doc).ok()
 }
 
 /// The hub's log of a write; a failure to log is a warning, not a failed write

@@ -16,6 +16,7 @@ hub-repo-read.workspace = true
 hub-biel.workspace = true
 hub-proof.workspace = true
 hub-stitch.workspace = true
+serde_yaml.workspace = true
 # Publishing: file contents for Forgejo's contents API, and session ids.
 base64 = "0.22"
 getrandom = "0.3"
