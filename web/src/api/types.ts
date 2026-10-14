@@ -23,6 +23,7 @@ export type ManifestInfo = S["ManifestInfo"];
 export type SyntheticInfo = S["SyntheticInfo"];
 export type ProofPage = S["ProofPage"];
 export type Finding = S["Finding"];
+export type PairedEvidence = S["PairedEvidence"];
 export type CodeCount = S["CodeCount"];
 export type HubCode = S["HubCode"];
 export type RepoCodeCount = S["RepoCodeCount"];

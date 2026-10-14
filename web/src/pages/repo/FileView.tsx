@@ -4,6 +4,7 @@ import { Match, Show, Switch, createResource, lazy } from "solid-js";
 import { api, urlOf } from "../../api/client";
 import type { BookRow, CodeCount } from "../../api/types";
 import { Async, Counts, Sparkline } from "../../ui/bits";
+import type { SourceRef } from "../../viewer/SourceCompare";
 import type { Range, ViewerFinding } from "../../viewer/UsfmViewer";
 
 const UsfmViewer = lazy(() => import("../../viewer/UsfmViewer"));
@@ -26,6 +27,8 @@ export default function FileView(props: {
   counts?: readonly CodeCount[];
   check?: string | null;
   onBook?: (engine: string, code: string, book: string) => void;
+  /** The source text this book was compared with (not `source`, the Writer-files switch). */
+  compareWith?: SourceRef | null;
 }) {
   const call = () => ({ path: { owner: props.owner, name: props.name, path: props.path }, query: { source: props.source || undefined } });
   const url = () => urlOf("/v1/repos/{owner}/{name}/file/{path}", call());
@@ -60,6 +63,7 @@ export default function FileView(props: {
                       counts={props.counts}
                       check={props.check}
                       onBook={props.onBook}
+                      source={props.compareWith}
                     />
                   )}
                 </Show>

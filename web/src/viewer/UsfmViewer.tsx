@@ -12,9 +12,10 @@ import { bootEngine } from "@viewer/host/engine.onion";
 import { mountViewer, type Shown, type ViewerMount } from "@viewer/viewer/mountViewer";
 import { showCorpusFindings, type CorpusFinding } from "@viewer/editor-fork/recipes/lint";
 import { watchLocation } from "@viewer/editor-fork/recipes/whereAmI";
-import type { BookRow, CodeCount } from "../api/types";
+import type { BookRow, CodeCount, PairedEvidence } from "../api/types";
 import ChapterNav from "./ChapterNav";
 import FindingsRail, { type RailItem } from "./FindingsRail";
+import SourceCompare, { type Compared, type SourceRef } from "./SourceCompare";
 
 export interface Range {
   readonly from: number;
@@ -25,6 +26,10 @@ export interface ViewerFinding extends Range {
   readonly code: string;
   readonly message: string;
   readonly severity: "error" | "warning" | "info";
+  readonly chapter?: number;
+  readonly verse?: number | null;
+  /** Present on source-compared findings: lengths, kind, how unusual. */
+  readonly paired?: PairedEvidence | null;
 }
 
 type Mode = "regular" | "usfm";
@@ -97,6 +102,8 @@ export default function UsfmViewer(props: {
   check?: string | null;
   /** Open another book of the repo with a check (the rail's All books). */
   onBook?: (engine: string, code: string, book: string) => void;
+  /** The source text this book was compared with, for source-compared findings. */
+  source?: SourceRef | null;
   onReady?: () => void;
 }) {
   let host!: HTMLDivElement;
@@ -108,11 +115,23 @@ export default function UsfmViewer(props: {
   const doc = canonical(props.text);
   const where = addresses(doc.text);
   const [shown, setShown] = createSignal<readonly Shown[]>([]);
+  /** Sous Chef's source-compared rows by code and start, to find the evidence behind a drawn mark. */
+  const comparedAt = createMemo(() => {
+    const by = new Map<string, Compared>();
+    for (const f of props.findings) {
+      if (f.paired && f.chapter !== undefined) {
+        by.set(`${f.code}@${doc.at(f.from)}`, { code: f.code, chapter: f.chapter, verse: f.verse, paired: f.paired });
+      }
+    }
+    return by;
+  });
   const items = createMemo<RailItem[]>(() =>
     shown().map((d) => {
       const slash = d.source.indexOf("/");
       const engine = d.source.slice(0, slash);
+      const code = d.source.slice(slash + 1);
       return {
+        compared: engine === "sous" ? comparedAt().get(`${code}@${d.from}`) : undefined,
         from: d.from,
         to: d.to,
         engine: engine === "onion" ? "lint" : engine,
@@ -280,6 +299,11 @@ export default function UsfmViewer(props: {
               undrawn={undrawn()}
               mode={mode()}
               onShowMarkup={() => setMode("usfm")}
+              compare={(item) => (
+                <Show when={props.source} fallback={<p class="small compare">No source text was recorded for this book.</p>}>
+                  {(src) => <SourceCompare target={doc.text} source={src()} finding={item.compared} />}
+                </Show>
+              )}
             />
           )}
         </Show>

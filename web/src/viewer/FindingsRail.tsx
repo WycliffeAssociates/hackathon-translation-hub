@@ -9,9 +9,10 @@
 //
 // Filters up top narrow both: words (check name, message, marked text), engine,
 // and severity (Sous Chef's hygiene reads as a warning, convention as info).
-import { For, Show, createEffect, createMemo, createSignal, on } from "solid-js";
+import { For, Show, createEffect, createMemo, createSignal, on, type JSX } from "solid-js";
 import type { CodeCount } from "../api/types";
 import { plural } from "../ui/bits";
+import type { Compared } from "./SourceCompare";
 
 export type Severity = "error" | "warning" | "info";
 
@@ -27,6 +28,8 @@ export interface RailItem {
   readonly ref: string;
   /** The marked text with a little around it, invisible characters spelled out. */
   readonly context: string;
+  /** A source-compared Sous Chef finding: what to show beside the source. */
+  readonly compared?: Compared;
 }
 
 interface Group {
@@ -40,6 +43,29 @@ interface Group {
 }
 
 const RANK: Record<Severity, number> = { error: 0, warning: 1, info: 2 };
+
+/** A row's words for a source-compared finding: the verdict, short, since the card says the rest. */
+function verdict(c: Compared): string | null {
+  const p = c.paired;
+  const z = p.z_book ?? p.z_project;
+  const spread = z == null ? "" : ` · ${z.toFixed(1)} spreads`;
+  switch (p.kind) {
+    case "Long":
+      return `longer than the source${spread}`;
+    case "Short":
+      return `shorter than the source${spread}`;
+    case "Missing":
+      return p.keys && p.keys > 1 ? `${p.keys} source verses missing` : "source verse missing";
+    case "Extra":
+      return "not in the source";
+    case "Empty":
+      return "empty verse";
+    case "Copy":
+      return "copied from the source";
+    default:
+      return null;
+  }
+}
 const ENGINES = ["lint", "sous"] as const;
 const SEVERITIES: readonly Severity[] = ["error", "warning", "info"];
 
@@ -70,6 +96,8 @@ export default function FindingsRail(props: {
   /** Regular hides markup, and with it the marks on markup; USFM shows them. */
   mode: "regular" | "usfm";
   onShowMarkup: () => void;
+  /** The card for a picked source-compared row (the verse beside its source). */
+  compare?: (item: RailItem & { compared: Compared }) => JSX.Element;
 }) {
   const [scope, setScope] = createSignal<"book" | "all">("book");
   const [q, setQ] = createSignal("");
@@ -187,7 +215,7 @@ export default function FindingsRail(props: {
                       <span class="n">{g.items.length.toLocaleString()}</span>
                     </button>
                     <Show when={isOpen()}>
-                      <Show when={g.same}>{(m) => <p class="small rail-same">{m()}</p>}</Show>
+                      <Show when={g.same && !g.items[0]?.compared}>{(m) => <p class="small rail-same">{m()}</p>}</Show>
                       <Show when={(t() ?? 0) > g.items.length && g.engine === "sous"}>
                         <p class="small rail-capped">{t()!.toLocaleString()} in this book; the first {g.items.length} are kept</p>
                       </Show>
@@ -205,8 +233,13 @@ export default function FindingsRail(props: {
                                 }}
                               >
                                 <span class="mono ref">{item.ref}</span>
-                                <span class="msg" classList={{ mono: !!g.same }}>{g.same ? item.context : item.message}</span>
+                                <span class="msg" classList={{ mono: !!g.same && !item.compared }}>
+                                  {(item.compared && verdict(item.compared)) ?? (g.same ? item.context : item.message)}
+                                </span>
                               </button>
+                              <Show when={picked() === keyOf(item) && item.compared && props.compare}>
+                                {props.compare!(item as RailItem & { compared: Compared })}
+                              </Show>
                             </li>
                           )}
                         </For>

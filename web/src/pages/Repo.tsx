@@ -131,6 +131,12 @@ export default function Repo() {
                     counts={counts.latest ?? []}
                     check={search.check ?? null}
                     onBook={(engine, code, book) => openCheck({ engine, code }, book)}
+                    compareWith={(() => {
+                      // The run says which source repo it compared against, and which of its files each book met.
+                      const corpus = rows.latest?.corpus;
+                      const path = corpus?.books.find((b) => b.id === file)?.source;
+                      return corpus?.source && path ? { repo: corpus.source, path } : null;
+                    })()}
                   />
                 </div>
               )}

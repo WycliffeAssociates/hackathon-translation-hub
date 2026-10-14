@@ -241,6 +241,25 @@ await step("checks", async () => {
   await shot("14-km_ulb-MisplacedFormat");
 });
 
+await step("source-compare", async () => {
+  // A length finding opens beside its source: both verses, both lengths, and the book's usual ratio.
+  await page.goto(`${base}/repos/wa-catalog/ru_ulb?file=01-GEN.usfm`);
+  const check = page.locator(".rail-check", { hasText: "LengthProportionality" });
+  await check.waitFor();
+  await check.click();
+  await page.locator(".rail-group", { has: check }).locator(".rail-items button").first().click();
+  const card = page.locator(".compare");
+  // The source verse arrives after the source file does.
+  await card.locator(".compare-text").nth(1).waitFor();
+  await card.locator(".compare-why").first().waitFor();
+  const texts = await card.locator(".compare-text").allInnerTexts();
+  expect(texts.length === 2 && texts.every((t) => t.trim().length > 0), `both verses shown (got ${JSON.stringify(texts)})`);
+  const why = await card.locator(".compare-why").first().innerText();
+  expect(/usually runs [\d.]+×/.test(why), `the book's usual ratio (got "${why}")`);
+  results.push({ name: `  ${why.slice(0, 90)}`, ok: true, ms: 0, notes: [] });
+  await shot("07b-source-compare");
+});
+
 await step("repo-coverage", async () => {
   await page.goto(`${base}/repos/wa-catalog/ru_ulb`);
   const psa = page.locator(".books tbody tr", { has: page.locator("th", { hasText: /^PSA$/ }) });
