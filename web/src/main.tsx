@@ -1,6 +1,6 @@
 import { render } from "solid-js/web";
 import { A, Route, Router, useNavigate, type RouteSectionProps } from "@solidjs/router";
-import { lazy } from "solid-js";
+import { Show, lazy } from "solid-js";
 import "./styles.css";
 import Home from "./pages/Home";
 import Language from "./pages/Language";
@@ -8,7 +8,7 @@ import Search from "./pages/Search";
 import Biel from "./pages/Biel";
 import Status from "./pages/Status";
 import Checks from "./pages/Checks";
-import { SessionCorner } from "./ui/session";
+import { SessionCorner, me } from "./ui/session";
 import { TourOutlet } from "./tour/TourOutlet";
 
 // The repo page carries the USFM viewer (CodeMirror + the engine wasm), so it
@@ -17,6 +17,7 @@ const Repo = lazy(() => import("./pages/Repo"));
 // Chart candidates (Observable Plot), loaded on demand.
 const Viz = lazy(() => import("./pages/Viz"));
 const Sources = lazy(() => import("./pages/Sources"));
+const Welcome = lazy(() => import("./pages/Welcome"));
 
 function Layout(props: RouteSectionProps) {
   const navigate = useNavigate();
@@ -35,6 +36,9 @@ function Layout(props: RouteSectionProps) {
           <input name="q" type="search" placeholder="Search languages and repos…" aria-label="Search" autocomplete="off" />
         </form>
         <nav>
+          <Show when={me()?.me}>
+            <A href="/welcome" activeClass="on">Your work</A>
+          </Show>
           <A href="/biel" activeClass="on">BIEL conflicts</A>
           <A href="/checks" activeClass="on">Checks</A>
           <A href="/status" activeClass="on">Status</A>
@@ -64,6 +68,7 @@ render(
   () => (
     <Router root={Layout}>
       <Route path="/" component={Home} />
+      <Route path="/welcome" component={Welcome} />
       <Route path="/repos/:owner/:name" component={Repo} />
       <Route path="/languages/:ietf" component={Language} />
       <Route path="/languages/:ietf/sources" component={Sources} />

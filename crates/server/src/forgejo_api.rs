@@ -177,6 +177,35 @@ impl Forgejo {
             .await
     }
 
+    // --- a person's home --------------------------------------------------
+
+    /// The repos a person starred (Forgejo's own pin), `owner/name`, newest first.
+    /// Public: the service account reads what anyone may.
+    pub async fn starred(&self, username: &str) -> Result<Vec<String>> {
+        let v = self
+            .get(&format!("/users/{username}/starred?limit=50"))
+            .await?;
+        Ok(v.as_ref()
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(|r| r["full_name"].as_str().map(str::to_owned))
+            .collect())
+    }
+
+    /// The organisations a person belongs to (their public memberships).
+    pub async fn orgs(&self, username: &str) -> Result<Vec<String>> {
+        let v = self
+            .get(&format!("/users/{username}/orgs?limit=50"))
+            .await?;
+        Ok(v.as_ref()
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(|o| o["username"].as_str().map(str::to_owned))
+            .collect())
+    }
+
     // --- sign-in -----------------------------------------------------------
 
     /// Trades an OAuth code for the user's access token.

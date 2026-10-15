@@ -41,3 +41,5 @@ export type SourceCopy = S["Copy"];
 export type VerseDiff = S["Diff"];
 export type SourceProgress = S["SourceProgress"];
 export type BookCoverage = S["BookCoverage"];
+export type Home = S["Home"];
+export type HomeLanguage = S["HomeLanguage"];

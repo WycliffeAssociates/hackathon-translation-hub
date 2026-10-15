@@ -929,3 +929,101 @@ pub fn repo_named(
         )
         .optional()?)
 }
+
+// --- a person's home (/welcome) ------------------------------------------
+
+/// Repos owned by any of `owners` (a person and their orgs), newest HEAD first.
+pub fn repos_owned_by(
+    conn: &Connection,
+    owners: &[String],
+    limit: u32,
+) -> Result<Vec<RepoSummary>> {
+    if owners.is_empty() {
+        return Ok(Vec::new());
+    }
+    let marks = (1..=owners.len())
+        .map(|i| format!("?{i}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let sql = format!(
+        "SELECT {SUMMARY_COLUMNS} FROM repo r WHERE r.scanned_unix IS NOT NULL AND lower(r.owner) IN ({marks})
+         ORDER BY r.head_unix DESC NULLS LAST, r.owner, r.name LIMIT {}",
+        limit.clamp(1, 500)
+    );
+    let owners: Vec<String> = owners.iter().map(|o| o.to_lowercase()).collect();
+    let rows = conn
+        .prepare(&sql)?
+        .query_map(params_from_iter(&owners), summary)?
+        .collect::<rusqlite::Result<_>>()?;
+    Ok(rows)
+}
+
+/// These repos (`owner/name`), in the order given; unknown ones are left out.
+pub fn repos_named(conn: &Connection, names: &[String]) -> Result<Vec<RepoSummary>> {
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {SUMMARY_COLUMNS} FROM repo r WHERE r.scanned_unix IS NOT NULL AND lower(r.owner || '/' || r.name) = ?1"
+    ))?;
+    let mut out = Vec::new();
+    for n in names {
+        if let Some(r) = stmt.query_row([n.to_lowercase()], summary).optional()? {
+            out.push(r);
+        }
+    }
+    Ok(out)
+}
+
+/// One resource (brand) of a language: how many repos, how many of them Writer projects.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct LanguageResource {
+    pub resource: String,
+    pub repos: i64,
+    pub writer: i64,
+    /// Repos in `org` (the official org) for this language and resource.
+    pub official: i64,
+}
+
+/// A language's summary and its resources, for a home card.
+pub fn language_card(
+    conn: &Connection,
+    ietf: &str,
+    org: &str,
+) -> Result<Option<(LanguageSummary, Vec<LanguageResource>)>> {
+    let ietf = ietf.to_lowercase();
+    let summary = conn
+        .query_row(
+            "SELECT ?1, l.name, l.english_name, l.direction, l.region, l.gateway, l.alternate_names,
+                    (SELECT count(*) FROM repo WHERE language = ?1 AND scanned_unix IS NOT NULL)
+             FROM (SELECT 1) LEFT JOIN language l ON l.ietf = ?1",
+            [&ietf],
+            language_summary,
+        )
+        .optional()?;
+    let Some(summary) = summary else {
+        return Ok(None);
+    };
+    let resources = conn
+        .prepare(
+            "SELECT resource, count(*), sum(synthetic IS NOT NULL), sum(lower(owner) = ?2)
+             FROM repo WHERE language = ?1 AND resource IS NOT NULL AND scanned_unix IS NOT NULL
+             GROUP BY resource ORDER BY count(*) DESC",
+        )?
+        .query_map(params![ietf, org.to_lowercase()], |r| {
+            Ok(LanguageResource {
+                resource: r.get(0)?,
+                repos: r.get(1)?,
+                writer: r.get(2)?,
+                official: r.get(3)?,
+            })
+        })?
+        .collect::<rusqlite::Result<_>>()?;
+    Ok(Some((summary, resources)))
+}
+
+/// The languages a person picked, in the order picked.
+pub fn my_languages(conn: &Connection, username: &str) -> Result<Vec<String>> {
+    let rows = conn
+        .prepare("SELECT ietf FROM my_language WHERE username = ?1 ORDER BY at, ietf")?
+        .query_map([username.to_lowercase()], |r| r.get(0))?
+        .collect::<rusqlite::Result<_>>()?;
+    Ok(rows)
+}

@@ -381,3 +381,22 @@ impl Store {
         Ok(())
     }
 }
+
+impl Store {
+    /// A person's languages, replaced as a whole (the picker sends the full list).
+    pub fn set_my_languages(&self, username: &str, ietfs: &[String]) -> Result<()> {
+        let mut w = self.writer();
+        let tx = w.transaction()?;
+        let user = username.to_lowercase();
+        tx.execute("DELETE FROM my_language WHERE username = ?1", params![user])?;
+        let now = now_unix();
+        for (i, ietf) in ietfs.iter().enumerate() {
+            tx.execute(
+                "INSERT OR IGNORE INTO my_language (username, ietf, at) VALUES (?1, ?2, ?3)",
+                params![user, ietf.to_lowercase(), now + i as i64],
+            )?;
+        }
+        tx.commit()?;
+        Ok(())
+    }
+}

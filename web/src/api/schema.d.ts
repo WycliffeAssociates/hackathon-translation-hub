@@ -163,6 +163,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/home": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The signed-in person's languages and projects. */
+        get: operations["home"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/languages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Replace the signed-in person's languages. */
+        post: operations["set_languages"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/repos": {
         parameters: {
             query?: never;
@@ -872,6 +906,19 @@ export interface components {
             /** Format: int64 */
             warnings: number;
         };
+        Home: {
+            languages: components["schemas"]["HomeLanguage"][];
+            /** @description Repos the person or one of their organisations owns, newest first. */
+            mine: components["schemas"]["RepoSummary"][];
+            /** @description The organisations counted in `mine`. */
+            orgs: string[];
+            /** @description Repos starred on WACS, in Forgejo's order. */
+            starred: components["schemas"]["RepoSummary"][];
+            username: string;
+        };
+        HomeLanguage: components["schemas"]["LanguageSummary"] & {
+            resources: components["schemas"]["LanguageResource"][];
+        };
         /** @description One check across the hub. */
         HubCode: {
             /** Format: int64 */
@@ -915,6 +962,19 @@ export interface components {
             resource: string;
             weekly: components["schemas"]["WeekSaves"][];
         };
+        /** @description One resource (brand) of a language: how many repos, how many of them Writer projects. */
+        LanguageResource: {
+            /**
+             * Format: int64
+             * @description Repos in `org` (the official org) for this language and resource.
+             */
+            official: number;
+            /** Format: int64 */
+            repos: number;
+            resource: string;
+            /** Format: int64 */
+            writer: number;
+        };
         LanguageSummary: {
             alternate_names: string[];
             direction?: string | null;
@@ -928,6 +988,10 @@ export interface components {
              * @description Scanned public repos whose manifest names this language.
              */
             repos: number;
+        };
+        LanguagesBody: {
+            /** @description IETF tags, in the order to show them. */
+            languages: string[];
         };
         Linked: {
             commit: string;
@@ -1661,6 +1725,64 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MeResponse"];
+                };
+            };
+        };
+    };
+    home: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Home"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    set_languages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LanguagesBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
                 };
             };
         };

@@ -572,3 +572,19 @@ a:hover .repo-owner { text-decoration: underline; }
 .strip-legend { display: inline-flex; flex-wrap: wrap; gap: .3rem .9rem; }
 .strip-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; }
 .progress-saves { display: inline-flex; gap: .5rem; align-items: center; }
+
+/* --- your work (pages/Welcome.tsx) --- */
+.welcome-section { margin: 1.6rem 0 2.2rem; }
+.welcome-languages { list-style: none; padding: 0; margin: .8rem 0 0; border-top: 1px solid var(--rule); }
+.welcome-language { display: flex; flex-wrap: wrap; gap: .3rem 1rem; align-items: baseline; padding: .6rem .2rem; border-bottom: 1px solid var(--rule); }
+.welcome-language-name { font-weight: 700; color: var(--ink); }
+.welcome-resources { display: inline-flex; flex-wrap: wrap; gap: .3rem 1.2rem; margin-left: auto; }
+.picker { position: relative; max-width: 42rem; }
+.picker-box { display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; padding: .35rem .4rem; border: 1px solid var(--rule); border-radius: 10px; background: var(--wf-bg); }
+.picker-box:focus-within { outline: 2px solid var(--lapis); outline-offset: 1px; }
+.picker-box input { flex: 1; min-width: 12rem; border: 0; background: none; font: inherit; color: var(--ink); padding: .3rem; outline: none; }
+.picker-chip { display: inline-flex; align-items: center; gap: .2rem; padding: .1rem .2rem .1rem .6rem; border-radius: 999px; background: var(--paper-2); font-size: .9rem; }
+.picker-chip button { border: 0; background: none; padding: 0 .35rem; color: var(--muted); font-size: 1rem; line-height: 1; }
+.picker-results { position: absolute; z-index: 10; left: 0; right: 0; list-style: none; margin: .25rem 0 0; padding: .3rem; border: 1px solid var(--rule); border-radius: 10px; background: var(--wf-bg); box-shadow: 0 8px 24px rgb(0 0 0 / .12); }
+.picker-results button { width: 100%; text-align: left; border: 0; background: none; border-radius: 6px; padding: .35rem .5rem; }
+.picker-results button:hover, .picker-results button:focus-visible { background: var(--paper-2); }

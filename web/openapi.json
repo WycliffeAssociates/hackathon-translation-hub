@@ -351,6 +351,77 @@
         }
       }
     },
+    "/v1/me/home": {
+      "get": {
+        "tags": [],
+        "summary": "The signed-in person's languages and projects.",
+        "operationId": "home",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Home"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/languages": {
+      "post": {
+        "tags": [],
+        "summary": "Replace the signed-in person's languages.",
+        "operationId": "set_languages",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LanguagesBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/repos": {
       "get": {
         "tags": [],
@@ -2442,6 +2513,69 @@
           }
         }
       },
+      "Home": {
+        "type": "object",
+        "required": [
+          "username",
+          "languages",
+          "mine",
+          "orgs",
+          "starred"
+        ],
+        "properties": {
+          "languages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HomeLanguage"
+            }
+          },
+          "mine": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RepoSummary"
+            },
+            "description": "Repos the person or one of their organisations owns, newest first."
+          },
+          "orgs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The organisations counted in `mine`."
+          },
+          "starred": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RepoSummary"
+            },
+            "description": "Repos starred on WACS, in Forgejo's order."
+          },
+          "username": {
+            "type": "string"
+          }
+        }
+      },
+      "HomeLanguage": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/LanguageSummary"
+          },
+          {
+            "type": "object",
+            "required": [
+              "resources"
+            ],
+            "properties": {
+              "resources": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/LanguageResource"
+                }
+              }
+            }
+          }
+        ]
+      },
       "HubCode": {
         "type": "object",
         "description": "One check across the hub.",
@@ -2575,6 +2709,34 @@
           }
         }
       },
+      "LanguageResource": {
+        "type": "object",
+        "description": "One resource (brand) of a language: how many repos, how many of them Writer projects.",
+        "required": [
+          "resource",
+          "repos",
+          "writer",
+          "official"
+        ],
+        "properties": {
+          "official": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Repos in `org` (the official org) for this language and resource."
+          },
+          "repos": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "resource": {
+            "type": "string"
+          },
+          "writer": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
       "LanguageSummary": {
         "type": "object",
         "required": [
@@ -2626,6 +2788,21 @@
             "type": "integer",
             "format": "int64",
             "description": "Scanned public repos whose manifest names this language."
+          }
+        }
+      },
+      "LanguagesBody": {
+        "type": "object",
+        "required": [
+          "languages"
+        ],
+        "properties": {
+          "languages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "IETF tags, in the order to show them."
           }
         }
       },

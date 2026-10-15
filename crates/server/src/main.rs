@@ -14,6 +14,7 @@ mod changes;
 mod compare;
 mod config;
 mod forgejo_api;
+mod home;
 mod poll;
 mod progress;
 mod proof;
