@@ -55,6 +55,7 @@ const SESSION_SECS: i64 = 7 * 24 * 3600;
         Official,
         OfficialRepo,
         Release,
+        crate::forgejo_api::ReleaseAsset,
         Action,
         WriterBook,
         Candidate,
@@ -1226,15 +1227,17 @@ async fn publish_release(
     let f = facts(&s, &owner, &name).await?;
     let (org, target) = target_of(&pb, &f.detail).map_err(|e| fail(StatusCode::CONFLICT, e))?;
     let tag = body.tag.trim();
-    let ok = tag.strip_prefix('v').is_some_and(|v| {
-        !v.is_empty()
-            && v.split('.')
-                .all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()))
-    });
+    // A date (`2026.10.15`, the default, `.2` for a second that day) or a
+    // version (`v1.2`): digits and dots, a leading `v` allowed.
+    let digits = tag.strip_prefix('v').unwrap_or(tag);
+    let ok = !digits.is_empty()
+        && digits
+            .split('.')
+            .all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()));
     if !ok {
         return Err(fail(
             StatusCode::BAD_REQUEST,
-            format!("`{tag}` is not a version tag like v1.0"),
+            format!("`{tag}` is not a release tag like 2026.10.15 or v1.0"),
         ));
     }
     if !pb
@@ -1335,6 +1338,38 @@ async fn publish_release(
         .create_release(&org, &target, tag, &title, notes.trim_start())
         .await
         .map_err(upstream)?;
+    // What software fetches with the release: every file's SHA-256 and a
+    // manifest of the books, read from the tagged commit on disk (the hub
+    // reads Forgejo's own repositories, so the tag is there once created).
+    let assets = {
+        let (scanner, store, o, n, tag) = (
+            s.scanner.clone(),
+            s.store.clone(),
+            org.to_lowercase(),
+            target.to_lowercase(),
+            tag.to_owned(),
+        );
+        tokio::task::spawn_blocking(move || release_files(&scanner, &store, &o, &n, &tag))
+            .await
+            .ok()
+            .and_then(Result::ok)
+    };
+    let mut attached = Vec::new();
+    if let Some((sums, manifest)) = assets {
+        for (file, kind, bytes) in [
+            ("SHA256SUMS", "text/plain", sums.into_bytes()),
+            ("release.json", "application/json", manifest.into_bytes()),
+        ] {
+            match pb
+                .forgejo
+                .attach(&org, &target, release.id, file, kind, &bytes)
+                .await
+            {
+                Ok(()) => attached.push(file),
+                Err(e) => tracing::warn!(error = %e, file, "could not attach to the release"),
+            }
+        }
+    }
     log(
         &s,
         NewAction {
@@ -1344,7 +1379,9 @@ async fn publish_release(
             source: None,
             book: None,
             reference: Some(tag),
-            detail: Some(serde_json::json!({ "commit": release.target_commitish })),
+            detail: Some(
+                serde_json::json!({ "commit": release.target_commitish, "attached": attached }),
+            ),
         },
     )
     .await;
@@ -1421,6 +1458,91 @@ async fn blessed_elsewhere(s: &AppState, d: &read::RepoDetail, org: &str) -> Opt
             s.publish.as_ref()?.config.official_org.to_lowercase()
         )))
     .then_some(found.0)
+}
+
+/// The files a release carries for software: `SHA256SUMS` (every file at the
+/// tag, `sha256sum` format) and `release.json` (the repo, tag and commit, and
+/// per book its chapters, verses, checksum and the copy it tracks).
+/// Generated files (alignments, rendered formats) would join these later.
+fn release_files(
+    scanner: &hub_ingest::Scanner,
+    store: &hub_store::Store,
+    owner: &str,
+    name: &str,
+    tag: &str,
+) -> Result<(String, String), String> {
+    use sha2::{Digest, Sha256};
+    let err = |e: git2::Error| e.message().to_owned();
+    let repo = git2::Repository::open_bare(scanner.repo_path(owner, name)).map_err(err)?;
+    let commit = repo
+        .revparse_single(&format!("refs/tags/{tag}"))
+        .and_then(|o| o.peel_to_commit())
+        .map_err(err)?;
+    let tree = commit.tree().map_err(err)?;
+    let mut files: Vec<(String, String, Vec<u8>)> = Vec::new();
+    tree.walk(git2::TreeWalkMode::PreOrder, |dir, entry| {
+        if entry.kind() == Some(git2::ObjectType::Blob)
+            && let Ok(blob) = repo.find_blob(entry.id())
+        {
+            let path = format!("{dir}{}", entry.name().unwrap_or_default());
+            let hex = format!("{:x}", Sha256::digest(blob.content()));
+            files.push((path, hex, blob.content().to_vec()));
+        }
+        git2::TreeWalkResult::Ok
+    })
+    .map_err(err)?;
+    files.sort_by(|a, b| a.0.cmp(&b.0));
+    let sums: String = files
+        .iter()
+        .map(|(p, h, _)| format!("{h}  {p}\n"))
+        .collect();
+    // What each book tracks: the hub's pointers, over a Sefer-made `.upstreams.json`.
+    let mut links: std::collections::HashMap<String, (String, String)> = files
+        .iter()
+        .find(|(p, _, _)| p == ".upstreams.json")
+        .map(|(_, _, b)| crate::sources::upstreams_of(&String::from_utf8_lossy(b)))
+        .unwrap_or_default()
+        .into_iter()
+        .map(|(book, (repo, commit, _))| (book, (repo, commit)))
+        .collect();
+    for (book, (repo, commit, _)) in store
+        .reader()
+        .ok()
+        .and_then(|c| publishing::official_links(&c, &format!("{owner}/{name}")).ok())
+        .unwrap_or_default()
+    {
+        links.insert(book, (repo, commit));
+    }
+    let books: Vec<serde_json::Value> = files
+        .iter()
+        .filter(|(p, _, _)| p.to_lowercase().ends_with(".usfm"))
+        .map(|(path, hex, bytes)| {
+            let fp = hub_domain::fingerprint::fingerprint(&String::from_utf8_lossy(bytes));
+            let mut chapters: Vec<u16> = fp.verses.keys().map(|(c, _)| *c).collect();
+            chapters.dedup();
+            let book = path
+                .rsplit('/')
+                .next()
+                .and_then(|f| f.trim_end_matches(".usfm").split('-').next_back())
+                .unwrap_or_default()
+                .to_uppercase();
+            let tracks = links.get(&book).map(|(repo, commit)| format!("{repo}@{commit}"));
+            serde_json::json!({ "book": book, "path": path, "chapters": chapters.len(), "verses": fp.verses.len(), "sha256": hex, "tracks": tracks })
+        })
+        .collect();
+    let manifest = serde_json::json!({
+        "repo": format!("{owner}/{name}"),
+        "tag": tag,
+        "commit": commit.id().to_string(),
+        "committed": commit.time().seconds(),
+        "files": files.len(),
+        "books": books,
+        "generated": [],
+    });
+    Ok((
+        sums,
+        serde_json::to_string_pretty(&manifest).unwrap_or_default() + "\n",
+    ))
 }
 
 /// Record what each written book of an official repo now follows (the

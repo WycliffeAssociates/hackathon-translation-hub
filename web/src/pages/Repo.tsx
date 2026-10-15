@@ -13,7 +13,6 @@ import { Async, Counts, FORGEJO, StatusChip, seferLink, ago, checkKey, dateOf } 
 import Books from "./repo/Books";
 import FileTree from "./repo/FileTree";
 import FileView from "./repo/FileView";
-import Findings from "./repo/Findings";
 import History from "./repo/History";
 import Official from "./repo/Official";
 import Releases from "./repo/Releases";
@@ -96,7 +95,36 @@ export default function Repo() {
   // Checks: the open book, else the first book with findings, else the first.
   const checkFile = (r: RepoDetail) =>
     file() ?? r.books.find((b) => (ok(counts) ?? []).some((c) => c.books.some((x) => x.book === b.book)))?.path ?? r.books[0]?.path;
-  const [sideBySide, setSideBySide] = createSignal(false);
+  const [sourceShown, setSourceShown] = createSignal(true);
+  // The Files tab's tree, folded or not: this browser's preference.
+  const [treeFolded, setTreeFoldedSignal] = createSignal((() => {
+    try {
+      return localStorage.getItem("hub.tree.folded") === "1";
+    } catch {
+      return false;
+    }
+  })());
+  const setTreeFolded = (v: boolean) => {
+    setTreeFoldedSignal(v);
+    try {
+      localStorage.setItem("hub.tree.folded", v ? "1" : "0");
+    } catch {
+      // Storage blocked: the choice lasts for this page.
+    }
+  };
+  // Sources for the Checks tab's second pane: the one the proofreading run
+  // compared with, then the ones this language's copies declare.
+  const [declared] = createResource(
+    () => {
+      const d = ok(repo);
+      return tab() === "checks" && d?.language && d.resource ? { path: { ietf: d.language }, query: { resource: d.resource } } : false;
+    },
+    (c) => api.json("/v1/languages/{ietf}/sources", c).then((d) => d.progress.map((p) => p.source)).catch(() => [] as string[]),
+  );
+  const sourceCandidates = () => {
+    const ran = ok(rows)?.corpus?.source?.split("@")[0]?.toLowerCase();
+    return [...new Set([...(ran ? [ran] : []), ...(declared() ?? [])])];
+  };
   const [following, setFollowing] = createSignal<string | null>(null);
   /** The verse of the finding picked last (`3:15`), lit in the source pane too. */
   const [pickedVerse, setPickedVerse] = createSignal<string | null>(null);
@@ -195,14 +223,21 @@ export default function Repo() {
                   </label>
                 </div>
               </Show>
-              <section id="files" class="browser">
+              <p class="tree-toggle">
+                <button type="button" class="linkish small" onClick={() => setTreeFolded(!treeFolded())}>
+                  {treeFolded() ? "Show the files" : "Hide the files"}
+                </button>
+              </p>
+              <section id="files" class="browser" classList={{ folded: treeFolded() }}>
                 <Async of={tree} what="files">
                   {(t) => (
+                    <Show when={!treeFolded()}>
                     <FileTree
                       entries={source() ? (t().source_files ?? []) : t().files}
                       selected={file() ?? null}
                       onPick={(file) => setSearch({ file, at: undefined, ch: undefined, check: undefined })}
                     />
+                    </Show>
                   )}
                 </Async>
                 <Show when={file()} keyed fallback={<p class="small viewer">Pick a file in the tree.</p>}>
@@ -221,45 +256,50 @@ export default function Repo() {
             </Match>
 
             <Match when={tab() === "checks"}>
-              <section class="checks-tab">
-                <div class="section-head">
-                  <Show when={r().proof}>
-                    {(s) => (
-                      <span class="small">
-                        Sous Chef ran {ago(s().ran_unix)} with scripture-kitchen {s().sk_tag}
-                        <Show when={!s().current}> · <b>HEAD moved since; a new run is queued</b></Show>
-                        <Show when={s().error}> · <span class="bad">{s().error}</span></Show>
-                      </span>
-                    )}
-                  </Show>
-                </div>
-                <Async of={counts} what="findings">
-                  {(list) => <Findings counts={list()} current={search.check ?? null} onBook={openCheck} />}
-                </Async>
-                <Show when={checkFile(r())} keyed>
-                  {(path) => (
-                    <div class="checks-view" classList={{ paired: sideBySide() && !!compareWith(r(), path) }}>
-                      <div class="checks-bar">
+              {/* The checks sidebar, the text, the source text: one view, side by side. */}
+              <Show when={checkFile(r())} keyed>
+                {(path) => (
+                  <section class="checks-view" classList={{ paired: sourceShown() && sourceCandidates().length > 0 }}>
+                    <div class="checks-bar">
+                      <label class="small">
+                        Book{" "}
+                        <select onChange={(e) => setSearch({ file: e.currentTarget.value, at: undefined, ch: undefined })}>
+                          <For each={r().books}>
+                            {(b) => (
+                              <option value={b.path} selected={b.path === path}>
+                                {b.book}
+                              </option>
+                            )}
+                          </For>
+                        </select>
+                      </label>
+                      <Show when={sourceCandidates().length}>
                         <label class="small">
-                          Book{" "}
-                          <select value={path} onChange={(e) => setSearch({ file: e.currentTarget.value, at: undefined, ch: undefined })}>
-                            <For each={r().books}>{(b) => <option value={b.path}>{b.book}</option>}</For>
-                          </select>
+                          <input type="checkbox" checked={sourceShown()} onChange={(e) => setSourceShown(e.currentTarget.checked)} /> Source text beside it
                         </label>
-                        <Show when={compareWith(r(), path)}>
-                          <label class="small">
-                            <input type="checkbox" checked={sideBySide()} onChange={(e) => setSideBySide(e.currentTarget.checked)} /> Source text beside it
-                          </label>
-                        </Show>
-                      </div>
-                      <div class="viewer-col">{view(r(), path)}</div>
-                      <Show when={sideBySide() && compareWith(r(), path)}>
-                        {(src) => <SourcePane of={src()} chapter={following()} verse={pickedVerse()} />}
+                      </Show>
+                      <Show when={r().proof}>
+                        {(s) => (
+                          <span class="small muted">
+                            Sous Chef ran {ago(s().ran_unix)}
+                            <Show when={!s().current}> · HEAD moved since; a new run is queued</Show>
+                            <Show when={s().error}> · <span class="bad">{s().error}</span></Show>
+                          </span>
+                        )}
                       </Show>
                     </div>
-                  )}
-                </Show>
-              </section>
+                    <div class="viewer-col">{view(r(), path)}</div>
+                    <Show when={sourceShown() && sourceCandidates().length}>
+                      <SourcePane
+                        candidates={sourceCandidates()}
+                        book={r().books.find((b) => b.path === path)?.book ?? ""}
+                        chapter={following()}
+                        verse={pickedVerse()}
+                      />
+                    </Show>
+                  </section>
+                )}
+              </Show>
             </Match>
 
             <Match when={tab() === "sources" && r().language && r().resource}>

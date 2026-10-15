@@ -231,7 +231,7 @@ fn rank(c: &BookCopy) -> (u8, std::cmp::Reverse<i64>, std::cmp::Reverse<i64>) {
 }
 
 /// The official repo's `.upstreams.json`: book → (owner/name, commit, takenAt).
-fn upstreams_of(text: &str) -> HashMap<String, (String, String, String)> {
+pub(crate) fn upstreams_of(text: &str) -> HashMap<String, (String, String, String)> {
     let mut out = HashMap::new();
     let Ok(v) = serde_json::from_str::<serde_json::Value>(text) else {
         return out;

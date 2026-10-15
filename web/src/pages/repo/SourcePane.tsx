@@ -1,22 +1,25 @@
-// The source text beside the translation, in the Checks tab: the book the last
-// proofreading run compared this one with (the server says which, through the
-// compare route), in a second viewer with no rail, kept on the same chapter
-// as the translation. Two panes rather than a card per verse, so a reviewer
-// reads both texts the way a checker does.
-import { Show, createResource } from "solid-js";
+// The source text beside the translation, in the Checks tab: the same book in
+// a gateway source, in a second viewer with no rail, kept on the translation's
+// chapter and lighting the verse of the picked finding. The candidates are the
+// source the last proofreading run compared with, then the sources this
+// language's copies declare (a published repo often names none itself, but
+// the Writer projects it tracks do); a picker switches between them.
+import { For, Show, createResource, createSignal } from "solid-js";
 import { api } from "../../api/client";
 import { Async } from "../../ui/bits";
 import UsfmViewer from "../../viewer/UsfmViewer";
-import type { SourceRef } from "../../viewer/SourceCompare";
 
-export default function SourcePane(props: { of: SourceRef; chapter: string | null; verse: string | null }) {
-  const [where] = createResource(
-    () => ({ path: { owner: props.of.owner, name: props.of.name, book: props.of.book }, query: { chapter: 1, verse: 1, count: 1, text: false } }),
-    (c) => api.json("/v1/repos/{owner}/{name}/books/{book}/compare", c),
+export default function SourcePane(props: { candidates: readonly string[]; book: string; chapter: string | null; verse: string | null }) {
+  const [chosen, setChosen] = createSignal<string>();
+  const source = () => chosen() ?? props.candidates[0] ?? "";
+  const parts = () => source().split("/");
+  const [detail] = createResource(
+    () => (parts().length === 2 ? { path: { owner: parts()[0]!, name: parts()[1]! } } : false),
+    (c) => api.json("/v1/repos/{owner}/{name}", c),
   );
-  const repo = () => where()?.source.split("@")[0]?.split("/") ?? [];
+  const path = () => detail()?.books.find((b) => b.book === props.book)?.path;
   const [text] = createResource(
-    () => where() && repo().length === 2 && { path: { owner: repo()[0]!, name: repo()[1]!, path: where()!.source_path } },
+    () => (path() ? { path: { owner: parts()[0]!, name: parts()[1]!, path: path()! } } : false),
     (c) => api.text("/v1/repos/{owner}/{name}/file/{path}", c),
   );
   // Picking a finding lights its verse here and also scrolls the translation,
@@ -25,16 +28,32 @@ export default function SourcePane(props: { of: SourceRef; chapter: string | nul
   const chapter = () => (props.verse && props.verse.split(":")[0] === props.chapter ? null : props.chapter);
   return (
     <section class="source-pane" aria-label="Source text">
-      <h3 class="small">
-        Source: <span class="mono">{repo().join("/")}</span>
-      </h3>
-      <Async of={text} what="the source text">
-        {(t) => (
-          <Show when={t()} keyed>
-            {(body) => <UsfmViewer text={body} findings={[]} focus={null} chapter={chapter()} verse={props.verse} rail={false} />}
-          </Show>
-        )}
-      </Async>
+      <div class="source-pane-head small">
+        Source{" "}
+        <Show when={props.candidates.length > 1} fallback={<span class="mono">{source()}</span>}>
+          <select aria-label="Source text" onChange={(e) => setChosen(e.currentTarget.value)}>
+            <For each={props.candidates}>
+              {(c) => (
+                <option value={c} selected={c === source()}>
+                  {c}
+                </option>
+              )}
+            </For>
+          </select>
+        </Show>
+      </div>
+      <Show when={detail() && !path()}>
+        <p class="small muted">{source()} has no {props.book}.</p>
+      </Show>
+      <Show when={path()}>
+        <Async of={text} what="the source text">
+          {(t) => (
+            <Show when={t()} keyed>
+              {(body) => <UsfmViewer text={body} findings={[]} focus={null} chapter={chapter()} verse={props.verse} rail={false} />}
+            </Show>
+          )}
+        </Async>
+      </Show>
     </section>
   );
 }

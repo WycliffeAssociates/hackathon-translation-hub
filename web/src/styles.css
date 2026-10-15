@@ -551,13 +551,21 @@ a:hover .repo-owner { text-decoration: underline; }
 /* Breaks out of main's 1100px like the file browser, so text, rail and source all keep a reading width. */
 .checks-view { display: grid; grid-template-columns: minmax(0, 1fr); gap: .6rem 1rem; margin-top: 1rem;
   width: min(1560px, calc(100vw - 48px)); margin-left: calc(50% - min(780px, 50vw - 24px)); }
-.checks-view.paired { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); }
+.checks-view.paired { grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr); }
+/* In the Checks tab the checks sidebar leads, on the left of the text. */
+.checks-view .viewer-body { grid-template-columns: 340px minmax(0, 1fr); }
+.checks-view .rail { order: -1; }
+.source-pane-head { display: flex; gap: .5rem; align-items: center; min-height: 2.1rem; color: var(--muted); }
+.source-pane-head select { font: inherit; max-width: 100%; }
 .source-pane .viewer-body { grid-template-columns: minmax(0, 1fr); }
 .checks-bar { grid-column: 1 / -1; display: flex; gap: 1.5rem; align-items: center; }
 .checks-view .viewer-col { min-width: 0; }
 .source-pane { min-width: 0; }
 .source-pane h3 { margin: .2rem 0 .4rem; font-family: var(--ui); font-weight: 400; color: var(--muted); }
-@media (max-width: 1100px) { .checks-view, .checks-view.paired { width: auto; margin-left: 0; grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 1100px) { .checks-view, .checks-view.paired { width: auto; margin-left: 0; grid-template-columns: minmax(0, 1fr); } .checks-view .viewer-body { grid-template-columns: minmax(0, 1fr); } }
+/* The Files tab's tree folds away, leaving the file the width. */
+.browser.folded { grid-template-columns: minmax(0, 1fr); }
+.tree-toggle { margin: 0 0 .4rem; }
 
 /* History */
 .history { list-style: none; padding: 0; margin: 0; border-top: 1px solid var(--rule); }
@@ -628,3 +636,4 @@ a:hover .repo-owner { text-decoration: underline; }
 .publishing { margin: 0 0 1.4rem; padding: .7rem 1rem; border: 1px solid var(--rule); border-radius: 10px; background: var(--wf-bg); }
 .publishing p { margin: .2rem 0; }
 .publishing-actions { display: flex; flex-wrap: wrap; gap: .6rem; margin: .5rem 0 .3rem; }
+.release-assets { display: inline-flex; gap: .8rem; margin-left: .8rem; }

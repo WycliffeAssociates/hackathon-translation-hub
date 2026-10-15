@@ -10,14 +10,18 @@ import type { Release } from "../../api/types";
 import { Async, ago, dateOf, plural } from "../../ui/bits";
 import { me } from "../../ui/session";
 
-/** The release after the newest one: v1.3 → v1.4; none → v1.0. */
+/**
+ * Releases are named by date (Will, 2026-10-15): today as `2026.10.15`, and
+ * `2026.10.15.2` for a second release the same day. Nobody has to decide what
+ * kind of change it was, as a semantic version would ask.
+ */
 export const nextTag = (tags: readonly string[]) => {
-  const newest = tags
-    .map((t) => /^v(\d+)\.(\d+)$/.exec(t))
-    .filter((m): m is RegExpExecArray => m !== null)
-    .map((m) => [Number(m[1]), Number(m[2])] as const)
-    .sort((a, b) => b[0] - a[0] || b[1] - a[1])[0];
-  return newest ? `v${newest[0]}.${newest[1] + 1}` : "v1.0";
+  const d = new Date();
+  const today = `${d.getUTCFullYear()}.${String(d.getUTCMonth() + 1).padStart(2, "0")}.${String(d.getUTCDate()).padStart(2, "0")}`;
+  if (!tags.includes(today)) return today;
+  let n = 2;
+  while (tags.includes(`${today}.${n}`)) n++;
+  return `${today}.${n}`;
 };
 
 /** `41-MAT.usfm` → `MAT`. */
@@ -185,6 +189,17 @@ export default function Releases(props: { owner: string; name: string; releases:
                     <b>{r.tag_name}</b>
                   </a>{" "}
                   <span class="muted" title={dateOf(Date.parse(r.published_at ?? "") / 1000)}>{r.published_at ? ago(Date.parse(r.published_at) / 1000) : ""}</span>
+                  <Show when={r.assets?.length}>
+                    <span class="release-assets small">
+                      <For each={r.assets ?? []}>
+                        {(a) => (
+                          <a href={a.browser_download_url} rel="noopener">
+                            {a.name}
+                          </a>
+                        )}
+                      </For>
+                    </span>
+                  </Show>
                   <Show when={r.body}>{(body) => <p class="release-body">{body()}</p>}</Show>
                 </li>
               )}

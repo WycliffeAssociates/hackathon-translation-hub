@@ -1296,12 +1296,20 @@ export interface components {
         };
         /** @description A release, as the hub shows it. */
         Release: {
+            /** @description Files attached to the release (`SHA256SUMS`, `release.json`). */
+            assets?: components["schemas"]["ReleaseAsset"][];
             body?: string;
             html_url?: string;
+            /** Format: int64 */
+            id?: number;
             name?: string;
             published_at?: string | null;
             tag_name: string;
             target_commitish?: string;
+        };
+        ReleaseAsset: {
+            browser_download_url?: string;
+            name: string;
         };
         ReleaseBody: {
             /**

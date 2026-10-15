@@ -3676,11 +3676,22 @@
           "tag_name"
         ],
         "properties": {
+          "assets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReleaseAsset"
+            },
+            "description": "Files attached to the release (`SHA256SUMS`, `release.json`)."
+          },
           "body": {
             "type": "string"
           },
           "html_url": {
             "type": "string"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64"
           },
           "name": {
             "type": "string"
@@ -3695,6 +3706,20 @@
             "type": "string"
           },
           "target_commitish": {
+            "type": "string"
+          }
+        }
+      },
+      "ReleaseAsset": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "browser_download_url": {
+            "type": "string"
+          },
+          "name": {
             "type": "string"
           }
         }

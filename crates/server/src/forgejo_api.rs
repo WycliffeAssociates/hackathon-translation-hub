@@ -65,6 +65,8 @@ pub struct User {
 /// A release, as the hub shows it.
 #[derive(Debug, serde::Serialize, Deserialize, utoipa::ToSchema)]
 pub struct Release {
+    #[serde(default)]
+    pub id: i64,
     pub tag_name: String,
     #[serde(default)]
     pub name: String,
@@ -76,6 +78,16 @@ pub struct Release {
     pub published_at: Option<String>,
     #[serde(default)]
     pub html_url: String,
+    /// Files attached to the release (`SHA256SUMS`, `release.json`).
+    #[serde(default)]
+    pub assets: Vec<ReleaseAsset>,
+}
+
+#[derive(Debug, serde::Serialize, Deserialize, utoipa::ToSchema)]
+pub struct ReleaseAsset {
+    pub name: String,
+    #[serde(default)]
+    pub browser_download_url: String,
 }
 
 /// One file in a multi-file commit.
@@ -527,4 +539,48 @@ impl Forgejo {
             .ok_or_else(|| ForgejoError::Refused(format!("no repo {owner}/{name}")))?;
         serde_json::from_value(v).map_err(|e| ForgejoError::Refused(e.to_string()))
     }
+
+    /// Attach a file to a release (Forgejo's release attachments). The
+    /// multipart body is built here so reqwest needs no extra feature.
+    pub async fn attach(
+        &self,
+        owner: &str,
+        name: &str,
+        release: i64,
+        file: &str,
+        content_type: &str,
+        bytes: &[u8],
+    ) -> Result<()> {
+        self.may_write(owner)?;
+        let boundary = format!("hub-{:016x}", rand_u64());
+        let mut body = Vec::with_capacity(bytes.len() + 256);
+        body.extend_from_slice(
+            format!("--{boundary}\r\nContent-Disposition: form-data; name=\"attachment\"; filename=\"{file}\"\r\nContent-Type: {content_type}\r\n\r\n").as_bytes(),
+        );
+        body.extend_from_slice(bytes);
+        body.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
+        self.send(
+            "release attachment",
+            self.http
+                .post(self.url(&format!(
+                    "/repos/{owner}/{name}/releases/{release}/assets?name={file}"
+                )))
+                .bearer_auth(&self.token)
+                .header(
+                    "content-type",
+                    format!("multipart/form-data; boundary={boundary}"),
+                )
+                .body(body),
+        )
+        .await?;
+        Ok(())
+    }
+}
+
+/// A boundary that will not occur in the files (time and address bits; no rand crate).
+fn rand_u64() -> u64 {
+    let t = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_nanos() as u64);
+    t ^ (&t as *const u64 as u64).rotate_left(17)
 }
