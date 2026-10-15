@@ -1,6 +1,7 @@
 # The Translation Hub beside Forgejo on WACS dev (DEPLOY-WACSDEV.md).
 #
-#   docker build -t translation-hub:$(git rev-parse --short HEAD) .
+#   docker build --build-arg HUB_UID=1001 --build-arg HUB_GID=1002 -t translation-hub:$(git rev-parse --short HEAD) .
+#   (1001:1002 is Forgejo's user on wacsdev: `docker exec wacs2-gitea-1 id`)
 #   TAG=$(git rev-parse --short HEAD) docker compose -f deploy/wacsdev/compose.yml up -d
 #
 # Reads Forgejo's repositories read-only off its volume and the repo list as
@@ -20,14 +21,18 @@ services:
       - "8787:8787"
     networks:
       - wacs
+      - wacs_backend
 
 volumes:
   hub-data: {}
   hub-logs: {}
 
 networks:
-  # wacs2's network, so the hub reaches wacs2-gitea-1 and wacs2-db-1 by name.
-  # Check its name with `docker network ls`; wacs2_default is compose's default.
+  # wacs2's networks, so the hub reaches wacs2-gitea-1 and wacs2-db-1 by name
+  # whichever each is on (wacsdev has wacs2_default and wacs2_backend).
   wacs:
     name: ${WACS_NETWORK:-wacs2_default}
+    external: true
+  wacs_backend:
+    name: ${WACS_BACKEND_NETWORK:-wacs2_backend}
     external: true

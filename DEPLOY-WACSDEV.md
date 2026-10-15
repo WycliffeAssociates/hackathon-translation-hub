@@ -39,6 +39,10 @@ network:
 5. **Joe's hub is a separate demo.**
 6. **Nothing writes on `compose up`.** The hub writes only when a publisher presses a button. The one-time setup (org, `hub-bot`, OAuth app) is a manual step.
 
+## Checked on wacsdev (Will, 2026-10-15)
+
+Ubuntu; docker runs without sudo for the admin user; networks `wacs2_default` and `wacs2_backend` (the hub joins both); Forgejo runs as uid 1001, gid 1002 (the image is built with those); the database's root password is `MARIADB_ROOT_PASSWORD`; python3 3.12 and git are installed; port 8787 is free; 187 GB free.
+
 ## Steps (Will, on wacsdev)
 
 Tried end to end in this shape against WACS-local (2026-10-15): the image
@@ -79,8 +83,8 @@ Put the step-1 password into `hub.env` in place of `CHANGE-ME`.
 
 **3. Build and run.**
 ```sh
-docker build -t translation-hub:$(git rev-parse --short HEAD) .
-TAG=$(git rev-parse --short HEAD) WACS_NETWORK=wacs2_default docker compose -f deploy/wacsdev/compose.yml up -d
+docker build --build-arg HUB_UID=1001 --build-arg HUB_GID=1002 -t translation-hub:$(git rev-parse --short HEAD) .
+TAG=$(git rev-parse --short HEAD) docker compose -f deploy/wacsdev/compose.yml up -d
 docker logs -f $(docker compose -f deploy/wacsdev/compose.yml ps -q hub) | grep '"event":"poll"'
 ```
 Nothing writes on start or while polling. The hub writes only when a publisher presses a button.

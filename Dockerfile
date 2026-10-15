@@ -8,7 +8,8 @@
 #     translation-hub
 #
 # The repos are mounted read-only (on the wacs2 host: Forgejo's volume, `:ro,z`
-# for SELinux); the hub never writes to them. It runs as uid 1000, Forgejo's,
+# for SELinux); the hub never writes to them. It runs as Forgejo's user (uid
+# 1000 by default; `--build-arg HUB_UID=1001 --build-arg HUB_GID=1002` on wacsdev),
 # so it can read repos Forgejo created. Everything it
 # owns is in /data (the SQLite) and /logs (rotated JSON lines). See AGENTS.md
 # for every variable and docker-compose.yml for a dev-data setup.
@@ -44,8 +45,12 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
 
 # --- runtime ------------------------------------------------------------------
 FROM debian:bookworm-slim
+# Forgejo's uid and gid on the host, so the hub reads the repos Forgejo wrote.
+ARG HUB_UID=1000
+ARG HUB_GID=1000
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/* \
- && useradd --system --uid 1000 --home /data hub && mkdir -p /data /logs && chown hub /data /logs
+ && groupadd --system --gid ${HUB_GID} hub && useradd --system --uid ${HUB_UID} --gid ${HUB_GID} --home /data hub \
+ && mkdir -p /data /logs && chown hub:hub /data /logs
 COPY --from=server /hub-server /usr/local/bin/hub-server
 COPY --from=web /src/web/dist /srv/web
 USER hub
