@@ -70,6 +70,16 @@ export const dateOf = (unix: number | null | undefined) => (unix ? new Date(unix
 
 export const FORGEJO = "https://content.bibletranslationtools.org";
 
+/**
+ * Sefer on the Web (the r-links dev preview for now). A share link
+ * `/r/<owner>/<repo>?host=<cloud>` opens the repo there; the book path and
+ * `at=` are optional (Sefer `src/app/ui/landing/OpenByLink.tsx`, branch
+ * r-links). `host` is where Sefer reads the repo, the same WACS as FORGEJO.
+ */
+export const SEFER = "https://r-links-sefer-web-dev.wycliffe-associates-account.workers.dev";
+export const seferLink = (owner: string, name: string): string =>
+  `${SEFER}/r/${encodeURIComponent(owner)}/${encodeURIComponent(name)}?host=${new URL(FORGEJO).host}`;
+
 export const repoHref = (owner: string, name: string) => `/repos/${owner}/${name}`;
 
 export function RepoLink(props: { owner: string; name: string }) {
