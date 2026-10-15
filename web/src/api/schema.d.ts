@@ -201,6 +201,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/repos/{owner}/{name}/books/{book}/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One book beside its source, verse by verse: both texts, both lengths
+         *     (graphemes, as Sous Chef counts them), the book's usual ratio, and the
+         *     length lane's flags.
+         */
+        get: operations["book_compare"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/repos/{owner}/{name}/books/{book}/history": {
         parameters: {
             query?: never;
@@ -431,6 +452,18 @@ export interface components {
             resource_type: string;
             track: string;
         };
+        BookCompare: {
+            book: string;
+            /** @description The source the run compared against, `owner/name@sha` as recorded. */
+            source: string;
+            /** @description The source file read (at the source's current HEAD). */
+            source_path: string;
+            /** @description `owner/name`. */
+            target: string;
+            /** Format: double */
+            usual_ratio?: number | null;
+            verses: components["schemas"]["ComparedVerse"][];
+        };
         /** @description One check's count in one book. */
         BookCount: {
             book: string;
@@ -521,6 +554,10 @@ export interface components {
             severity: string;
             /** Format: int64 */
             total: number;
+        };
+        ComparedVerse: components["schemas"]["VersePair"] & {
+            /** @description The length lane's verdict on this verse, when it fired: `Long` or `Short`. */
+            flag?: string | null;
         };
         ConsolidateBody: {
             /**
@@ -1035,6 +1072,31 @@ export interface components {
             /** @description A mark in brackets (`[']`), a word form, or a class (`a letter`). */
             text: string;
         };
+        /** @description One target verse beside its source. */
+        VersePair: {
+            /** Format: int32 */
+            chapter: number;
+            /**
+             * Format: int32
+             * @description The last verse of a bridge (`1-2` → 2); equal to `verse` otherwise.
+             */
+            last: number;
+            source: string;
+            /** Format: int32 */
+            source_len: number;
+            /**
+             * @description The verse text (onion's projection: markers and notes removed, spaces
+             *     collapsed); empty when the caller asked for lengths only.
+             */
+            target: string;
+            /**
+             * Format: int32
+             * @description Graphemes, as sous counts them.
+             */
+            target_len: number;
+            /** Format: int32 */
+            verse: number;
+        };
         /** @description Saves by one author in one week. */
         WeekSaves: {
             author: string;
@@ -1366,6 +1428,46 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    book_compare: {
+        parameters: {
+            query?: {
+                /** @description Only this chapter's verses (the usual ratio still covers the book). */
+                chapter?: number;
+                /** @description With `chapter`: from this verse. */
+                verse?: number;
+                /** @description With `verse`: this many verses (default 1). */
+                count?: number;
+                /** @description Include the verse texts (default true). Off for charts of the whole book. */
+                text?: boolean;
+            };
+            header?: never;
+            path: {
+                owner: string;
+                name: string;
+                book: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookCompare"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

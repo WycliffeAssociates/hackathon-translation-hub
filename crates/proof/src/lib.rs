@@ -32,6 +32,7 @@
 //! Results are a pure function of (every book's bytes in the corpus, engine
 //! version), so a cache key must cover the whole repo, not one book.
 
+pub mod compare;
 mod message;
 
 use serde::Serialize;

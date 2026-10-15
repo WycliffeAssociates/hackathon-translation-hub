@@ -491,6 +491,103 @@
         }
       }
     },
+    "/v1/repos/{owner}/{name}/books/{book}/compare": {
+      "get": {
+        "tags": [],
+        "summary": "One book beside its source, verse by verse: both texts, both lengths\n(graphemes, as Sous Chef counts them), the book's usual ratio, and the\nlength lane's flags.",
+        "operationId": "book_compare",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "book",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "chapter",
+            "in": "query",
+            "description": "Only this chapter's verses (the usual ratio still covers the book).",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "verse",
+            "in": "query",
+            "description": "With `chapter`: from this verse.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "count",
+            "in": "query",
+            "description": "With `verse`: this many verses (default 1).",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "text",
+            "in": "query",
+            "description": "Include the verse texts (default true). Off for charts of the whole book.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookCompare"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/repos/{owner}/{name}/books/{book}/history": {
       "get": {
         "tags": [],
@@ -1171,6 +1268,46 @@
           }
         }
       },
+      "BookCompare": {
+        "type": "object",
+        "required": [
+          "target",
+          "source",
+          "source_path",
+          "book",
+          "verses"
+        ],
+        "properties": {
+          "book": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "description": "The source the run compared against, `owner/name@sha` as recorded."
+          },
+          "source_path": {
+            "type": "string",
+            "description": "The source file read (at the source's current HEAD)."
+          },
+          "target": {
+            "type": "string",
+            "description": "`owner/name`."
+          },
+          "usual_ratio": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "verses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ComparedVerse"
+            }
+          }
+        }
+      },
       "BookCount": {
         "type": "object",
         "description": "One check's count in one book.",
@@ -1471,6 +1608,25 @@
             "format": "int64"
           }
         }
+      },
+      "ComparedVerse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/VersePair"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "flag": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "The length lane's verdict on this verse, when it fired: `Long` or `Short`."
+              }
+            }
+          }
+        ]
       },
       "ConsolidateBody": {
         "type": "object",
@@ -2901,6 +3057,55 @@
           "text": {
             "type": "string",
             "description": "A mark in brackets (`[']`), a word form, or a class (`a letter`)."
+          }
+        }
+      },
+      "VersePair": {
+        "type": "object",
+        "description": "One target verse beside its source.",
+        "required": [
+          "chapter",
+          "verse",
+          "last",
+          "target_len",
+          "source_len",
+          "target",
+          "source"
+        ],
+        "properties": {
+          "chapter": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "last": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The last verse of a bridge (`1-2` → 2); equal to `verse` otherwise.",
+            "minimum": 0
+          },
+          "source": {
+            "type": "string"
+          },
+          "source_len": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "target": {
+            "type": "string",
+            "description": "The verse text (onion's projection: markers and notes removed, spaces\ncollapsed); empty when the caller asked for lengths only."
+          },
+          "target_len": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Graphemes, as sous counts them.",
+            "minimum": 0
+          },
+          "verse": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
           }
         }
       },

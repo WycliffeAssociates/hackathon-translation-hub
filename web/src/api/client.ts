@@ -22,7 +22,8 @@ export class ApiError extends Data.TaggedError("ApiError")<{
 const hex = (bytes: number) =>
   Array.from(crypto.getRandomValues(new Uint8Array(bytes)), (b) => b.toString(16).padStart(2, "0")).join("");
 
-let view = { page: "", traceId: hex(16) };
+// Before any page has started (the shared /v1/me read at load), calls belong to "app".
+let view = { page: "app", traceId: hex(16) };
 
 /** Called by each page when it mounts: a new page view, a new trace id. */
 export const startPageView = (page: string): void => {

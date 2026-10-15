@@ -38,8 +38,8 @@ What the package would export, because the hub already uses it unchanged:
 | Offset → `3:16` | `UsfmViewer.tsx` `addresses()` | Sefer has a better one (`core/location/locate.ts`); use that |
 | Chapter navigator: ‹ [Chapter 5 of 28 ▾] ›, a hundred-chart grid tinted by lint and marked where verses are missing; follows the scroll and stays pinned after a jump (a short last chapter cannot reach the top); `[` `]` and Alt+←/→ | `web/src/viewer/ChapterNav.tsx`, pin logic in `UsfmViewer.tsx` | Sefer's LocationBar does chapter + book; the grid and the marks are the hub's |
 | Findings rail: marks grouped by check, worst then noisiest; filters (words, engine, severity); this book / all books; a row selects its span; same-message rows show the marked text with invisible characters spelled out (`⟨200B⟩`); counted-by-scan vs drawn reconciliation | `web/src/viewer/FindingsRail.tsx` | A host-agnostic "problems panel" for the editor |
-| Source comparison card: the verse beside its source verse, length bars on one scale, this verse's ratio vs the book's usual (median), versification note for missing/extra | `web/src/viewer/SourceCompare.tsx` | The reason behind a source-compared finding; Sefer's reference pane could host it |
-| `versesOf(usfm)`: verse text by `c:v`, notes and markers stripped | `SourceCompare.tsx` | Should come from the engine's TOC/mask instead of a regex |
+| Source comparison card: the verse beside its source verse, length bars on one scale, this verse's ratio vs the book's usual (median), versification note for missing/extra | `web/src/viewer/SourceCompare.tsx` (draws; the server pairs and counts) | The reason behind a source-compared finding; Sefer's reference pane could host it |
+| Verse pairs with the source, in Sous Chef's terms | `crates/proof/src/compare.rs`, `/v1/repos/{o}/{n}/books/{book}/compare` | Was a regex in the browser; now galley's `OnionBook` verses and sous's `count_atoms`, the length lane's own numbers. An installed editor would call the engine the same way |
 
 ## 3. In Sefer, wanted here, not built
 

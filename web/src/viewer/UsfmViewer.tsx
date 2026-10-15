@@ -301,7 +301,7 @@ export default function UsfmViewer(props: {
               onShowMarkup={() => setMode("usfm")}
               compare={(item) => (
                 <Show when={props.source} fallback={<p class="small compare">No source text was recorded for this book.</p>}>
-                  {(src) => <SourceCompare target={doc.text} source={src()} finding={item.compared} />}
+                  {(src) => <SourceCompare source={src()} finding={item.compared} />}
                 </Show>
               )}
             />

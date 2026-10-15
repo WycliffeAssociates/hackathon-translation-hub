@@ -135,10 +135,10 @@ export default function Repo() {
                     check={search.check ?? null}
                     onBook={(engine, code, book) => openCheck({ engine, code }, book)}
                     compareWith={(() => {
-                      // The run says which source repo it compared against, and which of its files each book met.
+                      // Only when the run compared this book with a source; the server finds which.
                       const corpus = rows.latest?.corpus;
-                      const path = corpus?.books.find((b) => b.id === file)?.source;
-                      return corpus?.source && path ? { repo: corpus.source, path } : null;
+                      const book = corpus?.books.find((b) => b.id === file);
+                      return corpus?.source && book?.source ? { owner: r().owner, name: r().name, book: book.book } : null;
                     })()}
                   />
                 </div>

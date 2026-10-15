@@ -7,7 +7,6 @@ import { For, createEffect, createMemo, createResource, createSignal, onCleanup,
 import { api, startPageView } from "../api/client";
 import type { RepoSummary } from "../api/types";
 import { Async } from "../ui/bits";
-import { graphemes, versesOf } from "../viewer/SourceCompare";
 
 // --- the frame -----------------------------------------------------------------
 
@@ -219,35 +218,23 @@ const BOOK_CHOICES = [
 
 function SourceCards() {
   const [pick, setPick] = createSignal(0);
+  // The server pairs the verses and counts them (galley's verses, sous's
+  // graphemes: the length lane's own numbers) and says which it flagged.
   const [data] = createResource(pick, async (i) => {
-    const [owner, name, path, book] = BOOK_CHOICES[i]!;
-    const proof = await api.json("/v1/repos/{owner}/{name}/proof", { path: { owner, name }, query: { book } });
-    const src = proof.corpus.source;
-    const srcPath = proof.corpus.books.find((b) => b.id === path)?.source;
-    if (!src || !srcPath) throw new Error(`no source recorded for ${owner}/${name} ${book}`);
-    const [so, sn] = src.split("@")[0]!.split("/");
-    const [target, source] = await Promise.all([
-      api.text("/v1/repos/{owner}/{name}/file/{path}", { path: { owner, name, path } }),
-      api.text("/v1/repos/{owner}/{name}/file/{path}", { path: { owner: so!, name: sn!, path: srcPath } }),
-    ]);
-    const flagged = new Map(
-      proof.findings
-        .filter((f) => f.code === "LengthProportionality" && f.verse != null)
-        .map((f) => [`${f.chapter}:${f.verse}`, f.paired?.kind ?? "?"]),
-    );
-    const t = versesOf(target);
-    const s = versesOf(source);
-    const rows: { ref: string; i: number; chapter: number; t: number; s: number; ratio: number; flag: string }[] = [];
-    let i2 = 0;
-    for (const [ref, text] of t) {
-      const other = s.get(ref);
-      if (!other || !text) continue;
-      const tl = graphemes(text);
-      const sl = graphemes(other);
-      rows.push({ ref, i: i2++, chapter: Number(ref.split(":")[0]), t: tl, s: sl, ratio: tl / sl, flag: flagged.get(ref) ?? "" });
-    }
-    const sorted = rows.map((r) => r.ratio).sort((a, b) => a - b);
-    return { label: `${owner}/${name} ${book} vs ${src.split("@")[0]}`, rows, median: sorted[sorted.length >> 1] ?? 1 };
+    const [owner, name, , book] = BOOK_CHOICES[i]!;
+    const cmp = await api.json("/v1/repos/{owner}/{name}/books/{book}/compare", { path: { owner, name, book }, query: { text: false } });
+    const rows = cmp.verses
+      .filter((v) => v.target_len > 0 && v.source_len > 0)
+      .map((v, i2) => ({
+        ref: `${v.chapter}:${v.verse}`,
+        i: i2,
+        chapter: v.chapter,
+        t: v.target_len,
+        s: v.source_len,
+        ratio: v.target_len / v.source_len,
+        flag: v.flag ?? "",
+      }));
+    return { label: `${owner}/${name} ${book} vs ${cmp.source.split("@")[0]}`, rows, median: cmp.usual_ratio ?? 1 };
   });
   return (
     <>
@@ -266,7 +253,7 @@ function SourceCards() {
               n={5}
               title="Verse length against the source"
               asks="Why is a verse flagged much longer or shorter? Is it alone, or is the whole book drifting?"
-              source="both books read in the browser (graphemes per verse, markers stripped); flags from /proof LengthProportionality; the line is the book's usual ratio."
+              source="/v1/repos/{owner}/{name}/books/{book}/compare: verse pairs with graphemes as Sous Chef counts them, the length lane's flags, and the book's usual ratio (the line)."
             >
               <p class="small">{d().label}: usual ratio {d().median.toFixed(2)}×, {d().rows.filter((r) => r.flag).length} flagged.</p>
               <Chart
