@@ -27,7 +27,7 @@ use crate::api::{AppState, Failure};
 
 #[derive(OpenApi)]
 #[openapi(
-    paths(sources, set_ignored, diff, published, set_published),
+    paths(sources, set_ignored, diff, published, set_published, coverage),
     components(schemas(
         Sources,
         SourceBook,
@@ -41,7 +41,10 @@ use crate::api::{AppState, Failure};
         BookDiff,
         VerseChange,
         Published,
-        PublishBody
+        PublishBody,
+        Coverage,
+        BookChapters,
+        ChapterCoverage
     ))
 )]
 pub struct SourcesDoc;
@@ -60,6 +63,10 @@ pub fn router() -> axum::Router<AppState> {
         .route(
             "/v1/languages/{ietf}/sources/ignore",
             axum::routing::post(set_ignored),
+        )
+        .route(
+            "/v1/repos/{owner}/{name}/coverage",
+            axum::routing::get(coverage),
         )
 }
 
@@ -869,4 +876,150 @@ async fn set_published(
     .await
     .map_err(|e| fail(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))??;
     Ok(Json(set))
+}
+
+#[derive(Deserialize, IntoParams)]
+#[into_params(parameter_in = Query)]
+pub struct CoverageQuery {
+    /// The source to measure against, `owner/name`. Default: the one this
+    /// repo declares, else the one its language's copies declare most.
+    against: Option<String>,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct ChapterCoverage {
+    pub chapter: u16,
+    /// The source's verses this chapter has (by number).
+    pub present: usize,
+    /// The source's verses in the chapter.
+    pub total: usize,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct BookChapters {
+    pub book: String,
+    /// This repo's file for the book; absent when the repo lacks it.
+    pub path: Option<String>,
+    pub chapters: Vec<ChapterCoverage>,
+}
+
+/// A repo against a source, chapter by chapter, in the source's book order.
+#[derive(Serialize, ToSchema)]
+pub struct Coverage {
+    /// `owner/name` measured against; absent when none could be found.
+    pub source: Option<String>,
+    /// Sources one could pick instead: declared by the repo or its language's copies.
+    pub candidates: Vec<String>,
+    pub books: Vec<BookChapters>,
+}
+
+/// Verses present per chapter, this repo against a source (verse numbers, as
+/// the progress strip counts them).
+#[utoipa::path(get, path = "/v1/repos/{owner}/{name}/coverage",
+    params(("owner" = String, Path), ("name" = String, Path), CoverageQuery),
+    responses((status = 200, body = Coverage), (status = 404, body = crate::api::ApiError)))]
+async fn coverage(
+    State(s): State<AppState>,
+    Path((owner, name)): Path<(String, String)>,
+    Query(q): Query<CoverageQuery>,
+) -> Result<Json<Coverage>, Failure> {
+    let started = std::time::Instant::now();
+    let state = s.clone();
+    let out = tokio::task::spawn_blocking(move || -> Result<Coverage, Failure> {
+        use rayon::prelude::*;
+        let internal = |e: String| fail(StatusCode::INTERNAL_SERVER_ERROR, e);
+        let conn = state.store.reader().map_err(|e| internal(e.to_string()))?;
+        let (o, n) = (owner.to_lowercase(), name.to_lowercase());
+        let d = hub_store::read::repo(&conn, &o, &n)
+            .map_err(|e| internal(e.to_string()))?
+            .ok_or_else(|| fail(StatusCode::NOT_FOUND, format!("no public repo {o}/{n}")))?;
+        let sha = d.head_sha.clone().unwrap_or_default();
+        // Candidates: what the repo's books declare, then what the language's copies declare most.
+        let mut candidates: Vec<String> = d
+            .books
+            .iter()
+            .filter_map(|b| b.coverage.as_ref().map(|c| c.source.to_lowercase()))
+            .collect();
+        if let (Some(lang), Some(res)) = (&d.summary.language, &d.summary.resource) {
+            let mut counts: HashMap<String, usize> = HashMap::new();
+            for c in
+                publishing::book_copies(&conn, lang, res).map_err(|e| internal(e.to_string()))?
+            {
+                if let Some(src) = c.source_repo {
+                    *counts.entry(src.to_lowercase()).or_default() += 1;
+                }
+            }
+            let mut v: Vec<(String, usize)> = counts.into_iter().collect();
+            v.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+            candidates.extend(v.into_iter().map(|(s, _)| s));
+        }
+        let mut seen = std::collections::HashSet::new();
+        candidates.retain(|c| seen.insert(c.clone()) && c != &format!("{o}/{n}"));
+        let source = q
+            .against
+            .map(|a| a.to_lowercase())
+            .or_else(|| candidates.first().cloned());
+        let Some(src) = source.clone() else {
+            return Ok(Coverage {
+                source: None,
+                candidates,
+                books: Vec::new(),
+            });
+        };
+        let (so, sn) = src
+            .split_once('/')
+            .ok_or_else(|| fail(StatusCode::BAD_REQUEST, "owner/name"))?;
+        let sd = hub_store::read::repo(&conn, so, sn)
+            .map_err(|e| internal(e.to_string()))?
+            .ok_or_else(|| fail(StatusCode::NOT_FOUND, format!("no public repo {src}")))?;
+        let ssha = sd.head_sha.clone().unwrap_or_default();
+        let read = |owner: &str, name: &str, sha: &str, synthetic: bool, path: &str| {
+            crate::compare::book_text(&state, owner, name, sha, synthetic, path)
+                .ok()
+                .map(|t| fingerprint(&t))
+        };
+        let mut books: Vec<BookChapters> = sd
+            .books
+            .par_iter()
+            .filter(|b| !b.book.is_empty())
+            .filter_map(|sb| {
+                let theirs = read(so, sn, &ssha, sd.synthetic.is_some(), &sb.path)?;
+                let ours_row = d.books.iter().find(|b| b.book == sb.book);
+                let ours =
+                    ours_row.and_then(|b| read(&o, &n, &sha, d.synthetic.is_some(), &b.path));
+                let mut by: BTreeMap<u16, (usize, usize)> = BTreeMap::new();
+                for key in theirs.verses.keys() {
+                    let e = by.entry(key.0).or_default();
+                    e.1 += 1;
+                    if ours.as_ref().is_some_and(|f| f.verses.contains_key(key)) {
+                        e.0 += 1;
+                    }
+                }
+                Some(BookChapters {
+                    book: sb.book.clone(),
+                    path: ours_row.map(|b| b.path.clone()),
+                    chapters: by
+                        .into_iter()
+                        .map(|(chapter, (present, total))| ChapterCoverage {
+                            chapter,
+                            present,
+                            total,
+                        })
+                        .collect(),
+                })
+            })
+            .collect();
+        books.sort_by_key(|b| hub_stitch::usfm_file_name(&b.book).unwrap_or_default());
+        Ok(Coverage {
+            source,
+            candidates,
+            books,
+        })
+    })
+    .await
+    .map_err(|e| fail(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))??;
+    let span = tracing::Span::current();
+    span.record("rows", out.books.len());
+    span.record("work_ms", started.elapsed().as_secs_f64() * 1000.0);
+    Ok(Json(out))
 }

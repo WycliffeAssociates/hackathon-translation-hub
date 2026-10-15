@@ -392,6 +392,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/repos/{owner}/{name}/coverage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Verses present per chapter, this repo against a source (verse numbers, as
+         *     the progress strip counts them).
+         */
+        get: operations["coverage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/repos/{owner}/{name}/file/{path}": {
         parameters: {
             query?: never;
@@ -625,6 +645,12 @@ export interface components {
             diff: components["schemas"]["Diff"];
             path: string;
         };
+        BookChapters: {
+            book: string;
+            chapters: components["schemas"]["ChapterCoverage"][];
+            /** @description This repo's file for the book; absent when the repo lacks it. */
+            path?: string | null;
+        };
         BookCompare: {
             book: string;
             /** @description The source the run compared against, `owner/name@sha` as recorded. */
@@ -771,6 +797,14 @@ export interface components {
             status?: string | null;
             track?: string | null;
         };
+        ChapterCoverage: {
+            /** Format: int32 */
+            chapter: number;
+            /** @description The source's verses this chapter has (by number). */
+            present: number;
+            /** @description The source's verses in the chapter. */
+            total: number;
+        };
         /** @description One check across a repo: its total and its books, most first. */
         CodeCount: {
             books: components["schemas"]["BookCount"][];
@@ -811,6 +845,14 @@ export interface components {
         Copy: components["schemas"]["BookCopy"] & {
             /** @description Set aside by a publisher, for this book or for every book. */
             ignored: boolean;
+        };
+        /** @description A repo against a source, chapter by chapter, in the source's book order. */
+        Coverage: {
+            books: components["schemas"]["BookChapters"][];
+            /** @description Sources one could pick instead: declared by the repo or its language's copies. */
+            candidates: string[];
+            /** @description `owner/name` measured against; absent when none could be found. */
+            source?: string | null;
         };
         CoverageRow: {
             /**
@@ -2262,6 +2304,42 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    coverage: {
+        parameters: {
+            query?: {
+                /**
+                 * @description The source to measure against, `owner/name`. Default: the one this
+                 *     repo declares, else the one its language's copies declare most.
+                 */
+                against?: string;
+            };
+            header?: never;
+            path: {
+                owner: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Coverage"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

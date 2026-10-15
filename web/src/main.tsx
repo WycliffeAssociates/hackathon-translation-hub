@@ -42,7 +42,6 @@ function Layout(props: RouteSectionProps) {
           <A href="/biel" activeClass="on">BIEL conflicts</A>
           <A href="/checks" activeClass="on">Checks</A>
           <A href="/status" activeClass="on">Status</A>
-          <A href="/viz" activeClass="on">Charts</A>
         </nav>
         <SessionCorner />
       </header>

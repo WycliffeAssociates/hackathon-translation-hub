@@ -1,10 +1,14 @@
-import { For, createResource } from "solid-js";
+import { For, Show, createResource, createSignal, lazy } from "solid-js";
 import { api, startPageView } from "../api/client";
 import { Async, ago, dateOf } from "../ui/bits";
+
+// The WACS-wide charts (Observable Plot) load when asked for.
+const WacsCharts = lazy(() => import("../charts/WacsCharts"));
 
 export default function Status() {
   startPageView("status");
   const [totals] = createResource(() => api.json("/v1/status"));
+  const [charts, setCharts] = createSignal(false);
   return (
     <>
       <h1>Status</h1>
@@ -55,6 +59,10 @@ export default function Status() {
       <p>
         API: <a href="/v1/openapi.json">/v1/openapi.json</a>
       </p>
+      <h2>Across WACS</h2>
+      <Show when={charts()} fallback={<button type="button" onClick={() => setCharts(true)}>Show the charts</button>}>
+        <WacsCharts />
+      </Show>
     </>
   );
 }

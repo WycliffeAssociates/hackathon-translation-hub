@@ -14,6 +14,9 @@ import Books from "./repo/Books";
 import FileTree from "./repo/FileTree";
 import FileView from "./repo/FileView";
 import History from "./repo/History";
+import { lazy } from "solid-js";
+// Charts (Observable Plot) load with the tab, not with every repo page.
+const Progress = lazy(() => import("./repo/Progress"));
 import Official from "./repo/Official";
 import Releases from "./repo/Releases";
 import SourcePane from "./repo/SourcePane";
@@ -23,7 +26,7 @@ import { me } from "../ui/session";
 
 type Params = { file?: string; source?: string; at?: string; ch?: string; v?: string; check?: string; tab?: string };
 
-type Tab = "files" | "checks" | "sources" | "releases" | "history";
+type Tab = "files" | "progress" | "checks" | "sources" | "releases" | "history";
 
 export default function Repo() {
   const params = useParams<{ owner: string; name: string }>();
@@ -51,7 +54,9 @@ export default function Repo() {
 
   // The open book's id (`MAT`).
   // The book shown: the file in the URL, else (Checks tab) the one checkFile picks.
-  const shownFile = () => file() ?? (tab() === "checks" && ok(repo) ? checkFile(ok(repo)!) : undefined);
+  // (Progress needs a book's proofreading run too: it says which books were compared with a source.)
+  const shownFile = () =>
+    file() ?? (tab() === "checks" && ok(repo) ? checkFile(ok(repo)!) : tab() === "progress" ? ok(repo)?.books[0]?.path : undefined);
   const openBookId = () => (source() ? undefined : ok(repo)?.books.find((b) => b.path === shownFile())?.book);
   // Sous Chef's stored rows for the open book, every check. Lint rows are not
   // served: the viewer's engine draws lint for the open book itself.
@@ -74,7 +79,7 @@ export default function Repo() {
   };
 
   // Tabs, like a repo on GitHub: the tab is in the URL (?tab=checks), Files by default.
-  const tab = (): Tab => (["checks", "sources", "releases", "history"].includes(search.tab ?? "") ? (search.tab as Tab) : "files");
+  const tab = (): Tab => (["progress", "checks", "sources", "releases", "history"].includes(search.tab ?? "") ? (search.tab as Tab) : "files");
   const tabHref = (t: Tab) => {
     const q = new URLSearchParams(location.search);
     if (t === "files") q.delete("tab");
@@ -84,6 +89,7 @@ export default function Repo() {
   const tabs = (r: RepoDetail) =>
     [
       { id: "files" as Tab, label: "Files", count: 0 },
+      { id: "progress" as Tab, label: "Progress", count: 0 },
       { id: "checks" as Tab, label: "Checks", count: r.proof?.findings ?? 0 },
       ...(r.language && r.resource ? [{ id: "sources" as Tab, label: "Sources", count: 0 }] : []),
       { id: "releases" as Tab, label: "Releases", count: official()?.target?.releases.length ?? 0 },
@@ -309,6 +315,15 @@ export default function Repo() {
                   </section>
                 )}
               </Show>
+            </Match>
+
+            <Match when={tab() === "progress"}>
+              <Progress
+                repo={r()}
+                compared={(ok(rows)?.corpus?.source ? ok(rows)?.corpus?.books ?? [] : [])
+                  .filter((b) => b.source)
+                  .map((b) => ({ book: b.book, path: b.id }))}
+              />
             </Match>
 
             <Match when={tab() === "sources" && r().language && r().resource}>

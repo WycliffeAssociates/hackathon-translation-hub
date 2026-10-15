@@ -637,3 +637,4 @@ a:hover .repo-owner { text-decoration: underline; }
 .publishing p { margin: .2rem 0; }
 .publishing-actions { display: flex; flex-wrap: wrap; gap: .6rem; margin: .5rem 0 .3rem; }
 .release-assets { display: inline-flex; gap: .8rem; margin-left: .8rem; }
+.working { padding: .6rem .8rem; border: 1px solid var(--rule); border-radius: 8px; background: var(--wf-bg); }

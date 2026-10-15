@@ -101,6 +101,8 @@ export function SourcesView(props: { ietf: string; resource: string }) {
   /** `BOOK owner/name` of the copy whose diff is open. */
   const [diffOpen, setDiffOpen] = createSignal<string>();
   const [busy, setBusy] = createSignal(false);
+  /** What a long write is doing while it runs (Create replays every Writer save: a minute or more). */
+  const [working, setWorking] = createSignal<string>();
   const [done, setDone] = createSignal<string>();
   const [failed, setFailed] = createSignal<string>();
   const publisher = () => me()?.me?.publisher === true;
@@ -132,6 +134,7 @@ export function SourcesView(props: { ietf: string; resource: string }) {
       setFailed(e instanceof Error ? e.message : String((e as { message?: string }).message ?? e));
     } finally {
       setBusy(false);
+      setWorking(undefined);
     }
   };
 
@@ -174,11 +177,13 @@ export function SourcesView(props: { ietf: string; resource: string }) {
     }?`;
     if (!confirm(what)) return;
     await write(null, async () => {
+      setWorking(`Creating ${d.target}: replaying every Writer save of ${plural(writers.length, "book")} into one history, then pushing it. This can take a minute or more; keep this page open.`);
       if (via) {
         const all = Object.fromEntries(d.books.map((b) => [b.book, writers.includes(b) ? picked(b) : ""]));
         await api.post("/v1/repos/{owner}/{name}/consolidate", { path: { owner: via.owner, name: via.name } }, { picks: all });
       }
-      for (const b of others) {
+      for (const [i, b] of others.entries()) {
+        setWorking(`Pulling ${b.book} from ${picked(b)} (${i + 1} of ${others.length})…`);
         const [owner, name] = picked(b).split("/");
         await api.post("/v1/repos/{owner}/{name}/pull", { path: { owner: owner!, name: name! } }, { book: b.book });
       }
@@ -268,6 +273,7 @@ export function SourcesView(props: { ietf: string; resource: string }) {
                 Publishers can set copies aside, pull books and choose what is published.
               </p>
             </Show>
+            <Show when={working()}>{(m) => <p class="loading working" role="status">{m()}</p>}</Show>
             <Show when={done()}>{(m) => <p class="ok" role="status">{m()}</p>}</Show>
             <Show when={failed()}>{(m) => <p class="failure" role="alert">{m()}</p>}</Show>
 

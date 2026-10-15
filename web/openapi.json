@@ -1093,6 +1093,62 @@
         }
       }
     },
+    "/v1/repos/{owner}/{name}/coverage": {
+      "get": {
+        "tags": [],
+        "summary": "Verses present per chapter, this repo against a source (verse numbers, as\nthe progress strip counts them).",
+        "operationId": "coverage",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "against",
+            "in": "query",
+            "description": "The source to measure against, `owner/name`. Default: the one this\nrepo declares, else the one its language's copies declare most.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Coverage"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/repos/{owner}/{name}/file/{path}": {
       "get": {
         "tags": [],
@@ -1798,6 +1854,31 @@
           }
         }
       },
+      "BookChapters": {
+        "type": "object",
+        "required": [
+          "book",
+          "chapters"
+        ],
+        "properties": {
+          "book": {
+            "type": "string"
+          },
+          "chapters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChapterCoverage"
+            }
+          },
+          "path": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "This repo's file for the book; absent when the repo lacks it."
+          }
+        }
+      },
       "BookCompare": {
         "type": "object",
         "required": [
@@ -2257,6 +2338,31 @@
           }
         }
       },
+      "ChapterCoverage": {
+        "type": "object",
+        "required": [
+          "chapter",
+          "present",
+          "total"
+        ],
+        "properties": {
+          "chapter": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "present": {
+            "type": "integer",
+            "description": "The source's verses this chapter has (by number).",
+            "minimum": 0
+          },
+          "total": {
+            "type": "integer",
+            "description": "The source's verses in the chapter.",
+            "minimum": 0
+          }
+        }
+      },
       "CodeCount": {
         "type": "object",
         "description": "One check across a repo: its total and its books, most first.",
@@ -2389,6 +2495,36 @@
             }
           }
         ]
+      },
+      "Coverage": {
+        "type": "object",
+        "description": "A repo against a source, chapter by chapter, in the source's book order.",
+        "required": [
+          "candidates",
+          "books"
+        ],
+        "properties": {
+          "books": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BookChapters"
+            }
+          },
+          "candidates": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Sources one could pick instead: declared by the repo or its language's copies."
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`owner/name` measured against; absent when none could be found."
+          }
+        }
       },
       "CoverageRow": {
         "type": "object",

@@ -3,66 +3,12 @@
 // returns series, the page only draws (Observable Plot, 0.6.17). Cut freely:
 // nothing else depends on this page.
 import * as Plot from "@observablehq/plot";
-import { For, createEffect, createMemo, createResource, createSignal, onCleanup, type JSX } from "solid-js";
+import { For, createMemo, createResource, createSignal } from "solid-js";
 import { useNavigate } from "@solidjs/router";
 import { api, startPageView } from "../api/client";
-import type { RepoSummary } from "../api/types";
 import { Async } from "../ui/bits";
-
-// --- the frame -----------------------------------------------------------------
-
-/**
- * Draws `make(width)` into the card, again when the card is resized. With
- * `onPick`, a click opens the datum under the pointer: Plot sets the figure's
- * `value` to it for any mark with a tooltip (`tip: true`).
- */
-function Chart<T>(props: { make: (width: number) => (SVGSVGElement | HTMLElement) | null; onPick?: (datum: T) => void }) {
-  let host!: HTMLDivElement;
-  const [width, setWidth] = createSignal(0);
-  const ro = new ResizeObserver(([e]) => setWidth(Math.floor(e!.contentRect.width)));
-  createEffect(() => {
-    ro.observe(host);
-    onCleanup(() => ro.disconnect());
-  });
-  createEffect(() => {
-    const w = width();
-    if (!w) return;
-    const el = props.make(w);
-    const pick = props.onPick;
-    if (el && pick) {
-      el.classList.add("pickable");
-      el.addEventListener("click", () => {
-        const v = (el as { value?: T | null }).value;
-        if (v != null) pick(v);
-      });
-    }
-    host.replaceChildren(...(el ? [el] : []));
-  });
-  return <div class="viz-chart" ref={host} />;
-}
-
-function Card(props: { n: number; title: string; asks: string; source: string; children: JSX.Element }) {
-  return (
-    <section class="viz-card" id={`viz-${props.n}`} data-tour={`viz-${props.n}`}>
-      <header>
-        <h3>
-          <span class="viz-n">{props.n}</span> {props.title}
-        </h3>
-        <p class="viz-asks">{props.asks}</p>
-      </header>
-      {props.children}
-      <p class="viz-source small">Data: {props.source}</p>
-    </section>
-  );
-}
-
-const time = (unix: number) => new Date(unix * 1000);
-const CANON = "GEN EXO LEV NUM DEU JOS JDG RUT 1SA 2SA 1KI 2KI 1CH 2CH EZR NEH EST JOB PSA PRO ECC SNG ISA JER LAM EZK DAN HOS JOL AMO OBA JON MIC NAM HAB ZEP HAG ZEC MAL MAT MRK LUK JHN ACT ROM 1CO 2CO GAL EPH PHP COL 1TH 2TH 1TI 2TI TIT PHM HEB JAS 1PE 2PE 1JN 2JN 3JN JUD REV".split(" ");
-const canonIndex = (b: string) => {
-  const i = CANON.indexOf(b);
-  return i < 0 ? 99 : i;
-};
-const byCanon = (a: string, b: string) => canonIndex(a) - canonIndex(b);
+import { Card, Chart, byCanon, time } from "../charts/kit";
+import WacsCharts from "../charts/WacsCharts";
 
 // --- A. a language's Writer books over time --------------------------------------
 
@@ -441,131 +387,12 @@ function RepoCards() {
   );
 }
 
-// --- D. across WACS ---------------------------------------------------------------------
-
-/** Repos per quarter of their last commit, by kind (Writer = served as synthetic). */
-function quarters(all: readonly RepoSummary[]) {
-  const by = new Map<string, { q: Date; kind: string; n: number }>();
-  for (const r of all) {
-    if (!r.head_unix) continue;
-    const d = time(r.head_unix);
-    const q = new Date(Date.UTC(d.getUTCFullYear(), Math.floor(d.getUTCMonth() / 3) * 3, 1));
-    const kind = r.is_synthetic ? "Writer project" : (r.shape ?? "other");
-    const key = `${q.getTime()} ${kind}`;
-    const row = by.get(key) ?? { q, kind, n: 0 };
-    row.n += 1;
-    by.set(key, row);
-  }
-  return [...by.values()];
-}
-
-async function allRepos(): Promise<RepoSummary[]> {
-  const out: RepoSummary[] = [];
-  for (let offset = 0; offset < 50_000; offset += 500) {
-    const page = await api.json("/v1/repos", { query: { limit: 500, offset } });
-    out.push(...page.repos);
-    if (page.repos.length < 500) break;
-  }
-  return out;
-}
-
-function HubCards() {
+function LanguageCard() {
   const navigate = useNavigate();
-  const [rules] = createResource(() => api.json("/v1/findings"));
-  const [repos] = createResource(allRepos);
-  const [conflicts] = createResource(() => api.json("/v1/biel/conflicts"));
   const [lang, setLang] = createSignal("ceb");
   const [language] = createResource(lang, (ietf) => api.json("/v1/languages/{ietf}", { path: { ietf } }));
   return (
     <>
-      <Async of={rules} what="checks">
-        {(r) => (
-          <Card
-            n={9}
-            title="Which checks are noise"
-            asks="Is a check finding real problems everywhere, or one repo's habit? (High and left: few repos, many findings.)"
-            source="/v1/findings: per check, findings, repos it fires in, and the top repo's share (dot size)."
-          >
-            <Chart
-              make={(width) =>
-                Plot.plot({
-                  width,
-                  height: 360,
-                  x: { type: "log", label: "repos it fires in", grid: true },
-                  y: { type: "log", label: "findings", grid: true },
-                  r: { range: [2, 14] },
-                  color: { legend: true },
-                  marks: [
-                    Plot.dot(r(), { x: "repos", y: "total", r: "top_repo_share", fill: "engine", fillOpacity: 0.7, tip: true, title: (c: { code: string; total: number; repos: number; top_repo_share: number }) => `${c.code}: ${c.total.toLocaleString()} in ${c.repos} repos, top repo ${(c.top_repo_share * 100).toFixed(0)}%` }),
-                    Plot.text(r().filter((c) => c.total > 5000), { x: "repos", y: "total", text: "code", dy: -10, fontSize: 10 }),
-                  ],
-                })
-              }
-            />
-          </Card>
-        )}
-      </Async>
-      <Async of={repos} what="repos">
-        {(all) => (
-          <Card
-            n={10}
-            title="How much of WACS is alive"
-            asks="When was each repo last touched? How many Writer projects went quiet years ago?"
-            source="/v1/repos (every public repo): last commit time, by kind (Writer = served as synthetic)."
-          >
-            <Chart
-              make={(width) =>
-                Plot.plot({
-                  width,
-                  height: 260,
-                  color: { legend: true },
-                  y: { grid: true, label: "repos" },
-                  x: { label: "last commit" },
-                  marks: [
-                    // Counted here per quarter and kind, then stacked by rectY.
-                    Plot.rectY(quarters(all()), { x: "q", y: "n", fill: "kind", interval: "quarter", tip: true }),
-                    Plot.ruleY([0]),
-                  ],
-                })
-              }
-            />
-          </Card>
-        )}
-      </Async>
-      <Async of={conflicts} what="BIEL conflicts">
-        {(c) => {
-          const rows = () => {
-            const by = new Map<string, { language: string; ietf: string; n: number }>();
-            for (const x of c()) {
-              const k = x.language_name ? `${x.language_name} (${x.language})` : x.language;
-              by.set(k, { language: k, ietf: x.language, n: (by.get(k)?.n ?? 0) + 1 });
-            }
-            return [...by.values()].sort((a, b) => b.n - a.n).slice(0, 25);
-          };
-          return (
-            <Card
-              n={11}
-              title="BIEL shows these books twice"
-              asks="Which languages need someone to pick one repo per book (Primary and shown on BIEL, twice)?"
-              source="/v1/biel/conflicts: books with more than one Primary, shown repo."
-            >
-              <Chart
-                onPick={(row: { ietf: string }) => navigate(`/languages/${row.ietf}`)}
-                make={(width) =>
-                  Plot.plot({
-                    width,
-                    height: 40 + 18 * rows().length,
-                    marginLeft: 200,
-                    x: { grid: true, label: "books shown twice" },
-                    y: { label: null },
-                    marks: [Plot.barX(rows(), { x: "n", y: "language", sort: { y: "-x" }, fill: "#a8445a", tip: true }), Plot.ruleX([0])],
-                  })
-                }
-              />
-            </Card>
-          );
-        }}
-      </Async>
       <div class="viz-controls">
         <label>
           Language{" "}
@@ -620,7 +447,8 @@ export default function Viz() {
       <h2>C. A repo's state</h2>
       <RepoCards />
       <h2>D. Across WACS</h2>
-      <HubCards />
+      <WacsCharts />
+      <LanguageCard />
     </>
   );
 }
