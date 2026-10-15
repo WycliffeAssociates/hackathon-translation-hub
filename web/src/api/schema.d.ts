@@ -89,6 +89,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/languages/{ietf}/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A language and brand's Writer books over time: verses per book after each
+         *     save, and saves per author per week.
+         */
+        get: operations["language_progress"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me": {
         parameters: {
             query?: never;
@@ -433,6 +453,24 @@ export interface components {
             state: string;
             track: string;
         };
+        /** @description One book's growth. */
+        BookProgress: {
+            book: string;
+            /** @description `[unix seconds, verses present]` after each save that changed the count. */
+            points: number[][];
+            /** @description The Writer project it was read from, `owner/name`. */
+            repo: string;
+            /**
+             * Format: int64
+             * @description The source's verse count, when a source resolves: the book's target.
+             */
+            source_verses?: number | null;
+            /**
+             * Format: int64
+             * @description Verses now.
+             */
+            verses: number;
+        };
         /** @description One book of a repo at HEAD. */
         BookRow: {
             book: string;
@@ -652,6 +690,12 @@ export interface components {
             facts?: null | components["schemas"]["LanguageSummary"];
             ietf: string;
             repos: components["schemas"]["RepoSummary"][];
+        };
+        LanguageProgress: {
+            books: components["schemas"]["BookProgress"][];
+            language: string;
+            resource: string;
+            weekly: components["schemas"]["WeekSaves"][];
         };
         LanguageSummary: {
             alternate_names: string[];
@@ -991,6 +1035,18 @@ export interface components {
             /** @description A mark in brackets (`[']`), a word form, or a class (`a letter`). */
             text: string;
         };
+        /** @description Saves by one author in one week. */
+        WeekSaves: {
+            author: string;
+            book: string;
+            /** Format: int64 */
+            saves: number;
+            /**
+             * Format: int64
+             * @description Start of the week, unix seconds (weeks from the epoch, a Thursday).
+             */
+            week: number;
+        };
         /** @description One book of a Writer project, a candidate for consolidation. */
         WriterBook: {
             /** @description Upper-case USFM id. */
@@ -1140,6 +1196,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    language_progress: {
+        parameters: {
+            query: {
+                /** @description The brand: `reg`, `ulb`. */
+                resource: string;
+            };
+            header?: never;
+            path: {
+                ietf: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LanguageProgress"];
                 };
             };
         };

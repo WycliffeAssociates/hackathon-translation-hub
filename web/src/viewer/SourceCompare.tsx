@@ -66,7 +66,7 @@ export function versesOf(usfm: string): Verses {
 }
 
 const segmenter = typeof Intl !== "undefined" && "Segmenter" in Intl ? new Intl.Segmenter() : null;
-const graphemes = (s: string) => (segmenter ? [...segmenter.segment(s)].length : [...s].length);
+export const graphemes = (s: string) => (segmenter ? [...segmenter.segment(s)].length : [...s].length);
 
 /** The middle target/source length ratio over every verse both texts have. */
 function usualRatio(target: Verses, source: Verses): { ratio: number; verses: number } | null {

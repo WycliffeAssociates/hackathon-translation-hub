@@ -13,6 +13,7 @@ mod api;
 mod config;
 mod forgejo_api;
 mod poll;
+mod progress;
 mod proof;
 mod publish;
 mod telemetry;

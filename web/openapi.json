@@ -188,6 +188,44 @@
         }
       }
     },
+    "/v1/languages/{ietf}/progress": {
+      "get": {
+        "tags": [],
+        "summary": "A language and brand's Writer books over time: verses per book after each\nsave, and saves per author per week.",
+        "operationId": "language_progress",
+        "parameters": [
+          {
+            "name": "ietf",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "resource",
+            "in": "query",
+            "description": "The brand: `reg`, `ulb`.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LanguageProgress"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/me": {
       "get": {
         "tags": [],
@@ -1194,6 +1232,49 @@
           }
         }
       },
+      "BookProgress": {
+        "type": "object",
+        "description": "One book's growth.",
+        "required": [
+          "book",
+          "repo",
+          "verses",
+          "points"
+        ],
+        "properties": {
+          "book": {
+            "type": "string"
+          },
+          "points": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "format": "int64"
+              }
+            },
+            "description": "`[unix seconds, verses present]` after each save that changed the count."
+          },
+          "repo": {
+            "type": "string",
+            "description": "The Writer project it was read from, `owner/name`."
+          },
+          "source_verses": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "The source's verse count, when a source resolves: the book's target."
+          },
+          "verses": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Verses now."
+          }
+        }
+      },
       "BookRow": {
         "type": "object",
         "description": "One book of a repo at HEAD.",
@@ -1757,6 +1838,35 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/RepoSummary"
+            }
+          }
+        }
+      },
+      "LanguageProgress": {
+        "type": "object",
+        "required": [
+          "language",
+          "resource",
+          "books",
+          "weekly"
+        ],
+        "properties": {
+          "books": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BookProgress"
+            }
+          },
+          "language": {
+            "type": "string"
+          },
+          "resource": {
+            "type": "string"
+          },
+          "weekly": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WeekSaves"
             }
           }
         }
@@ -2791,6 +2901,33 @@
           "text": {
             "type": "string",
             "description": "A mark in brackets (`[']`), a word form, or a class (`a letter`)."
+          }
+        }
+      },
+      "WeekSaves": {
+        "type": "object",
+        "description": "Saves by one author in one week.",
+        "required": [
+          "week",
+          "author",
+          "book",
+          "saves"
+        ],
+        "properties": {
+          "author": {
+            "type": "string"
+          },
+          "book": {
+            "type": "string"
+          },
+          "saves": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "week": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Start of the week, unix seconds (weeks from the epoch, a Thursday)."
           }
         }
       },

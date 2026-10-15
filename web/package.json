@@ -10,6 +10,7 @@
     "smoke": "node tools/smoke.mjs"
   },
   "dependencies": {
+    "@observablehq/plot": "0.6.17",
     "@solidjs/router": "1.0.0",
     "effect": "4.0.0-rc.112",
     "solid-js": "1.9.17"

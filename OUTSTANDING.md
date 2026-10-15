@@ -93,6 +93,18 @@ Gaps, in the order they would bite:
 - **CSRF**: writes rely on `SameSite=Lax` and a JSON body. Enough for a POC; add a token before anyone else's browser can reach it.
 - Team membership is read at sign-in; removal takes effect at the next sign-in.
 
+## Charts: candidates to keep or cut (`/viz`, 2026-10-14)
+
+Twelve charts on real data, Observable Plot 0.6.17, for Will to cut. The page
+says the question each answers. A: a language over time (1 burn-up, 2 each book
+toward its source, 3 who worked when, 4 contributor × book), from
+`/v1/languages/{ietf}/progress?resource=` (Writer history via `crates/history`).
+B: a book against its source (5 verse-length scatter with flags, 6 ratio along
+the book), read in the browser. C: a repo (7 coverage book × chapter, 8 findings
+book × check). D: WACS (9 which checks are noise, 10 how much is alive, 11 BIEL
+shown twice by language, 12 a language's book × version state). The choices in
+each card's picker are fixed lists for the demo.
+
 ## Not built yet, but agreed earlier
 
 - A person overriding the Official pick (`picked_by = person`) has no table yet.

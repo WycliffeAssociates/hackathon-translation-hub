@@ -13,6 +13,8 @@ import { SessionCorner } from "./ui/session";
 // The repo page carries the USFM viewer (CodeMirror + the engine wasm), so it
 // loads on demand.
 const Repo = lazy(() => import("./pages/Repo"));
+// Chart candidates (Observable Plot), loaded on demand.
+const Viz = lazy(() => import("./pages/Viz"));
 
 function Layout(props: RouteSectionProps) {
   const navigate = useNavigate();
@@ -34,6 +36,7 @@ function Layout(props: RouteSectionProps) {
           <A href="/biel" activeClass="on">BIEL conflicts</A>
           <A href="/checks" activeClass="on">Checks</A>
           <A href="/status" activeClass="on">Status</A>
+          <A href="/viz" activeClass="on">Charts</A>
         </nav>
         <SessionCorner />
       </header>
@@ -63,6 +66,7 @@ render(
       <Route path="/biel" component={Biel} />
       <Route path="/checks" component={Checks} />
       <Route path="/status" component={Status} />
+      <Route path="/viz" component={Viz} />
       <Route path="*" component={NotFound} />
     </Router>
   ),

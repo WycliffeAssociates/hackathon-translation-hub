@@ -428,3 +428,15 @@ button.primary:disabled { opacity: .5; cursor: progress; }
 .assemble-pick { display: inline-flex; gap: .45rem; align-items: center; cursor: pointer; }
 .assemble-skip td { color: var(--muted); }
 .assemble .spark { color: var(--official); }
+
+/* --- /viz: chart candidates --- */
+.viz-card { border: 1px solid var(--rule); border-radius: 12px; background: var(--wf-bg); padding: .8rem 1rem; margin: 1rem 0; }
+.viz-card h3 { margin: 0; font-family: var(--ui); font-size: 1.05rem; }
+.viz-n { display: inline-grid; place-items: center; width: 1.6rem; height: 1.6rem; border-radius: 50%; background: var(--ink); color: var(--paper); font-size: .85rem; margin-right: .3rem; }
+.viz-asks { margin: .2rem 0 .6rem; color: var(--muted); }
+.viz-source { color: var(--muted); margin: .4rem 0 0; }
+.viz-chart { width: 100%; overflow-x: auto; }
+.viz-chart svg { max-width: 100%; height: auto; }
+.viz-controls { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; margin: .5rem 0; }
+.viz-controls select, .viz-controls input { font: inherit; padding: .3em .5em; border: 1px solid var(--rule); border-radius: 8px; background: var(--paper); color: var(--ink); }
+.viz-toc { margin: .3rem 0 0; }

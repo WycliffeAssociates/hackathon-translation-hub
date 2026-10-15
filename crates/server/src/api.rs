@@ -30,6 +30,7 @@ pub struct AppState {
 pub fn openapi() -> utoipa::openapi::OpenApi {
     let mut doc = ApiDoc::openapi();
     doc.merge(crate::publish::PublishDoc::openapi());
+    doc.merge(crate::progress::ProgressDoc::openapi());
     doc
 }
 
@@ -97,6 +98,7 @@ pub fn router(state: AppState) -> axum::Router {
         .route("/v1/status", get(status))
         .route("/v1/openapi.json", get(|| async { Json(openapi()) }))
         .merge(crate::publish::router())
+        .merge(crate::progress::router())
         .with_state(state)
 }
 
