@@ -1,4 +1,4 @@
-# Deploying the hub to WACS dev (<wacsdev-host>)
+# Deploying the hub to WACS dev
 
 A plan, not yet run. Nothing has been done on wacsdev; Will runs every command
 there. WACS-local (`dev/wacs/`) mimics it and is where each step below was
@@ -8,7 +8,7 @@ tried first.
 
 | | |
 |---|---|
-| Host | `<wacsdev-host>`, <wacsdev-host>; 9 CPU, 18 GB RAM, 192 GB free |
+| Host | `<wacsdev-host>` (the VPN address; not kept in the repo); 9 CPU, 18 GB RAM, 192 GB free |
 | Forgejo | container `wacs2-gitea-1`, `wycliffeassociates/wacs:forgejo15` (15.0.6), public at `https://content.wacsdev.org` |
 | Repositories | volume `wacs2_gitea_data` → `/var/lib/docker/volumes/wacs2_gitea_data/_data/git/repositories` |
 | Database | `gitea` on `wacs2-db-1` (MariaDB 10.11). No `dashboard_ro` user yet |
