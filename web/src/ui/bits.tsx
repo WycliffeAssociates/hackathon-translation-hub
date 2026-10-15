@@ -43,13 +43,14 @@ export const plural = (n: number, word: string) => `${n.toLocaleString()} ${word
 
 /** The error / warning / info badges. Zero counts are drawn quietly. */
 export function Counts(props: { errors: number; warnings: number; infos?: number }) {
+  // Only what is there: zero counts are not shown, and nothing at all reads "clean".
+  const none = () => !props.errors && !props.warnings && !props.infos;
   return (
     <span class="counts">
-      <span class="sev error" classList={{ zero: !props.errors }}>{plural(props.errors, "error")}</span>{" "}
-      <span class="sev warning" classList={{ zero: !props.warnings }}>{plural(props.warnings, "warning")}</span>
-      <Show when={props.infos !== undefined}>
-        {" "}
-        <span class="sev info" classList={{ zero: !props.infos }}>{(props.infos ?? 0).toLocaleString()} info</span>
+      <Show when={!none()} fallback={<span class="sev zero">clean</span>}>
+        <Show when={props.errors}><span class="sev error">{plural(props.errors, "error")}</span> </Show>
+        <Show when={props.warnings}><span class="sev warning">{plural(props.warnings, "warning")}</span> </Show>
+        <Show when={props.infos}><span class="sev info">{(props.infos ?? 0).toLocaleString()} info</span></Show>
       </Show>
     </span>
   );

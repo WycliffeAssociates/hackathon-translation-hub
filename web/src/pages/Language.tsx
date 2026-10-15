@@ -50,7 +50,9 @@ export default function Language() {
                 <section class="group">
                   <h3>
                     {resource} <span class="count">{repos.length}</span>{" "}
-                    <A class="small" href={`/languages/${l().ietf}/sources?resource=${encodeURIComponent(resource)}`}>Sources by book</A>
+                    <Show when={repos.some((r) => r.book_count > 0)}>
+                      <A class="small" href={`/languages/${l().ietf}/sources?resource=${encodeURIComponent(resource)}`}>Sources by book</A>
+                    </Show>
                   </h3>
                   <ul class="feed"><For each={repos}>{(r) => <RepoRow repo={r} />}</For></ul>
                 </section>
