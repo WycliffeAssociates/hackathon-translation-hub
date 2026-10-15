@@ -10,6 +10,7 @@ import type { Release } from "../../api/types";
 import { Async, ago, dateOf, plural } from "../../ui/bits";
 import { me } from "../../ui/session";
 import VerseDiffView, { releaseDiff } from "../VerseDiffView";
+import { agree, agreed, floresOf, translate } from "../../translate/nllb";
 
 /**
  * Releases are named by date (Will, 2026-10-15): today as `2026.10.15`, and
@@ -38,6 +39,40 @@ export default function Releases(props: { owner: string; name: string; releases:
   const [openDiff, setOpenDiff] = createSignal<string>();
   const [translations, setTranslations] = createSignal<{ language: string; text: string }[]>([]);
   const publisher = () => me()?.me?.publisher === true;
+  /** What NLLB is doing (the first time, downloading), or nothing. */
+  const [working, setWorking] = createSignal<string>();
+
+  /** Fill translation row `i` with the bulletin translated by NLLB-200, in this browser. */
+  const nllb = async (button: HTMLElement, i: number) => {
+    const form = button.closest("form") as HTMLFormElement;
+    const f = new FormData(form);
+    const text = String(f.get("notes") ?? "").trim();
+    const from = String(f.get("notes_language") ?? "en");
+    const to = translations()[i]?.language ?? "";
+    if (!text) return setFailed("Write the bulletin first; NLLB translates it.");
+    if (!floresOf(to)) return setFailed(`NLLB-200 has no "${to || "(no language)"}". Type a language tag it knows, such as fr, sw or bem.`);
+    if (!floresOf(from)) return setFailed(`NLLB-200 has no "${from}", the bulletin's language.`);
+    if (
+      !agreed() &&
+      !confirm(
+        "Translate with NLLB-200 in this browser? The model (several hundred MB) downloads once from Hugging Face and stays cached here. Its weights are licensed CC-BY-NC 4.0 (non-commercial). Machine translation: read it before you publish.",
+      )
+    )
+      return;
+    agree();
+    setFailed(undefined);
+    setWorking("Starting NLLB…");
+    try {
+      const out = await translate(text, from, to, (p) =>
+        setWorking(p === "ready" ? `Translating into ${to}…` : `Downloading NLLB: ${Math.round((100 * p.loaded) / p.total)}% of ${(p.total / 1e6).toFixed(0)} MB (${p.file ?? ""})`),
+      );
+      setTranslations(translations().map((x, j) => (j === i ? { ...x, text: out } : x)));
+    } catch (e) {
+      setFailed(e instanceof Error ? e.message : String(e));
+    } finally {
+      setWorking(undefined);
+    }
+  };
 
   const publish = async (form: HTMLFormElement) => {
     const f = new FormData(form);
@@ -172,12 +207,24 @@ export default function Releases(props: { owner: string; name: string; releases:
                         value={t().text}
                         onInput={(e) => setTranslations(translations().map((x, j) => (j === i ? { ...x, text: e.currentTarget.value } : x)))}
                       />
-                      <button type="button" class="linkish small" onClick={() => setTranslations(translations().filter((_, j) => j !== i))}>
-                        Remove
-                      </button>
+                      <span class="release-translation-actions">
+                        <button
+                          type="button"
+                          class="linkish small"
+                          disabled={!!working()}
+                          title={floresOf(t().language) ? "Translate the bulletin in this browser with NLLB-200" : "NLLB-200 has no such language"}
+                          onClick={(e) => void nllb(e.currentTarget, i)}
+                        >
+                          Translate with NLLB
+                        </button>
+                        <button type="button" class="linkish small" onClick={() => setTranslations(translations().filter((_, j) => j !== i))}>
+                          Remove
+                        </button>
+                      </span>
                     </fieldset>
                   )}
                 </Index>
+                <Show when={working()}>{(m) => <p class="loading small" role="status">{m()}</p>}</Show>
                 <p class="release-buttons">
                   <button type="button" class="linkish small" onClick={() => setTranslations([...translations(), { language: "", text: "" }])}>
                     Add the bulletin in another language

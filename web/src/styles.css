@@ -660,3 +660,4 @@ a:hover .repo-owner { text-decoration: underline; }
 .theme-toggle { border: 0; background: none; padding: .2rem .4rem; font-size: 1rem; color: var(--muted); }
 .theme-toggle:hover { color: var(--ink); }
 .repo-state { margin: .8rem 0 0; padding: .55rem .9rem; border: 1px solid var(--rule); border-radius: 10px; background: var(--wf-bg); } .repo-state p { margin: .15rem 0; }
+.release-translation-actions { display: grid; gap: .3rem; justify-items: start; }
