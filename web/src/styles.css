@@ -455,3 +455,25 @@ button.primary:disabled { opacity: .5; cursor: progress; }
 .md-preview.tsv { font-family: var(--ui); }
 .md-preview.tsv td p { margin: 0 0 .3em; }
 .viz-chart .pickable { cursor: pointer; }
+
+/* --- tour (src/tour): ring, card, paused pill, the one modal --- */
+.tour-outlet { position: fixed; inset: 0; z-index: 50; pointer-events: none; }
+.tour-outlet > * { pointer-events: auto; }
+.tour-ring { position: fixed; pointer-events: none !important; border-radius: 10px; outline: 2px solid var(--lapis); box-shadow: 0 0 0 9999px rgb(0 0 0 / .28); transition: all .15s; }
+.tour-card { position: fixed; display: flex; flex-direction: column; gap: .6rem; padding: .9rem 1rem; max-width: calc(100vw - 32px); box-sizing: border-box; border: 1px solid var(--rule); border-radius: 12px; background: var(--wf-bg); color: var(--ink); box-shadow: 0 8px 28px rgb(0 0 0 / .18); }
+.tour-card h2 { margin: 0; font-size: 1.05rem; }
+.tour-card p { margin: 0; color: var(--muted); font-size: .92rem; }
+.tour-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: .8rem; }
+.tour-at { border: 0; padding: .1em .4em; font-size: .8rem; color: var(--muted); background: none; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tour-toc { margin: 0; padding: 0 0 0 1.4rem; font-size: .88rem; border-left: 2px solid var(--rule); }
+.tour-toc button { border: 0; background: none; padding: .15em .3em; text-align: left; color: var(--lapis); }
+.tour-toc button[aria-current] { color: var(--ink); font-weight: 700; }
+.tour-more { align-self: flex-start; border: 0; padding: 0; background: none; color: var(--lapis); font-size: .9rem; }
+.tour-buttons { display: flex; justify-content: space-between; gap: .5rem; }
+.tour-buttons span { display: flex; gap: .5rem; }
+.tour-pill { position: fixed; right: 16px; bottom: 16px; display: flex; align-items: center; gap: .6rem; padding: .4rem .5rem .4rem .9rem; border: 1px solid var(--rule); border-radius: 999px; background: var(--wf-bg); box-shadow: 0 4px 16px rgb(0 0 0 / .14); }
+.tour-pill.loading { padding: .5rem .9rem; }
+.tour-modal { max-width: min(640px, calc(100vw - 32px)); border: 1px solid var(--rule); border-radius: 12px; background: var(--wf-bg); color: var(--ink); padding: 1.2rem 1.4rem; }
+.tour-modal::backdrop { background: rgb(0 0 0 / .4); }
+.tour-modal h2 { margin-top: 0; }
+.tour-modal form { display: flex; justify-content: flex-end; margin-top: 1rem; }

@@ -43,7 +43,7 @@ function Chart<T>(props: { make: (width: number) => (SVGSVGElement | HTMLElement
 
 function Card(props: { n: number; title: string; asks: string; source: string; children: JSX.Element }) {
   return (
-    <section class="viz-card" id={`viz-${props.n}`}>
+    <section class="viz-card" id={`viz-${props.n}`} data-tour={`viz-${props.n}`}>
       <header>
         <h3>
           <span class="viz-n">{props.n}</span> {props.title}

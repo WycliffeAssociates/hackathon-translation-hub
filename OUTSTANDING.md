@@ -127,6 +127,10 @@ TSV notes render as a table (2,000 rows at most). en_tw `god.md`, 38 links,
 renders in 15 ms. Not done: a cache by blob (not needed at that speed);
 `rc://` links to a Bible (`book` kind) open the repo, not the verse.
 
+## Demo tour (2026-10-15): the machine is built, the stops are placeholders
+
+`web/src/tour/`, ported from Sefer's tour machine (branch `r-links`, 95fedfd) without the workflow kind or the tours list. One outlet in the layout; `?tour=demo` starts it, `&step=<id or n>` jumps in. Each step: `go` (navigate, then any DOM effect), `ready`, then a ring and card, with an optional "more" (one native `<dialog>`, any JSX). A table of contents on the card jumps to any step; → / ← / Escape (pause); a reload comes back paused at the same step. Fails open like Sefer's. `tours/demo.tsx` has three placeholder stops that prove it on real screens; the real stops and their why wait on Will.
+
 ## Performance notes (2026-10-14, profiled with samply)
 
 - Proofreading: books parse in parallel, and findings map to raw bytes by binary search instead of galley's whole-mask walk (`KITCHEN-RFC.md`). hbo_uhb 4 s → 237 ms, km_ulb (301k findings) 436 ms; output byte-identical on en_ulb, hbo_uhb, km_ulb, ru_ulb. A full proof round on dev-data: about 8.3 s → 5–7 s on a loaded laptop.

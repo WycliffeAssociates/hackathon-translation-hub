@@ -207,7 +207,7 @@ export default function FindingsRail(props: {
                 const t = () => total(g.engine, g.code);
                 return (
                   <li class="rail-group">
-                    <button type="button" class="rail-check" aria-expanded={isOpen()} onClick={() => toggle(g.key)}>
+                    <button type="button" class="rail-check" data-tour={`check-${g.code}`} aria-expanded={isOpen()} onClick={() => toggle(g.key)}>
                       <span class="caret" aria-hidden="true">{isOpen() ? "▾" : "▸"}</span>
                       <span class={`dot ${g.severity}`} aria-hidden="true" />
                       <span class="mono code">{g.code}</span>

@@ -9,6 +9,7 @@ import Biel from "./pages/Biel";
 import Status from "./pages/Status";
 import Checks from "./pages/Checks";
 import { SessionCorner } from "./ui/session";
+import { TourOutlet } from "./tour/TourOutlet";
 
 // The repo page carries the USFM viewer (CodeMirror + the engine wasm), so it
 // loads on demand.
@@ -41,6 +42,8 @@ function Layout(props: RouteSectionProps) {
         <SessionCorner />
       </header>
       <main>{props.children}</main>
+      {/* High in the tree, so a tour crosses routes. */}
+      <TourOutlet />
     </>
   );
 }
