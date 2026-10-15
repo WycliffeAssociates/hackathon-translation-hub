@@ -2,7 +2,7 @@
 // and brand publish to, that repo's releases, and, for a publisher, the three
 // writes the hub makes: adopt (fork this consolidated repo in as the official
 // one), pull (one book, stitched for a Writer project, as one commit), publish
-// (a release tag), and, for a Writer project whose language has no official
+// (a release tag, from the official repo's Releases tab), and, for a Writer project whose language has no official
 // repo yet, consolidate (every Writer book of the language and brand into a new
 // official repo, every save kept as a commit). The server does the work and the
 // checks; this only asks.
@@ -12,16 +12,6 @@ import type { BookRow, Done } from "../../api/types";
 import { ago } from "../../ui/bits";
 import { me, signInHref } from "../../ui/session";
 import Assemble from "./Assemble";
-
-/** The release after the newest one: v1.3 → v1.4; none → v1.0. */
-const nextTag = (tags: readonly string[]) => {
-  const newest = tags
-    .map((t) => /^v(\d+)\.(\d+)$/.exec(t))
-    .filter((m): m is RegExpExecArray => m !== null)
-    .map((m) => [Number(m[1]), Number(m[2])] as const)
-    .sort((a, b) => b[0] - a[0] || b[1] - a[1])[0];
-  return newest ? `v${newest[0]}.${newest[1] + 1}` : "v1.0";
-};
 
 export default function Official(props: {
   owner: string;
@@ -149,25 +139,6 @@ export default function Official(props: {
                       </select>
                       <button type="submit" disabled={busy()}>
                         Pull into {label()}
-                      </button>
-                    </form>
-                  </Show>
-                  <Show when={t()!.exists}>
-                    <form
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        const f = new FormData(e.currentTarget);
-                        const tag = String(f.get("tag") ?? "").trim();
-                        const notes = String(f.get("notes") ?? "");
-                        void act(`Publish ${label()} ${tag} at its current head?`, () =>
-                          api.post("/v1/repos/{owner}/{name}/releases", id(), { tag, notes }),
-                        );
-                      }}
-                    >
-                      <input name="tag" aria-label="Version" value={nextTag(t()!.releases.map((r) => r.tag_name))} />
-                      <input name="notes" aria-label="Release notes" placeholder="What changed (optional)" />
-                      <button type="submit" class="primary" disabled={busy()}>
-                        Publish
                       </button>
                     </form>
                   </Show>

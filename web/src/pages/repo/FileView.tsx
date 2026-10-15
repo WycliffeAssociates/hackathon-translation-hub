@@ -34,6 +34,9 @@ export default function FileView(props: {
   onBook?: (engine: string, code: string, book: string) => void;
   /** The source text this book was compared with (not `source`, the Writer-files switch). */
   compareWith?: SourceRef | null;
+  /** The chapter in view, for a second pane that follows it. */
+  onChapter?: (label: string) => void;
+  onPicked?: (ref: string) => void;
 }) {
   const call = () => ({ path: { owner: props.owner, name: props.name, path: props.path }, query: { source: props.source || undefined } });
   const url = () => urlOf("/v1/repos/{owner}/{name}/file/{path}", call());
@@ -70,6 +73,8 @@ export default function FileView(props: {
                       check={props.check}
                       onBook={props.onBook}
                       source={props.compareWith}
+                      onChapter={props.onChapter}
+                      onPicked={props.onPicked}
                     />
                   )}
                 </Show>

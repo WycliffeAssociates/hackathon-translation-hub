@@ -10,6 +10,7 @@
 //! each carrying its duration and everything needed to explain a slow one.
 
 mod api;
+mod changes;
 mod compare;
 mod config;
 mod forgejo_api;

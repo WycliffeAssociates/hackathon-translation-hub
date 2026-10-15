@@ -131,6 +131,12 @@ export default function UsfmViewer(props: {
   onBook?: (engine: string, code: string, book: string) => void;
   /** The source text this book was compared with, for source-compared findings. */
   source?: SourceRef | null;
+  /** Draw the findings rail beside the text (default true). Off for a source pane. */
+  rail?: boolean;
+  /** The chapter label in view, as it changes: a second pane follows it. */
+  onChapter?: (label: string) => void;
+  /** A finding was picked in the rail: its place, `3:15`, for a second pane to light. */
+  onPicked?: (ref: string) => void;
   onReady?: () => void;
 }) {
   let host!: HTMLDivElement;
@@ -138,6 +144,7 @@ export default function UsfmViewer(props: {
   /** The chapter label in view (`""` in the front matter). */
   const [current, setCurrent] = createSignal("");
   const [mode, setMode] = createSignal<Mode>("regular");
+  createEffect(on(current, (label) => label && props.onChapter?.(label), { defer: true }));
   const [failed, setFailed] = createSignal<string>();
   const doc = canonical(props.text);
   const where = addresses(doc.text);
@@ -324,14 +331,17 @@ export default function UsfmViewer(props: {
         {/* Focusable, so a click in the text puts the [ ] keys here. `cm-host`
             is what the fork's editor.css keys its popover and gutter on. */}
         <div class="viewer-pane cm-host" ref={host} data-mode={mode()} tabIndex={0} aria-label="Book text" />
-        <Show when={mount()}>
+        <Show when={props.rail !== false && mount()}>
           {(m) => (
             <FindingsRail
               items={items()}
               counts={props.counts ?? []}
               book={props.book?.book}
               initial={props.check ?? null}
-              onPick={(item) => reveal(m(), item.from, item.to)}
+              onPick={(item) => {
+                reveal(m(), item.from, item.to);
+                props.onPicked?.(item.ref);
+              }}
               onBook={(engine, code, book) => props.onBook?.(engine, code, book)}
               undrawn={undrawn()}
               mode={mode()}

@@ -733,6 +733,66 @@
         }
       }
     },
+    "/v1/repos/{owner}/{name}/commits": {
+      "get": {
+        "tags": [],
+        "summary": "The newest commits on the default branch.",
+        "operationId": "commits",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "At most this many (default 100, at most 500).",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CommitRow"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/repos/{owner}/{name}/consolidate": {
       "post": {
         "tags": [],
@@ -1256,6 +1316,53 @@
         }
       }
     },
+    "/v1/repos/{owner}/{name}/unreleased": {
+      "get": {
+        "tags": [],
+        "summary": "What changed since the newest release tag: commits, and each book in verses.",
+        "operationId": "unreleased",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Unreleased"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/status": {
       "get": {
         "tags": [],
@@ -1416,6 +1523,44 @@
             "type": "string"
           },
           "track": {
+            "type": "string"
+          }
+        }
+      },
+      "BookChange": {
+        "type": "object",
+        "required": [
+          "path",
+          "diff"
+        ],
+        "properties": {
+          "after": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Size",
+                "description": "Absent: the book was removed."
+              }
+            ]
+          },
+          "before": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Size",
+                "description": "Absent: the book is new since the release."
+              }
+            ]
+          },
+          "diff": {
+            "$ref": "#/components/schemas/Diff",
+            "description": "The book now against the book at the release."
+          },
+          "path": {
             "type": "string"
           }
         }
@@ -1689,6 +1834,22 @@
           }
         }
       },
+      "Bulletin": {
+        "type": "object",
+        "required": [
+          "language",
+          "text"
+        ],
+        "properties": {
+          "language": {
+            "type": "string",
+            "description": "An IETF tag: `fr`, `es-419`."
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      },
       "Candidate": {
         "allOf": [
           {
@@ -1831,6 +1992,52 @@
             "description": "lint: `error`, `warning`, `info` · sous: `hygiene`, `convention`."
           },
           "total": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "CommitRow": {
+        "type": "object",
+        "required": [
+          "sha",
+          "summary",
+          "author",
+          "unix",
+          "tags"
+        ],
+        "properties": {
+          "author": {
+            "type": "string"
+          },
+          "by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Who asked the hub for it: `Pulled-by:` or `Consolidated-by:`."
+          },
+          "sha": {
+            "type": "string"
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Where the change came from: `Source:` (a pull) or `Writer-Source:` (a replayed save)."
+          },
+          "summary": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Release tags on this commit."
+          },
+          "unix": {
             "type": "integer",
             "format": "int64"
           }
@@ -2983,11 +3190,26 @@
           "tag"
         ],
         "properties": {
+          "bulletins": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Bulletin"
+            },
+            "description": "The bulletin in other languages. With any, every version (`notes`\ntoo) is committed as `bulletins/{tag}/{language}.md` just before the\ntag, so the translations travel with the text they describe."
+          },
           "notes": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "The bulletin: what changed, for readers. The release's own text."
+          },
+          "notes_language": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The language `notes` is written in (default `en`)."
           },
           "tag": {
             "type": "string",
@@ -3303,6 +3525,23 @@
           }
         }
       },
+      "Size": {
+        "type": "object",
+        "required": [
+          "chapters",
+          "verses"
+        ],
+        "properties": {
+          "chapters": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "verses": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
       "Skipped": {
         "type": "object",
         "required": [
@@ -3520,6 +3759,51 @@
             ],
             "format": "int64",
             "minimum": 0
+          }
+        }
+      },
+      "Unreleased": {
+        "type": "object",
+        "required": [
+          "commits",
+          "books",
+          "other"
+        ],
+        "properties": {
+          "books": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BookChange"
+            },
+            "description": "USFM files whose verses changed since it."
+          },
+          "commits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CommitRow"
+            },
+            "description": "Commits since it, newest first."
+          },
+          "last_tag": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The newest release tag behind HEAD; absent before the first release."
+          },
+          "last_unix": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "other": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Other files changed (manifest, bulletins)."
           }
         }
       },

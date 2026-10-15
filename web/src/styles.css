@@ -511,3 +511,45 @@ button.primary:disabled { opacity: .5; cursor: progress; }
 .repo-name { white-space: nowrap; }
 .repo-owner { color: var(--ink); }
 a:hover .repo-owner { text-decoration: underline; }
+
+/* --- repo tabs (pages/Repo.tsx) --- */
+.tabs { display: flex; gap: .2rem; border-bottom: 1px solid var(--rule); margin: 1.2rem 0 1rem; overflow-x: auto; }
+.tabs a { padding: .5rem .8rem; color: var(--muted); text-decoration: none; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+.tabs a:hover { color: var(--ink); }
+.tabs a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--ink); font-weight: 700; }
+.tabs .count { font-weight: 400; }
+
+/* Checks: the text gets the width, the source pane sits beside it. */
+/* Breaks out of main's 1100px like the file browser, so text, rail and source all keep a reading width. */
+.checks-view { display: grid; grid-template-columns: minmax(0, 1fr); gap: .6rem 1rem; margin-top: 1rem;
+  width: min(1560px, calc(100vw - 48px)); margin-left: calc(50% - min(780px, 50vw - 24px)); }
+.checks-view.paired { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); }
+.source-pane .viewer-body { grid-template-columns: minmax(0, 1fr); }
+.checks-bar { grid-column: 1 / -1; display: flex; gap: 1.5rem; align-items: center; }
+.checks-view .viewer-col { min-width: 0; }
+.source-pane { min-width: 0; }
+.source-pane h3 { margin: .2rem 0 .4rem; font-family: var(--ui); font-weight: 400; color: var(--muted); }
+@media (max-width: 1100px) { .checks-view, .checks-view.paired { width: auto; margin-left: 0; grid-template-columns: minmax(0, 1fr); } }
+
+/* History */
+.history { list-style: none; padding: 0; margin: 0; border-top: 1px solid var(--rule); }
+.history li { display: grid; grid-template-columns: 7rem minmax(0, 1fr) 12rem 5rem; gap: 1rem; padding: .45rem .2rem; border-bottom: 1px solid var(--rule); font-size: .92rem; align-items: baseline; }
+.history-when, .history-sha { color: var(--muted); }
+.history-what { min-width: 0; }
+.history-tag { margin-right: .5rem; }
+.history-who { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 760px) { .history li { grid-template-columns: 5rem minmax(0, 1fr); } .history-who, .history-sha { display: none; } }
+
+/* Releases */
+.releases-tab section + section { margin-top: 2rem; }
+.release-books { margin: .6rem 0 1rem; }
+.release-form { display: grid; gap: .7rem; max-width: 46rem; margin-top: 1.4rem; padding-top: 1rem; border-top: 1px solid var(--rule); }
+.release-form h3 { margin: 0; }
+.release-form label { display: grid; gap: .25rem; }
+.release-form input, .release-form textarea { font: inherit; padding: .45rem .55rem; border: 1px solid var(--rule); border-radius: 6px; background: var(--wf-bg); color: var(--ink); }
+.release-form label:has(input[size]) { display: flex; gap: .6rem; align-items: center; }
+.release-translation { display: grid; grid-template-columns: 6rem minmax(0, 1fr) auto; gap: .5rem; align-items: start; border: 0; padding: 0; margin: 0; }
+.release-buttons { display: flex; justify-content: space-between; align-items: center; margin: 0; }
+.release-list { list-style: none; padding: 0; margin: 0; }
+.release-list li { padding: .5rem 0; border-bottom: 1px solid var(--rule); }
+.release-body { margin: .3rem 0 0; color: var(--muted); white-space: pre-wrap; max-width: 75ch; }

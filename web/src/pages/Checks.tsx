@@ -104,7 +104,7 @@ function TopRepos(props: { engine: string; code: string }) {
           <For each={list()}>
             {(r) => (
               <li>
-                <A class="mono" href={`${repoHref(r.owner, r.name)}?check=${encodeURIComponent(checkKey(props))}`}>
+                <A class="mono" href={`${repoHref(r.owner, r.name)}?tab=checks&check=${encodeURIComponent(checkKey(props))}`}>
                   {r.owner}/{r.name}
                 </A>{" "}
                 <span class="count">{r.n.toLocaleString()}</span>{" "}

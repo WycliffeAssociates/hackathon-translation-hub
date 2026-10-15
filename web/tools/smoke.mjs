@@ -172,7 +172,8 @@ await step("repo-en_ulb-findings", async () => {
     if (list.some((c) => c.engine === "sous")) break;
     await page.waitForTimeout(1000);
   }
-  await page.goto(`${base}/repos/wa-catalog/en_ulb`);
+  // The findings table is the Checks tab's.
+  await page.goto(`${base}/repos/wa-catalog/en_ulb?tab=checks`);
   await page.locator(".checks-table tbody tr.check-row").first().waitFor();
   const rows = await checkRows();
   expect(rows.length > 0 && sortedByTotal(rows), `findings sorted by total (${rows.map((r) => r[2]).join(", ")})`);
@@ -207,6 +208,8 @@ await step("repo-en_ulb-findings", async () => {
   await page.locator(".checks-table").scrollIntoViewIfNeeded();
   await shot("05c-repo-en_ulb-findings-390");
   await page.setViewportSize({ width: 1280, height: 900 });
+  // The books table is on the Files tab.
+  await page.goto(`${base}/repos/wa-catalog/en_ulb`);
   await page.locator(".books").scrollIntoViewIfNeeded();
   await shot("06-repo-en_ulb-books");
 });
@@ -228,7 +231,7 @@ await step("checks", async () => {
   await page.setViewportSize({ width: 1280, height: 900 });
   // Through to the repo: the check is open there, and a book shows its kept rows against the true count.
   await top.click();
-  await page.waitForURL(/\/repos\/wa-catalog\/km_ulb\?check=/);
+  await page.waitForURL(/\/repos\/wa-catalog\/km_ulb\?tab=checks&check=/);
   const chip = page.locator(".checks-table tr.check-books button.book-chip").first();
   await chip.waitFor();
   await chip.click();
@@ -290,6 +293,8 @@ await step("repo-synthetic", async () => {
   await page.getByLabel("Show the original Writer files").check();
   await page.waitForURL(/source=true/);
   await page.locator(".tree details").first().waitFor();
+  // Folders render their files only once opened (the tree is lazy).
+  await page.locator(".tree details > summary").first().click();
   await page.locator(".tree details .file", { hasText: /\.txt$/ }).first().click();
   await page.locator(".viewer pre.code").waitFor();
   expect((await page.locator(".viewer pre.code").innerText()).length > 0, "a Writer chunk as text");

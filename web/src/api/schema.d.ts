@@ -276,6 +276,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/repos/{owner}/{name}/commits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The newest commits on the default branch. */
+        get: operations["commits"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/repos/{owner}/{name}/consolidate": {
         parameters: {
             query?: never;
@@ -445,6 +462,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/repos/{owner}/{name}/unreleased": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What changed since the newest release tag: commits, and each book in verses. */
+        get: operations["unreleased"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/status": {
         parameters: {
             query?: never;
@@ -508,6 +542,13 @@ export interface components {
             repos: components["schemas"]["CatalogRef"][];
             resource_type: string;
             track: string;
+        };
+        BookChange: {
+            after?: null | components["schemas"]["Size"];
+            before?: null | components["schemas"]["Size"];
+            /** @description The book now against the book at the release. */
+            diff: components["schemas"]["Diff"];
+            path: string;
         };
         BookCompare: {
             book: string;
@@ -603,6 +644,11 @@ export interface components {
             /** Format: int64 */
             verses: number;
         };
+        Bulletin: {
+            /** @description An IETF tag: `fr`, `es-419`. */
+            language: string;
+            text: string;
+        };
         /** @description One candidate for a book, with what helps pick it. */
         Candidate: components["schemas"]["WriterBook"] & {
             /** @description The default pick: Primary and shown on BIEL first (`default_pick`). */
@@ -641,6 +687,19 @@ export interface components {
             severity: string;
             /** Format: int64 */
             total: number;
+        };
+        CommitRow: {
+            author: string;
+            /** @description Who asked the hub for it: `Pulled-by:` or `Consolidated-by:`. */
+            by?: string | null;
+            sha: string;
+            /** @description Where the change came from: `Source:` (a pull) or `Writer-Source:` (a replayed save). */
+            source?: string | null;
+            summary: string;
+            /** @description Release tags on this commit. */
+            tags: string[];
+            /** Format: int64 */
+            unix: number;
         };
         ComparedVerse: components["schemas"]["VersePair"] & {
             /** @description The length lane's verdict on this verse, when it fired: `Long` or `Short`. */
@@ -1074,7 +1133,16 @@ export interface components {
             target_commitish?: string;
         };
         ReleaseBody: {
+            /**
+             * @description The bulletin in other languages. With any, every version (`notes`
+             *     too) is committed as `bulletins/{tag}/{language}.md` just before the
+             *     tag, so the translations travel with the text they describe.
+             */
+            bulletins?: components["schemas"]["Bulletin"][];
+            /** @description The bulletin: what changed, for readers. The release's own text. */
             notes?: string | null;
+            /** @description The language `notes` is written in (default `en`). */
+            notes_language?: string | null;
             /** @description `v1.0`. */
             tag: string;
             title?: string | null;
@@ -1157,6 +1225,10 @@ export interface components {
              */
             synthetic: boolean;
         };
+        Size: {
+            chapters: number;
+            verses: number;
+        };
         Skipped: {
             id: string;
             reason: string;
@@ -1232,6 +1304,18 @@ export interface components {
             path: string;
             /** Format: int64 */
             size?: number | null;
+        };
+        Unreleased: {
+            /** @description USFM files whose verses changed since it. */
+            books: components["schemas"]["BookChange"][];
+            /** @description Commits since it, newest first. */
+            commits: components["schemas"]["CommitRow"][];
+            /** @description The newest release tag behind HEAD; absent before the first release. */
+            last_tag?: string | null;
+            /** Format: int64 */
+            last_unix?: number | null;
+            /** @description Other files changed (manifest, bulletins). */
+            other: string[];
         };
         Usual: {
             /** Format: int32 */
@@ -1748,6 +1832,39 @@ export interface operations {
             };
         };
     };
+    commits: {
+        parameters: {
+            query?: {
+                /** @description At most this many (default 100, at most 500). */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                owner: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommitRow"][];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     consolidate: {
         parameters: {
             query?: never;
@@ -2048,6 +2165,36 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RepoTree"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    unreleased: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Unreleased"];
                 };
             };
             404: {

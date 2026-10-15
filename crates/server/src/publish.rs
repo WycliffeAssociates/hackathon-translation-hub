@@ -63,6 +63,7 @@ const SESSION_SECS: i64 = 7 * 24 * 3600;
         ConsolidateBody,
         PullBody,
         ReleaseBody,
+        Bulletin,
         Done
     ))
 )]
@@ -1195,7 +1196,22 @@ pub struct ReleaseBody {
     /// `v1.0`.
     pub tag: String,
     pub title: Option<String>,
+    /// The bulletin: what changed, for readers. The release's own text.
     pub notes: Option<String>,
+    /// The language `notes` is written in (default `en`).
+    pub notes_language: Option<String>,
+    /// The bulletin in other languages. With any, every version (`notes`
+    /// too) is committed as `bulletins/{tag}/{language}.md` just before the
+    /// tag, so the translations travel with the text they describe.
+    #[serde(default)]
+    pub bulletins: Vec<Bulletin>,
+}
+
+#[derive(Deserialize, ToSchema)]
+pub struct Bulletin {
+    /// An IETF tag: `fr`, `es-419`.
+    pub language: String,
+    pub text: String,
 }
 
 /// Publish: a release tag at the head of this official repo (or of this repo's official one).
@@ -1253,9 +1269,69 @@ async fn publish_release(
         .title
         .filter(|t| !t.trim().is_empty())
         .unwrap_or_else(|| format!("{target} {tag}"));
+    let bulletin = body.notes.clone().unwrap_or_default();
+    let mut files: Vec<(String, String)> = Vec::new();
+    if !body.bulletins.is_empty() {
+        let usable =
+            |l: &str| !l.is_empty() && l.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-');
+        let first = body
+            .notes_language
+            .clone()
+            .unwrap_or_else(|| "en".into())
+            .to_lowercase();
+        for (lang, text) in std::iter::once((first, bulletin.clone())).chain(
+            body.bulletins
+                .iter()
+                .map(|b| (b.language.to_lowercase(), b.text.clone())),
+        ) {
+            if !usable(&lang) {
+                return Err(fail(
+                    StatusCode::BAD_REQUEST,
+                    format!("`{lang}` is not a language tag"),
+                ));
+            }
+            if !text.trim().is_empty() {
+                files.push((
+                    format!("bulletins/{tag}/{lang}.md"),
+                    format!("{}\n", text.trim()),
+                ));
+            }
+        }
+    }
+    if !files.is_empty() {
+        let changes: Vec<FileChange> = files
+            .iter()
+            .map(|(path, text)| FileChange {
+                path,
+                text,
+                replaces: None,
+            })
+            .collect();
+        pb.forgejo
+            .commit(
+                &org,
+                &target,
+                &format!(
+                    "Bulletin for {tag} in {}\n\nPulled-by: {}\nPulled-with: translation-hub\n",
+                    files
+                        .iter()
+                        .map(|(p, _)| p
+                            .rsplit('/')
+                            .next()
+                            .unwrap_or_default()
+                            .trim_end_matches(".md"))
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                    me.username
+                ),
+                &changes,
+            )
+            .await
+            .map_err(upstream)?;
+    }
     let notes = format!(
         "{}\n\nPublished by {} through the Translation Hub.",
-        body.notes.unwrap_or_default().trim(),
+        bulletin.trim(),
         me.username
     );
     let release = pb
