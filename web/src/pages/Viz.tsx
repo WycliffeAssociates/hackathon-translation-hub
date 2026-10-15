@@ -4,14 +4,19 @@
 // nothing else depends on this page.
 import * as Plot from "@observablehq/plot";
 import { For, createEffect, createMemo, createResource, createSignal, onCleanup, type JSX } from "solid-js";
+import { useNavigate } from "@solidjs/router";
 import { api, startPageView } from "../api/client";
 import type { RepoSummary } from "../api/types";
 import { Async } from "../ui/bits";
 
 // --- the frame -----------------------------------------------------------------
 
-/** Draws `make(width)` into the card, again when the card is resized. */
-function Chart(props: { make: (width: number) => (SVGSVGElement | HTMLElement) | null }) {
+/**
+ * Draws `make(width)` into the card, again when the card is resized. With
+ * `onPick`, a click opens the datum under the pointer: Plot sets the figure's
+ * `value` to it for any mark with a tooltip (`tip: true`).
+ */
+function Chart<T>(props: { make: (width: number) => (SVGSVGElement | HTMLElement) | null; onPick?: (datum: T) => void }) {
   let host!: HTMLDivElement;
   const [width, setWidth] = createSignal(0);
   const ro = new ResizeObserver(([e]) => setWidth(Math.floor(e!.contentRect.width)));
@@ -23,6 +28,14 @@ function Chart(props: { make: (width: number) => (SVGSVGElement | HTMLElement) |
     const w = width();
     if (!w) return;
     const el = props.make(w);
+    const pick = props.onPick;
+    if (el && pick) {
+      el.classList.add("pickable");
+      el.addEventListener("click", () => {
+        const v = (el as { value?: T | null }).value;
+        if (v != null) pick(v);
+      });
+    }
     host.replaceChildren(...(el ? [el] : []));
   });
   return <div class="viz-chart" ref={host} />;
@@ -63,6 +76,7 @@ const PROGRESS_CHOICES = [
 ] as const;
 
 function ProgressCards() {
+  const navigate = useNavigate();
   const [pick, setPick] = createSignal(0);
   const call = () => {
     const [ietf, resource] = PROGRESS_CHOICES[pick()]!;
@@ -100,6 +114,11 @@ function ProgressCards() {
             return rows;
           });
           const target = () => d().books.reduce((n, b) => n + (b.source_verses ?? b.verses), 0);
+          /** Click a book's band or line: its Writer project. */
+          const openBook = (row: { book: string }) => {
+            const repo = d().books.find((b) => b.book === row.book)?.repo;
+            if (repo) navigate(`/repos/${repo}`);
+          };
           const authors = createMemo(() => {
             const by = new Map<string, number>();
             for (const w of d().weekly) by.set(w.author, (by.get(w.author) ?? 0) + w.saves);
@@ -117,6 +136,7 @@ function ProgressCards() {
                 source="/v1/languages/{ietf}/progress: verses present after every Writer save, per book; the line is the sources' total."
               >
                 <Chart
+                  onPick={openBook}
                   make={(width) =>
                     Plot.plot({
                       width,
@@ -140,6 +160,7 @@ function ProgressCards() {
                 source="the same series, as each book's % of its source's verse count."
               >
                 <Chart
+                  onPick={openBook}
                   make={(width) =>
                     Plot.plot({
                       width,
@@ -217,7 +238,15 @@ const BOOK_CHOICES = [
 ] as const;
 
 function SourceCards() {
+  const navigate = useNavigate();
   const [pick, setPick] = createSignal(0);
+  /** Click a verse: the book, scrolled to it and lit (`?v=`). */
+  const openVerse = (row: { ref: string; flag: string }) => {
+    const [owner, name, path] = BOOK_CHOICES[pick()]!;
+    // A flagged verse opens with the length check open in the rail beside it.
+    const check = row.flag ? `&check=${encodeURIComponent("sous:LengthProportionality")}` : "";
+    navigate(`/repos/${owner}/${name}?file=${encodeURIComponent(path)}&v=${row.ref}${check}`);
+  };
   // The server pairs the verses and counts them (galley's verses, sous's
   // graphemes: the length lane's own numbers) and says which it flagged.
   const [data] = createResource(pick, async (i) => {
@@ -257,6 +286,7 @@ function SourceCards() {
             >
               <p class="small">{d().label}: usual ratio {d().median.toFixed(2)}×, {d().rows.filter((r) => r.flag).length} flagged.</p>
               <Chart
+                onPick={openVerse}
                 make={(width) =>
                   Plot.plot({
                     width,
@@ -266,7 +296,7 @@ function SourceCards() {
                     color: { domain: ["", "Long", "Short"], range: ["#9aa6af", "#c0392b", "#2471a3"], legend: true, tickFormat: (v: string) => v || "not flagged" },
                     marks: [
                       Plot.line([[0, 0], [Math.max(...d().rows.map((r) => r.s)), Math.max(...d().rows.map((r) => r.s)) * d().median]], { strokeDasharray: "4,3" }),
-                      Plot.dot(d().rows.filter((r) => !r.flag), { x: "s", y: "t", r: 2, fill: "flag", fillOpacity: 0.5 }),
+                      Plot.dot(d().rows.filter((r) => !r.flag), { x: "s", y: "t", r: 2, fill: "flag", fillOpacity: 0.5, tip: true, title: (r: { ref: string; ratio: number }) => `${r.ref}: ${r.ratio.toFixed(2)}×` }),
                       Plot.dot(d().rows.filter((r) => r.flag), { x: "s", y: "t", r: 4.5, fill: "flag", stroke: "white", tip: true, title: (r: { ref: string; t: number; s: number; ratio: number }) => `${r.ref}: ${r.t} vs ${r.s} (${r.ratio.toFixed(2)}×)` }),
                     ],
                   })
@@ -280,6 +310,7 @@ function SourceCards() {
               source="the same verses in book order; each dot is this verse ÷ the source's; the line is a moving median of 25 verses."
             >
               <Chart
+                onPick={openVerse}
                 make={(width) =>
                   Plot.plot({
                     width,
@@ -308,6 +339,7 @@ function SourceCards() {
 const REPO_CHOICES = ["wa-catalog/ru_ulb", "wa-catalog/en_ulb", "wa-catalog/km_ulb", "texttranslation/twx_reg"] as const;
 
 function RepoCards() {
+  const navigate = useNavigate();
   const [pick, setPick] = createSignal<string>(REPO_CHOICES[0]);
   const call = () => {
     const [owner, name] = pick().split("/");
@@ -327,6 +359,11 @@ function RepoCards() {
       </div>
       <Async of={repo} what="the repo">
         {(r) => {
+          /** Click a chapter: the book open at it. */
+          const openChapter = (c: { book: string; chapter: number }) => {
+            const path = r().books.find((b) => b.book === c.book)?.path;
+            if (path) navigate(`/repos/${pick()}?file=${encodeURIComponent(path)}&ch=${c.chapter}`);
+          };
           const cells = () =>
             r().books.flatMap((b) => {
               const gaps = b.coverage?.gaps ?? {};
@@ -345,6 +382,7 @@ function RepoCards() {
               source="/v1/repos/{owner}/{name}: each book's chapters and its coverage gaps (verse numbers the source has and this text lacks)."
             >
               <Chart
+                onPick={openChapter}
                 make={(width) =>
                   Plot.plot({
                     width,
@@ -365,7 +403,15 @@ function RepoCards() {
       </Async>
       <Async of={findings} what="findings">
         {(f) => {
-          const rows = () => f().filter((c) => c.total > 0).flatMap((c) => c.books.map((b) => ({ code: `${c.code} (${c.engine})`, book: b.book, n: b.n })));
+          const rows = () =>
+            f()
+              .filter((c) => c.total > 0)
+              .flatMap((c) => c.books.map((b) => ({ code: `${c.code} (${c.engine})`, check: `${c.engine}:${c.code}`, book: b.book, n: b.n })));
+          /** Click a cell: the book, with that check open in the rail. */
+          const openCheck = (cell: { book: string; check: string }) => {
+            const path = repo.latest?.books.find((b) => b.book === cell.book)?.path;
+            if (path) navigate(`/repos/${pick()}?file=${encodeURIComponent(path)}&check=${encodeURIComponent(cell.check)}`);
+          };
           return (
             <Card
               n={8}
@@ -374,6 +420,7 @@ function RepoCards() {
               source="/v1/repos/{owner}/{name}/findings: counts per check per book."
             >
               <Chart
+                onPick={openCheck}
                 make={(width) =>
                   Plot.plot({
                     width,
@@ -423,6 +470,7 @@ async function allRepos(): Promise<RepoSummary[]> {
 }
 
 function HubCards() {
+  const navigate = useNavigate();
   const [rules] = createResource(() => api.json("/v1/findings"));
   const [repos] = createResource(allRepos);
   const [conflicts] = createResource(() => api.json("/v1/biel/conflicts"));
@@ -487,10 +535,10 @@ function HubCards() {
       <Async of={conflicts} what="BIEL conflicts">
         {(c) => {
           const rows = () => {
-            const by = new Map<string, { language: string; n: number }>();
+            const by = new Map<string, { language: string; ietf: string; n: number }>();
             for (const x of c()) {
               const k = x.language_name ? `${x.language_name} (${x.language})` : x.language;
-              by.set(k, { language: k, n: (by.get(k)?.n ?? 0) + 1 });
+              by.set(k, { language: k, ietf: x.language, n: (by.get(k)?.n ?? 0) + 1 });
             }
             return [...by.values()].sort((a, b) => b.n - a.n).slice(0, 25);
           };
@@ -502,6 +550,7 @@ function HubCards() {
               source="/v1/biel/conflicts: books with more than one Primary, shown repo."
             >
               <Chart
+                onPick={(row: { ietf: string }) => navigate(`/languages/${row.ietf}`)}
                 make={(width) =>
                   Plot.plot({
                     width,
@@ -532,6 +581,7 @@ function HubCards() {
             source="/v1/languages/{ietf}: per book and version (resource type), the hub's Official pick and state."
           >
             <Chart
+              onPick={(b: { official?: string | null }) => b.official && navigate(`/repos/${b.official}`)}
               make={(width) =>
                 Plot.plot({
                   width,

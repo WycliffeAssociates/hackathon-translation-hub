@@ -28,6 +28,7 @@ export default function FileView(props: {
   findings: readonly ViewerFinding[];
   focus: Range | null;
   chapter: string | null;
+  verse?: string | null;
   counts?: readonly CodeCount[];
   check?: string | null;
   onBook?: (engine: string, code: string, book: string) => void;
@@ -63,6 +64,7 @@ export default function FileView(props: {
                       findings={props.findings}
                       focus={props.focus}
                       chapter={props.chapter}
+                      verse={props.verse}
                       book={props.book}
                       counts={props.counts}
                       check={props.check}

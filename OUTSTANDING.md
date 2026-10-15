@@ -105,6 +105,15 @@ book × check). D: WACS (9 which checks are noise, 10 how much is alive, 11 BIEL
 shown twice by language, 12 a language's book × version state). The choices in
 each card's picker are fixed lists for the demo.
 
+Clicking opens what was clicked (Plot's pointer value, no other library):
+1–2 a book's Writer project, 5–6 the verse in the viewer (`?v=31:50`, lit,
+with the length check open in the rail when it was flagged), 7 the book at that
+chapter, 8 the book with that check, 11 the language, 12 the Official repo.
+TanStack Charts (1.1) was considered for this: its scales are thinner (log,
+symlog and time need extra modules) and it has no Solid adapter; what it adds
+that Plot lacks is animation between states (a picker change). Revisit if that
+is wanted.
+
 ## Markdown and TSV notes (2026-10-14)
 
 `.md` and `.tsv` files open in Preview (the server's HTML) with a Raw switch.

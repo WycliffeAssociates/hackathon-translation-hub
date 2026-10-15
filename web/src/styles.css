@@ -454,3 +454,4 @@ button.primary:disabled { opacity: .5; cursor: progress; }
 .md-preview th, .md-preview td { border: 1px solid var(--rule); padding: .3rem .5rem; vertical-align: top; text-align: left; }
 .md-preview.tsv { font-family: var(--ui); }
 .md-preview.tsv td p { margin: 0 0 .3em; }
+.viz-chart .pickable { cursor: pointer; }

@@ -43,6 +43,31 @@ type Mode = "regular" | "usfm";
  * Chapter:verse for an offset into the (LF) text, from its `\c` and `\v`
  * markers: `3:16`, `3` before the chapter's first verse, `intro` before `\c`.
  */
+/**
+ * Where verse `c:v` is in the (LF) text: from its `\v` marker to the next
+ * `\v`, `\c` or the end. A bridge `3-4` answers 3 and 4. `null` when absent.
+ */
+export function verseRange(text: string, chapter: number, verse: number): Range | null {
+  let inChapter = false;
+  let start: number | null = null;
+  // The end stops before the line break and indent that lead to the next marker.
+  const trimmed = (from: number, to: number) => {
+    while (to > from && /\s/.test(text[to - 1]!)) to--;
+    return { from, to };
+  };
+  for (const m of text.matchAll(/\\(c|v)\s+(\d+)(?:-(\d+))?/g)) {
+    if (start !== null) return trimmed(start, m.index);
+    if (m[1] === "c") {
+      inChapter = Number(m[2]) === chapter;
+      continue;
+    }
+    const first = Number(m[2]);
+    const last = m[3] ? Number(m[3]) : first;
+    if (inChapter && first <= verse && verse <= last) start = m.index;
+  }
+  return start === null ? null : trimmed(start, text.length);
+}
+
 function addresses(text: string): (offset: number) => string {
   const marks: { at: number; c?: string; v?: string }[] = [];
   for (const m of text.matchAll(/\\(c|v)\s+(\d+[a-z]?(?:-\d+[a-z]?)?)/g)) {
@@ -94,6 +119,8 @@ export default function UsfmViewer(props: {
   focus: Range | null;
   /** A chapter label (`"3"`) to scroll to. */
   chapter: string | null;
+  /** A verse to select and light, `3:16` (a link from a chart). */
+  verse?: string | null;
   /** The book's lint and coverage, to mark chapters in the navigator. */
   book?: BookRow | undefined;
   /** The repo's finding counts, every book (`/findings`), for the rail. */
@@ -244,6 +271,16 @@ export default function UsfmViewer(props: {
     setTimeout(() => pinned === pin && (pin.top = m.view.scrollDOM.scrollTop), 200);
   };
   createEffect(on([mount, () => props.chapter], ([m, ch]) => m && ch && goTo(ch)));
+  createEffect(
+    on([mount, () => props.verse], ([m, v]) => {
+      const [c, n] = (v ?? "").split(":").map(Number);
+      const r = m && c && n ? verseRange(doc.text, c, n) : null;
+      if (m && r) {
+        m.clipTo(null);
+        reveal(m, r.from, r.to);
+      }
+    }),
+  );
 
   const step = (by: -1 | 1) => {
     const all = labels();

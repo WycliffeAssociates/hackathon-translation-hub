@@ -13,7 +13,7 @@ import FileView from "./repo/FileView";
 import Findings from "./repo/Findings";
 import Official from "./repo/Official";
 
-type Params = { file?: string; source?: string; at?: string; ch?: string; check?: string };
+type Params = { file?: string; source?: string; at?: string; ch?: string; v?: string; check?: string };
 
 export default function Repo() {
   const params = useParams<{ owner: string; name: string }>();
@@ -131,6 +131,7 @@ export default function Repo() {
                       .map((f) => ({ ...f, severity: f.rule === "hygiene" ? ("warning" as const) : ("info" as const) }))}
                     focus={focus()}
                     chapter={search.ch ?? null}
+                    verse={search.v ?? null}
                     counts={counts.latest ?? []}
                     check={search.check ?? null}
                     onBook={(engine, code, book) => openCheck({ engine, code }, book)}
