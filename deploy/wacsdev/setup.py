@@ -35,6 +35,7 @@ PRODUCTION = ("content.bibletranslationtools.org", "git.door43.org")
 ap = argparse.ArgumentParser()
 ap.add_argument("--forgejo", required=True, help="Forgejo's public URL, e.g. https://content.wacsdev.org")
 ap.add_argument("--internal", default="http://wacs2-gitea-1:3000", help="Forgejo as the hub's container reaches it")
+ap.add_argument("--api", help="Forgejo's API as this script reaches it, when not --forgejo (e.g. http://127.0.0.1:3000, past Cloudflare)")
 ap.add_argument("--hub", required=True, help="the hub as a browser reaches it, e.g. http://<wacsdev-host>:8787")
 ap.add_argument("--container", default="wacs2-gitea-1", help="Forgejo's container, for the token CLI")
 ap.add_argument("--container-user", default="git", help="the user Forgejo runs as in its container")
@@ -48,12 +49,21 @@ if any(h in URL for h in PRODUCTION):
 TOKEN = os.environ.get("ADMIN_TOKEN") or sys.exit("set ADMIN_TOKEN (a site admin's access token)")
 
 
+API = (args.api or URL).rstrip("/")
+
+
 def api(method, path, body=None):
     req = urllib.request.Request(
-        URL + "/api/v1" + path,
+        API + "/api/v1" + path,
         method=method,
         data=None if body is None else json.dumps(body).encode(),
-        headers={"Authorization": "token " + TOKEN, "Content-Type": "application/json"},
+        # Cloudflare (in front of content.wacsdev.org) refuses Python's default
+        # user agent with error 1010; say what this is instead.
+        headers={
+            "Authorization": "token " + TOKEN,
+            "Content-Type": "application/json",
+            "User-Agent": "translation-hub-setup/1 (+https://github.com/WycliffeAssociates/hackathon-translation-hub)",
+        },
     )
     try:
         with urllib.request.urlopen(req, timeout=60) as r:
@@ -73,7 +83,7 @@ def must(what, result, ok=(200, 201, 204)):
 me = must("who am I", api("GET", "/user"))
 if not me.get("is_admin"):
     sys.exit(f"{me.get('login')} is not a site admin; the setup needs one.")
-print(f"as {me['login']} on {URL}")
+print(f"as {me['login']} on {API}")
 
 if api("GET", f"/orgs/{args.org}")[0] != 200:
     must("create org", api("POST", "/orgs", {"username": args.org, "visibility": "public", "full_name": "Official text translations"}))
