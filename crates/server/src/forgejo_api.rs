@@ -62,6 +62,14 @@ pub struct User {
     pub avatar_url: String,
 }
 
+/// A person's OAuth tokens from Forgejo.
+pub struct Tokens {
+    pub access: String,
+    pub refresh: Option<String>,
+    /// Seconds the access token lasts.
+    pub expires_in: i64,
+}
+
 /// A release, as the hub shows it.
 #[derive(Debug, serde::Serialize, Deserialize, utoipa::ToSchema)]
 pub struct Release {
@@ -221,31 +229,75 @@ impl Forgejo {
     // --- sign-in -----------------------------------------------------------
 
     /// Trades an OAuth code for the user's access token.
-    pub async fn exchange_code(&self, p: &Publishing, code: &str) -> Result<String> {
+    pub async fn exchange_code(&self, p: &Publishing, code: &str) -> Result<Tokens> {
+        self.token_grant(p, &[("code", code), ("grant_type", "authorization_code")])
+            .await
+    }
+
+    /// A new access token from a refresh token (Forgejo's last an hour).
+    pub async fn refresh(&self, p: &Publishing, refresh_token: &str) -> Result<Tokens> {
+        self.token_grant(
+            p,
+            &[
+                ("refresh_token", refresh_token),
+                ("grant_type", "refresh_token"),
+            ],
+        )
+        .await
+    }
+
+    async fn token_grant(&self, p: &Publishing, grant: &[(&str, &str)]) -> Result<Tokens> {
+        let redirect = format!("{}/v1/auth/callback", p.public_url);
+        let mut form: Vec<(&str, &str)> = vec![
+            ("client_id", p.oauth_client_id.as_str()),
+            ("client_secret", p.oauth_client_secret.as_str()),
+            ("redirect_uri", redirect.as_str()),
+        ];
+        form.extend_from_slice(grant);
         let res = self
             .send(
                 "oauth token",
                 self.http
                     .post(format!("{}/login/oauth/access_token", self.base))
-                    .form(&[
-                        ("client_id", p.oauth_client_id.as_str()),
-                        ("client_secret", p.oauth_client_secret.as_str()),
-                        ("code", code),
-                        ("grant_type", "authorization_code"),
-                        (
-                            "redirect_uri",
-                            &format!("{}/v1/auth/callback", p.public_url),
-                        ),
-                    ]),
+                    .form(&form),
             )
             .await?
             .unwrap_or(Value::Null);
-        res["access_token"]
+        let access = res["access_token"]
             .as_str()
             .map(str::to_owned)
-            .ok_or_else(|| ForgejoError::Refused("Forgejo gave no access token".into()))
+            .ok_or_else(|| ForgejoError::Refused("Forgejo gave no access token".into()))?;
+        Ok(Tokens {
+            access,
+            refresh: res["refresh_token"].as_str().map(str::to_owned),
+            expires_in: res["expires_in"].as_i64().unwrap_or(3600),
+        })
     }
 
+    /// Star or unstar a repo as the person whose token this is.
+    pub async fn star_as(&self, token: &str, owner: &str, name: &str, on: bool) -> Result<()> {
+        let url = self.url(&format!("/user/starred/{owner}/{name}"));
+        let req = if on {
+            self.http.put(url)
+        } else {
+            self.http.delete(url)
+        };
+        self.send("star", req.bearer_auth(token)).await?;
+        Ok(())
+    }
+
+    /// Whether the person whose token this is starred the repo.
+    pub async fn starred_as(&self, token: &str, owner: &str, name: &str) -> Result<bool> {
+        Ok(self
+            .send(
+                "starred",
+                self.http
+                    .get(self.url(&format!("/user/starred/{owner}/{name}")))
+                    .bearer_auth(token),
+            )
+            .await?
+            .is_some())
+    }
     /// Who an access token belongs to.
     pub async fn user(&self, access_token: &str) -> Result<User> {
         let v = self

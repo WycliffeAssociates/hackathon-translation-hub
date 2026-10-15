@@ -478,3 +478,37 @@ pub fn best_consolidated(
         )
         .optional()?)
 }
+
+// --- the person's Forgejo tokens (migration 0010) ----------------------------
+
+/// A session's Forgejo tokens: (access, refresh, access expires at, unix).
+pub fn session_tokens(
+    conn: &Connection,
+    id: &str,
+) -> Result<Option<(String, Option<String>, i64)>> {
+    Ok(conn
+        .query_row(
+            "SELECT access_token, refresh_token, coalesce(token_expires, 0) FROM session
+             WHERE id = ?1 AND expires > ?2 AND access_token IS NOT NULL",
+            params![id, now_unix()],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .optional()?)
+}
+
+impl Store {
+    /// Keep (or renew) a session's Forgejo tokens.
+    pub fn set_session_tokens(
+        &self,
+        id: &str,
+        access: &str,
+        refresh: Option<&str>,
+        expires: i64,
+    ) -> Result<()> {
+        self.writer().execute(
+            "UPDATE session SET access_token = ?2, refresh_token = coalesce(?3, refresh_token), token_expires = ?4 WHERE id = ?1",
+            params![id, access, refresh, expires],
+        )?;
+        Ok(())
+    }
+}

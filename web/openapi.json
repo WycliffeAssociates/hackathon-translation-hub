@@ -1558,6 +1558,108 @@
         }
       }
     },
+    "/v1/repos/{owner}/{name}/star": {
+      "get": {
+        "tags": [],
+        "summary": "Whether the signed-in person starred this repo on Forgejo.",
+        "operationId": "starred",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Star"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [],
+        "summary": "Star or unstar this repo on Forgejo, as the signed-in person.",
+        "operationId": "set_star",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StarBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Star"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/repos/{owner}/{name}/tree": {
       "get": {
         "tags": [],
@@ -4355,6 +4457,29 @@
               "null"
             ],
             "description": "`TextTranslation/{ietf}_{resource}`, where the hub would create one, when publishing is configured."
+          }
+        }
+      },
+      "Star": {
+        "type": "object",
+        "description": "Whether the signed-in person starred a repo: Forgejo's own pin, which is\nhow the hub's Your work follows a repo.",
+        "required": [
+          "starred"
+        ],
+        "properties": {
+          "starred": {
+            "type": "boolean"
+          }
+        }
+      },
+      "StarBody": {
+        "type": "object",
+        "required": [
+          "star"
+        ],
+        "properties": {
+          "star": {
+            "type": "boolean"
           }
         }
       },

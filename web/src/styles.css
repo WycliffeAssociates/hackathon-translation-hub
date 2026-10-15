@@ -638,3 +638,4 @@ a:hover .repo-owner { text-decoration: underline; }
 .publishing-actions { display: flex; flex-wrap: wrap; gap: .6rem; margin: .5rem 0 .3rem; }
 .release-assets { display: inline-flex; gap: .8rem; margin-left: .8rem; }
 .working { padding: .6rem .8rem; border: 1px solid var(--rule); border-radius: 8px; background: var(--wf-bg); }
+.star { padding: .15rem .6rem; font-size: .85rem; } .star[aria-pressed="true"] { color: var(--draft); }

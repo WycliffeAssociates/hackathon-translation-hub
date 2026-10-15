@@ -5,7 +5,7 @@
 //! Edit permission alone would not do: an admin can edit every repo.
 
 use axum::Json;
-use axum::extract::State;
+use axum::extract::{Path, State};
 use axum::http::{HeaderMap, StatusCode};
 use hub_store::read::{self, LanguageResource, LanguageSummary, RepoSummary};
 use serde::{Deserialize, Serialize};
@@ -15,8 +15,8 @@ use crate::api::{AppState, Failure};
 
 #[derive(OpenApi)]
 #[openapi(
-    paths(home, set_languages),
-    components(schemas(Home, HomeLanguage, LanguagesBody, LanguageResource))
+    paths(home, set_languages, starred, set_star),
+    components(schemas(Home, HomeLanguage, LanguagesBody, LanguageResource, Star, StarBody))
 )]
 pub struct HomeDoc;
 
@@ -24,6 +24,10 @@ pub fn router() -> axum::Router<AppState> {
     axum::Router::new()
         .route("/v1/me/home", axum::routing::get(home))
         .route("/v1/me/languages", axum::routing::post(set_languages))
+        .route(
+            "/v1/repos/{owner}/{name}/star",
+            axum::routing::get(starred).post(set_star),
+        )
 }
 
 fn fail(status: StatusCode, msg: impl Into<String>) -> Failure {
@@ -128,4 +132,60 @@ async fn set_languages(
         .map_err(|e| fail(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
         .map_err(|e| fail(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
     Ok(Json(list))
+}
+
+/// Whether the signed-in person starred a repo: Forgejo's own pin, which is
+/// how the hub's Your work follows a repo.
+#[derive(Serialize, ToSchema)]
+pub struct Star {
+    pub starred: bool,
+}
+
+#[derive(Deserialize, ToSchema)]
+pub struct StarBody {
+    pub star: bool,
+}
+
+/// Whether the signed-in person starred this repo on Forgejo.
+#[utoipa::path(get, path = "/v1/repos/{owner}/{name}/star",
+    params(("owner" = String, Path), ("name" = String, Path)),
+    responses((status = 200, body = Star), (status = 401, body = crate::api::ApiError)))]
+async fn starred(
+    State(s): State<AppState>,
+    headers: HeaderMap,
+    Path((owner, name)): Path<(String, String)>,
+) -> Result<Json<Star>, Failure> {
+    let token = crate::publish::user_token(&s, &headers).await?;
+    let pb = s
+        .publish
+        .clone()
+        .ok_or_else(|| fail(StatusCode::NOT_FOUND, "publishing is off"))?;
+    let starred = pb
+        .forgejo
+        .starred_as(&token, &owner, &name)
+        .await
+        .map_err(|e| fail(StatusCode::BAD_GATEWAY, e.to_string()))?;
+    Ok(Json(Star { starred }))
+}
+
+/// Star or unstar this repo on Forgejo, as the signed-in person.
+#[utoipa::path(post, path = "/v1/repos/{owner}/{name}/star",
+    params(("owner" = String, Path), ("name" = String, Path)), request_body = StarBody,
+    responses((status = 200, body = Star), (status = 401, body = crate::api::ApiError)))]
+async fn set_star(
+    State(s): State<AppState>,
+    headers: HeaderMap,
+    Path((owner, name)): Path<(String, String)>,
+    Json(body): Json<StarBody>,
+) -> Result<Json<Star>, Failure> {
+    let token = crate::publish::user_token(&s, &headers).await?;
+    let pb = s
+        .publish
+        .clone()
+        .ok_or_else(|| fail(StatusCode::NOT_FOUND, "publishing is off"))?;
+    pb.forgejo
+        .star_as(&token, &owner, &name, body.star)
+        .await
+        .map_err(|e| fail(StatusCode::BAD_GATEWAY, e.to_string()))?;
+    Ok(Json(Star { starred: body.star }))
 }
