@@ -98,8 +98,13 @@ pub struct WriterHistory {
 }
 
 /// The saves of the bare repo at `repo` that changed a text file the template
-/// reads, oldest first (topological, then time). A file that will not decode
-/// reads as deleted, as the stitch leaves out a file it cannot read.
+/// reads, oldest first, along HEAD's first-parent line, as Sefer's walk does
+/// (`src/platform/web/git.ts`, `walk`). A side branch is never replayed
+/// commit by commit: a merge brings what it changed to the line, against its
+/// first parent. (Walking every commit applied a side branch's deletions to
+/// the one text being rebuilt, and a merge that kept the line's files never
+/// put them back: Bemba Leviticus lost 15:1–5 that way.) A file that will not
+/// decode reads as deleted, as the stitch leaves out a file it cannot read.
 pub fn read_writer_history(
     repo: &Path,
     book: &str,
@@ -108,8 +113,9 @@ pub fn read_writer_history(
 ) -> Result<WriterHistory> {
     let git = Repository::open_bare(repo)?;
     let mut walk = git.revwalk()?;
-    walk.set_sorting(Sort::TOPOLOGICAL | Sort::TIME | Sort::REVERSE)?;
+    walk.set_sorting(Sort::TOPOLOGICAL | Sort::REVERSE)?;
     walk.push_head()?;
+    walk.simplify_first_parent()?;
     let mut saves = Vec::new();
     for oid in walk {
         let commit = git.find_commit(oid?)?;
@@ -492,6 +498,77 @@ mod tests {
         assert_eq!(
             summary_of("TIT", &many, &before),
             "TIT 1:1, 1:2, 1:3, 1:4, 1:5, 1:6, +2 more"
+        );
+    }
+
+    // Why: Writer histories have side branches merged back (Bemba Leviticus:
+    // a branch that deleted chapter 15, merged keeping the line's files).
+    // Replaying every commit applied that branch's deletions and lost 15:1–5;
+    // the line, with each merge as what it brought, must end where HEAD is.
+    #[test]
+    fn a_merged_side_branch_does_not_lose_chunks() {
+        let dir = std::env::temp_dir().join(format!("hub-history-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let git = Repository::init_bare(&dir).unwrap();
+        let sig = git2::Signature::new("t", "t@t", &git2::Time::new(1_700_000_000, 0)).unwrap();
+        let commit = |files: &[(&str, &str)], parents: &[&git2::Commit], update: Option<&str>| {
+            let mut tb = git.treebuilder(None).unwrap();
+            let mut dirs: BTreeMap<&str, git2::TreeBuilder> = BTreeMap::new();
+            for (path, text) in files {
+                let (d, f) = path.split_once('/').unwrap();
+                let blob = git.blob(text.as_bytes()).unwrap();
+                dirs.entry(d)
+                    .or_insert_with(|| git.treebuilder(None).unwrap())
+                    .insert(f, blob, 0o100644)
+                    .unwrap();
+            }
+            for (d, b) in dirs {
+                tb.insert(d, b.write().unwrap(), 0o040000).unwrap();
+            }
+            let tree = git.find_tree(tb.write().unwrap()).unwrap();
+            let id = git
+                .commit(update, &sig, &sig, "save", &tree, parents)
+                .unwrap();
+            git.find_commit(id).unwrap()
+        };
+        let base = commit(
+            &[
+                ("15/01.txt", "\\c 15 \\v 1 one"),
+                ("15/06.txt", "\\v 6 six"),
+            ],
+            &[],
+            None,
+        );
+        // The side branch deletes 15/01; the line edits 15/06; the merge keeps the line's files.
+        let side = commit(&[("15/06.txt", "\\v 6 six")], &[&base], None);
+        let line = commit(
+            &[
+                ("15/01.txt", "\\c 15 \\v 1 one"),
+                ("15/06.txt", "\\v 6 six, edited"),
+            ],
+            &[&base],
+            None,
+        );
+        commit(
+            &[
+                ("15/01.txt", "\\c 15 \\v 1 one"),
+                ("15/06.txt", "\\v 6 six, edited"),
+            ],
+            &[&line, &side],
+            Some("HEAD"),
+        );
+        let history = read_writer_history(&dir, "LEV", "Leviticus", "").unwrap();
+        let mut files: BTreeMap<String, Option<String>> = BTreeMap::new();
+        for save in &history.saves {
+            for (path, body) in &save.changes {
+                files.insert(path.clone(), body.clone());
+            }
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+        assert!(matches!(files.get("15/01.txt"), Some(Some(_))), "{files:?}");
+        assert_eq!(
+            files.get("15/06.txt"),
+            Some(&Some("\\v 6 six, edited".to_owned()))
         );
     }
 }

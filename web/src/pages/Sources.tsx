@@ -359,10 +359,17 @@ export function SourcesView(props: { ietf: string; resource: string }) {
                                             >
                                               See the changes
                                             </button>
-                                            <Show when={publisher() && d().published?.writable && p().state === "behind"}>
+                                            {/* Behind: the tracked copy moved on. Edited: the published copy
+                                                changed (or was built short); pulling replaces it, as one commit. */}
+                                            <Show when={publisher() && d().published?.writable && (p().state === "behind" || p().state === "edited")}>
                                               {" "}
-                                              <button type="button" class="small" disabled={busy()} onClick={() => void pull(b.book, l().repo, "Update")}>
-                                                Pull the update
+                                              <button
+                                                type="button"
+                                                class="small"
+                                                disabled={busy()}
+                                                onClick={() => void pull(b.book, l().repo, p().state === "edited" ? "Replace the published copy with the tracked one" : "Update")}
+                                              >
+                                                {p().state === "edited" ? "Pull the tracked copy" : "Pull the update"}
                                               </button>
                                             </Show>
                                           </>
