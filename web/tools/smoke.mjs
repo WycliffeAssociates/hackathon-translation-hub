@@ -305,7 +305,8 @@ await step("repo-synthetic", async () => {
 await step("language-ceb", async () => {
   await page.goto(`${base}/languages/ceb`);
   await page.getByRole("heading", { level: 1, name: /Cebuano/ }).waitFor();
-  await page.locator(".books tbody tr").first().waitFor();
+  // What is published leads the page (the catalog's books table is gone).
+  await page.locator(".published-list li").first().waitFor();
   expect((await page.locator(".feed-row").count()) > 0, "repos listed");
   await shot("09-language-ceb");
 });

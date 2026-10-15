@@ -226,10 +226,89 @@
         }
       }
     },
+    "/v1/languages/{ietf}/published": {
+      "get": {
+        "tags": [],
+        "summary": "Per resource of a language: what is published (a publisher's choice, or\nthe official org's repo by default), its newest release, or a suggestion.",
+        "operationId": "published",
+        "parameters": [
+          {
+            "name": "ietf",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Published"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [],
+        "summary": "Make a repo the published text for a language and resource (a pointer; no\ncopy is made), or clear the choice. Publishers only.",
+        "operationId": "set_published",
+        "parameters": [
+          {
+            "name": "ietf",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/languages/{ietf}/sources": {
       "get": {
         "tags": [],
-        "summary": "Every copy of every book of a language and brand, grouped into versions by\ntheir words, with the pick and the official copy's state.",
+        "summary": "Every copy of every book of a language and brand, grouped into variants by\ntheir words, with the pick and the official copy's state.",
         "operationId": "sources",
         "parameters": [
           {
@@ -266,6 +345,80 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Sources"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/languages/{ietf}/sources/diff": {
+      "get": {
+        "tags": [],
+        "summary": "Two copies of a book, verse by verse: the verses whose words differ.",
+        "operationId": "diff",
+        "parameters": [
+          {
+            "name": "ietf",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "resource",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "book",
+            "in": "query",
+            "description": "USFM id: `MAT`.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "a",
+            "in": "query",
+            "description": "`owner/name`: the copy shown on the left (usually the published one).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "b",
+            "in": "query",
+            "description": "`owner/name`: the copy compared with it.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookDiff"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -1806,6 +1959,38 @@
           }
         }
       },
+      "BookDiff": {
+        "type": "object",
+        "required": [
+          "book",
+          "a",
+          "b",
+          "verses",
+          "same"
+        ],
+        "properties": {
+          "a": {
+            "type": "string"
+          },
+          "b": {
+            "type": "string"
+          },
+          "book": {
+            "type": "string"
+          },
+          "same": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "verses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VerseChange"
+            },
+            "description": "Verses that differ, in order (at most 2,000)."
+          }
+        }
+      },
       "BookPick": {
         "type": "object",
         "description": "One book of one version (resource type + track) in a language, with the\nrepos that could be its text and the rules' verdicts on them.",
@@ -2194,17 +2379,12 @@
           {
             "type": "object",
             "required": [
-              "ignored",
-              "official"
+              "ignored"
             ],
             "properties": {
               "ignored": {
                 "type": "boolean",
                 "description": "Set aside by a publisher, for this book or for every book."
-              },
-              "official": {
-                "type": "boolean",
-                "description": "The copy in the official repo."
               }
             }
           }
@@ -2824,7 +3004,7 @@
           },
           "repo": {
             "type": "string",
-            "description": "The repo the official book was pulled from, `owner/name`."
+            "description": "The repo the published book was pulled from (it tracks), `owner/name`."
           },
           "taken_at": {
             "type": "string"
@@ -2834,7 +3014,7 @@
               "integer",
               "null"
             ],
-            "description": "Its version now, when it still has the book.",
+            "description": "Its variant now, when it still has the book.",
             "minimum": 0
           }
         }
@@ -3073,45 +3253,6 @@
               "$ref": "#/components/schemas/WriterBook"
             },
             "description": "Consolidate is offered (a Writer project, no official repo yet): the\nlanguage and brand's Writer books it would gather, one per book."
-          }
-        }
-      },
-      "OfficialBook": {
-        "type": "object",
-        "required": [
-          "version",
-          "state"
-        ],
-        "properties": {
-          "linked": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/Linked"
-              }
-            ]
-          },
-          "state": {
-            "type": "string",
-            "description": "`current` (same words as the repo it follows), `behind` (that repo\nchanged since), `edited` (the official copy changed, the repo did not),\n`unlinked` (no record of where it came from)."
-          },
-          "version": {
-            "type": "integer",
-            "description": "The official copy's version.",
-            "minimum": 0
-          },
-          "vs_linked": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/Diff",
-                "description": "The followed repo's copy against the official one, when they differ."
-              }
-            ]
           }
         }
       },
@@ -3354,6 +3495,165 @@
           },
           "sk_tag": {
             "type": "string"
+          }
+        }
+      },
+      "PublishBody": {
+        "type": "object",
+        "required": [
+          "resource"
+        ],
+        "properties": {
+          "repo": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`owner/name` to make the published text, or null to clear the choice."
+          },
+          "resource": {
+            "type": "string"
+          }
+        }
+      },
+      "Published": {
+        "type": "object",
+        "description": "What is published for one resource of a language, or what could be.",
+        "required": [
+          "resource",
+          "repos",
+          "writer"
+        ],
+        "properties": {
+          "books": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "last_tag": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Its newest release tag, and when."
+          },
+          "last_tag_unix": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "published": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PublishedRef"
+              }
+            ]
+          },
+          "repos": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Repos of this language and resource."
+          },
+          "resource": {
+            "type": "string"
+          },
+          "suggest": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "With nothing published: the repo to bless first (WA-Catalog's, else\nthe one with the most books), when there is a consolidated one."
+          },
+          "writer": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Of them, Writer projects."
+          }
+        }
+      },
+      "PublishedBook": {
+        "type": "object",
+        "description": "The published copy of one book, and what it tracks.",
+        "required": [
+          "version",
+          "chapters",
+          "verses",
+          "head_unix",
+          "state"
+        ],
+        "properties": {
+          "chapters": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "head_unix": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The published repo's last commit."
+          },
+          "linked": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Linked"
+              }
+            ]
+          },
+          "state": {
+            "type": "string",
+            "description": "`current` (same words as the repo it tracks), `behind` (that repo\nchanged since), `edited` (the published copy changed, the repo did not),\n`unlinked` (no record of where it came from)."
+          },
+          "verses": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "version": {
+            "type": "integer",
+            "description": "Its variant.",
+            "minimum": 0
+          },
+          "vs_linked": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Diff",
+                "description": "The tracked repo's copy against the published one, when they differ."
+              }
+            ]
+          }
+        }
+      },
+      "PublishedRef": {
+        "type": "object",
+        "description": "What is published for this language and resource.",
+        "required": [
+          "repo",
+          "chosen",
+          "writable"
+        ],
+        "properties": {
+          "chosen": {
+            "type": "boolean",
+            "description": "A publisher chose it; false: the official org's `{ietf}_{resource}` by default."
+          },
+          "repo": {
+            "type": "string",
+            "description": "`owner/name`."
+          },
+          "writable": {
+            "type": "boolean",
+            "description": "In the official org, so the hub may pull into it and release from it."
           }
         }
       },
@@ -3776,28 +4076,36 @@
         "type": "object",
         "required": [
           "book",
-          "versions"
+          "variants"
         ],
         "properties": {
           "book": {
             "type": "string"
-          },
-          "official": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/OfficialBook"
-              }
-            ]
           },
           "pick": {
             "type": [
               "integer",
               "null"
             ],
-            "description": "The version the hub would take: the one the official copy follows,\nelse the best version not set aside.",
+            "description": "The variant the hub would take: the one the published copy tracks,\nelse the best variant not set aside.",
+            "minimum": 0
+          },
+          "published": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PublishedBook"
+              }
+            ]
+          },
+          "reference": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "What the other variants are compared with: the published copy's\nvariant, else the pick.",
             "minimum": 0
           },
           "source_verses": {
@@ -3808,10 +4116,10 @@
             "format": "int64",
             "description": "Verses in the gateway source, when one resolves."
           },
-          "versions": {
+          "variants": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/Version"
+              "$ref": "#/components/schemas/Variant"
             }
           }
         }
@@ -3841,7 +4149,6 @@
         "required": [
           "language",
           "resource",
-          "official_exists",
           "copies",
           "books",
           "progress"
@@ -3861,16 +4168,22 @@
           "language": {
             "type": "string"
           },
-          "official_exists": {
-            "type": "boolean",
-            "description": "The official repo has a copy of at least one book."
-          },
           "progress": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/SourceProgress"
             },
             "description": "Against each source asked for (or declared)."
+          },
+          "published": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PublishedRef"
+              }
+            ]
           },
           "resource": {
             "type": "string"
@@ -3880,7 +4193,7 @@
               "string",
               "null"
             ],
-            "description": "`TextTranslation/{ietf}_{resource}`, when publishing is configured."
+            "description": "`TextTranslation/{ietf}_{resource}`, where the hub would create one, when publishing is configured."
           }
         }
       },
@@ -4068,6 +4381,86 @@
           }
         }
       },
+      "Variant": {
+        "type": "object",
+        "description": "A variant: copies with the same words in every verse. (A *version* is a\nrelease, `v1.0`; a variant is just a distinct text.)",
+        "required": [
+          "verses",
+          "chapters",
+          "members",
+          "published",
+          "ignored"
+        ],
+        "properties": {
+          "chapters": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "ignored": {
+            "type": "boolean",
+            "description": "Every member is set aside."
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Copy"
+            },
+            "description": "Best first: Primary and on BIEL, then Primary, Active, unlisted; then\nthe most verses, the newest. The published copy is not listed here:\nit is the book's `published`, what the others are compared with."
+          },
+          "published": {
+            "type": "boolean",
+            "description": "The published copy has these words."
+          },
+          "verses": {
+            "type": "integer",
+            "description": "Verses with text.",
+            "minimum": 0
+          },
+          "vs_reference": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Diff",
+                "description": "Against the reference (the published copy, else the pick); absent for the reference itself."
+              }
+            ]
+          }
+        }
+      },
+      "VerseChange": {
+        "type": "object",
+        "description": "One verse that differs between two copies; a side is absent when that copy lacks the verse.",
+        "required": [
+          "chapter",
+          "verse"
+        ],
+        "properties": {
+          "a": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "b": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "chapter": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "verse": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
       "VersePair": {
         "type": "object",
         "description": "One target verse beside its source.",
@@ -4114,49 +4507,6 @@
             "type": "integer",
             "format": "int32",
             "minimum": 0
-          }
-        }
-      },
-      "Version": {
-        "type": "object",
-        "description": "Copies with the same words in every verse.",
-        "required": [
-          "verses",
-          "chapters",
-          "members",
-          "ignored"
-        ],
-        "properties": {
-          "chapters": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "ignored": {
-            "type": "boolean",
-            "description": "Every member is set aside."
-          },
-          "members": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Copy"
-            },
-            "description": "Best first: Primary and on BIEL, then Primary, Active, unlisted; then\nthe most verses, the newest."
-          },
-          "verses": {
-            "type": "integer",
-            "description": "Verses with text.",
-            "minimum": 0
-          },
-          "vs_pick": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/Diff",
-                "description": "Against the book's pick; absent for the pick itself."
-              }
-            ]
           }
         }
       },

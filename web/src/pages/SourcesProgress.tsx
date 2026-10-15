@@ -158,7 +158,7 @@ export default function SourcesProgress(props: {
                   )}
                 </For>
               </span>
-              <Show when={weeks().length}>
+              <Show when={weeks().some((n) => n > 0)}>
                 <span class="progress-saves small">
                   <Sparkline values={weeks()} title={`Writer saves per week, the last 52 weeks: ${weeks().reduce((a, b) => a + b, 0)} in all`} />
                   {weeks().reduce((a, b) => a + b, 0).toLocaleString()} saves in the last year

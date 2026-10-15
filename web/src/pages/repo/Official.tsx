@@ -1,181 +1,157 @@
-// The official side of one repo (a proposal): which official repo its language
-// and brand publish to, that repo's releases, and, for a publisher, the three
-// writes the hub makes: adopt (fork this consolidated repo in as the official
-// one), pull (one book, stitched for a Writer project, as one commit), publish
-// (a release tag, from the official repo's Releases tab), and, for a Writer project whose language has no official
-// repo yet, consolidate (every Writer book of the language and brand into a new
-// official repo, every save kept as a commit). The server does the work and the
-// checks; this only asks.
+// The publishing side of one repo (a proposal), at the top of its Releases
+// tab: what is published for this repo's language and resource, and for a
+// publisher, the two ways this repo can become it:
+//
+// - **Make this the published one**: a pointer kept by the hub. Nothing is
+//   copied; readers are sent here. The hub then reads it but does not write
+//   to it (it writes only in the official org).
+// - **Copy it into the official org**: a fork (Forgejo's "Adopt" here), so
+//   the hub can pull books into it and release from it.
+//
+// Pulling books and creating a published repo from Writer projects happen on
+// the sources page, book by book. The server does the work and the checks.
 import { For, Show, createResource, createSignal } from "solid-js";
+import { A } from "@solidjs/router";
 import { api } from "../../api/client";
-import type { BookRow, Done } from "../../api/types";
+import type { Done } from "../../api/types";
 import { ago } from "../../ui/bits";
+import { resourceTitle } from "../../ui/resources";
 import { me, signInHref } from "../../ui/session";
-import Assemble from "./Assemble";
 
-export default function Official(props: {
-  owner: string;
-  name: string;
-  books: readonly BookRow[];
-  /** The book open in the viewer, to pull by default. */
-  openBook: string | undefined;
-}) {
+export default function Official(props: { owner: string; name: string; language: string | null | undefined; resource: string | null | undefined }) {
   const id = () => ({ path: { owner: props.owner, name: props.name } });
   const [info, { refetch }] = createResource(
     () => me()?.publishing && id(),
     (c) => api.json("/v1/repos/{owner}/{name}/official", c),
   );
+  const [published, { refetch: refetchPublished }] = createResource(
+    () => (props.language ? { path: { ietf: props.language } } : false),
+    (c) => api.json("/v1/languages/{ietf}/published", c).catch(() => []),
+  );
+  const mine = () => published()?.find((p) => p.resource === props.resource);
+  const self = () => `${props.owner}/${props.name}`.toLowerCase();
+  const isPublished = () => mine()?.published?.repo === self();
   const [busy, setBusy] = createSignal(false);
-  const [done, setDone] = createSignal<Done>();
+  const [done, setDone] = createSignal<string>();
   const [failed, setFailed] = createSignal<string>();
-  const [book, setBook] = createSignal<string>();
-  const [assembling, setAssembling] = createSignal(false);
-  const pickBook = () => book() ?? props.openBook ?? props.books[0]?.book;
+  const publisher = () => info()?.can_publish === true;
+  const what = () => `${props.language ?? ""} ${resourceTitle(props.resource ?? "")}`;
 
-  const act = async (what: string, run: () => Promise<Done>) => {
-    if (!confirm(what)) return;
+  const act = async (question: string, run: () => Promise<Done | boolean>, after?: string) => {
+    if (!confirm(question)) return;
     setBusy(true);
     setFailed(undefined);
     setDone(undefined);
     try {
-      setDone(await run());
-      await refetch();
+      const r = await run();
+      await Promise.all([refetch(), refetchPublished()]);
+      setDone(after ?? (typeof r === "object" ? r.message : ""));
     } catch (e) {
       setFailed(e instanceof Error ? e.message : String((e as { message?: string }).message ?? e));
     } finally {
       setBusy(false);
     }
   };
+  const bless = (repo: string | null) =>
+    act(
+      repo ? `Make ${repo} the published ${what()}? Nothing is copied; the hub points at it.` : `Clear the choice of published ${what()}?`,
+      () => api.post("/v1/languages/{ietf}/published", { path: { ietf: props.language! } }, { resource: props.resource!, repo }),
+      repo ? `${repo} is now the published ${what()}.` : "Cleared.",
+    );
 
   return (
     <Show when={info()}>
-      {(o) => {
-        const t = () => o().target;
-        const label = () => (t() ? `${t()!.owner}/${t()!.name}` : "");
-        return (
-          <section class="official" classList={{ none: !t()?.exists }} aria-label="Official">
-            <p class="official-line">
-              <Show
-                when={!o().is_official}
-                fallback={
-                  <span>
-                    <b>This is an official repo.</b> Its releases are what is published.
-                  </span>
-                }
-              >
-                <Show when={t()} fallback={<span class="small">No official repo: {o().reason}</span>}>
-                  {(target) => (
-                    <span>
-                      Official for this language and brand:{" "}
-                      <Show when={target().exists} fallback={<b class="mono">{label()}</b>}>
-                        <a class="mono" href={target().html_url} target="_blank" rel="noopener">
-                          {label()} ↗
-                        </a>
-                      </Show>
-                      <Show when={!target().exists}> <span class="small">(not created yet)</span></Show>
-                    </span>
-                  )}
-                </Show>
-              </Show>
-              <Show when={t()?.releases.length}>
-                <span class="releases">
-                  <For each={t()!.releases.slice(0, 5)}>
-                    {(r) => (
-                      <a class="tag official-tag" href={r.html_url} target="_blank" rel="noopener" title={r.name}>
-                        {r.tag_name}
-                      </a>
+      {(o) => (
+        <section class="publishing" aria-label="Publishing">
+          <Show when={props.language && props.resource} fallback={<p class="small">This repo declares no language or resource, so it cannot be published.</p>}>
+            <Show
+              when={isPublished()}
+              fallback={
+                <p>
+                  Published {what()}:{" "}
+                  <Show when={mine()?.published} fallback={<span class="muted">nothing yet</span>}>
+                    {(p) => (
+                      <A class="mono" href={`/repos/${p().repo}?tab=releases`}>
+                        {p().repo}
+                      </A>
                     )}
-                  </For>
-                </span>
-              </Show>
-            </p>
+                  </Show>{" "}
+                  <A class="small" href={`/languages/${props.language}/sources?resource=${encodeURIComponent(props.resource!)}`}>
+                    Sources by book ›
+                  </A>
+                </p>
+              }
+            >
+              <p>
+                <b>This is the published {what()}.</b>{" "}
+                <Show when={mine()?.published?.chosen} fallback={<span class="muted">(the official org's repo)</span>}>
+                  <span class="muted">(chosen by a publisher)</span>
+                </Show>
+              </p>
+            </Show>
 
-            <Show when={t()}>
-              <Show
-                when={o().can_publish}
-                fallback={
-                  <p class="small official-line">
-                    <Show when={me()?.me} fallback={<a href={signInHref()} rel="external">Sign in</a>}>
-                      {(m) => <span>{m().username} is not a publisher.</span>}
-                    </Show>{" "}
-                    Publishers can adopt a consolidated repo as the official one, pull books into it, and publish releases.
-                  </p>
-                }
-              >
-                <div class="official-actions">
-                  <Show when={o().writer_books.length}>
-                    <button type="button" class="primary" aria-expanded={assembling()} onClick={() => setAssembling(!assembling())}>
-                      Assemble {label()} from {o().writer_books.length} Writer {o().writer_books.length === 1 ? "book" : "books"}…
-                    </button>
-                  </Show>
+            <Show
+              when={publisher()}
+              fallback={
+                <p class="small muted">
+                  <Show when={me()?.me} fallback={<a href={signInHref()} rel="external">Sign in</a>}>
+                    {(m) => <>{m().username} is not a publisher.</>}
+                  </Show>{" "}
+                  Publishers choose what is published, and release it.
+                </p>
+              }
+            >
+              <div class="publishing-actions">
+                <Show when={!isPublished() && !o().is_official}>
+                  <button type="button" class="primary" disabled={busy()} onClick={() => void bless(self())}>
+                    Make this the published one
+                  </button>
                   <Show when={o().can_adopt}>
                     <button
                       type="button"
-                      class="primary"
                       disabled={busy()}
+                      title="A fork in the official org, so the hub can pull books into it and release from it"
                       onClick={() =>
-                        act(`Fork ${props.owner}/${props.name} into ${label()}, with its history, as the official repo?`, () =>
+                        void act(`Copy ${self()} into ${o().target?.owner}/${o().target?.name} (a fork, with its history), so the hub can pull into it and release from it?`, () =>
                           api.post("/v1/repos/{owner}/{name}/adopt", id(), {} as never),
                         )
                       }
                     >
-                      Adopt as {label()}
+                      Copy it into {o().target?.owner}
                     </button>
                   </Show>
-                  <Show when={!o().is_official && props.books.length}>
-                    <form
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        const b = pickBook();
-                        if (b)
-                          void act(
-                            `Commit ${b} from ${props.owner}/${props.name} into ${label()}${t()!.exists ? "" : " (creating it)"}?`,
-                            () => api.post("/v1/repos/{owner}/{name}/pull", id(), { book: b }),
-                          );
-                      }}
-                    >
-                      <select aria-label="Book to pull" value={pickBook()} onChange={(e) => setBook(e.currentTarget.value)}>
-                        <For each={props.books}>{(b) => <option value={b.book}>{b.book}</option>}</For>
-                      </select>
-                      <button type="submit" disabled={busy()}>
-                        Pull into {label()}
-                      </button>
-                    </form>
-                  </Show>
-                </div>
+                </Show>
+                <Show when={isPublished() && mine()?.published?.chosen}>
+                  <button type="button" class="linkish small" disabled={busy()} onClick={() => void bless(null)}>
+                    Clear this choice
+                  </button>
+                </Show>
+              </div>
+              <Show when={!o().is_official && !isPublished()}>
+                <p class="small muted">
+                  Making it the published one only points at it; the hub reads it and does not write to it. Copying it into {o().target?.owner} makes a
+                  fork the hub can pull books into and release from.
+                </p>
               </Show>
             </Show>
-
-            <Show when={assembling() && o().can_publish && o().writer_books.length}>
-              <Assemble owner={props.owner} name={props.name} busy={busy()} onCreate={(what, run) => void act(what, run)} />
-            </Show>
-            <Show when={done()}>
-              {(d) => (
-                <p class="official-done small">
-                  {d().message}{" "}
-                  <a href={d().html_url} target="_blank" rel="noopener">
-                    See it on Forgejo ↗
-                  </a>{" "}
-                  The hub lists a new repo after its next poll.
-                </p>
-              )}
-            </Show>
-            <Show when={failed()}>{(m) => <div class="failure">{m()}</div>}</Show>
-            <Show when={o().actions.length}>
-              <ol class="official-log">
-                <For each={o().actions.slice(0, 12)}>
-                  {(a) => (
-                    <li>
-                      {ago(a.at_unix)}: <b>{a.username}</b> {a.kind === "adopt" ? "adopted" : a.kind === "consolidate" ? "consolidated Writer projects into" : a.kind === "pull" ? `pulled ${a.book}` : `published ${a.ref}`}{" "}
-                      <span class="mono">{a.kind === "publish" || a.kind === "consolidate" ? a.target : `${a.source?.split("@")[0]} → ${a.target}`}</span>
-                    </li>
-                  )}
-                </For>
-              </ol>
-            </Show>
-          </section>
-        );
-      }}
+          </Show>
+          <Show when={done()}>{(m) => <p class="ok" role="status">{m()}</p>}</Show>
+          <Show when={failed()}>{(m) => <p class="failure" role="alert">{m()}</p>}</Show>
+          <Show when={o().actions.length}>
+            <ol class="official-log">
+              <For each={o().actions.slice(0, 12)}>
+                {(a) => (
+                  <li>
+                    {ago(a.at_unix)}: <b>{a.username}</b>{" "}
+                    {a.kind === "adopt" ? "copied" : a.kind === "consolidate" ? "consolidated Writer projects into" : a.kind === "pull" ? `pulled ${a.book}` : `published ${a.ref}`}{" "}
+                    <span class="mono">{a.kind === "publish" || a.kind === "consolidate" ? a.target : `${a.source?.split("@")[0]} → ${a.target}`}</span>
+                  </li>
+                )}
+              </For>
+            </ol>
+          </Show>
+        </section>
+      )}
     </Show>
   );
 }

@@ -108,14 +108,25 @@ fn is_heading(marker: &str) -> bool {
 
 /// A USFM book's fingerprint.
 pub fn fingerprint(usfm: &str) -> Fingerprint {
+    let verses = verse_words(usfm)
+        .into_iter()
+        .map(|(key, words)| {
+            let mut h = DefaultHasher::new();
+            words.hash(&mut h);
+            (key, h.finish())
+        })
+        .collect();
+    Fingerprint { verses }
+}
+
+/// Each verse's words, as the fingerprint compares them: what a diff shows.
+pub fn verse_words(usfm: &str) -> BTreeMap<(u16, u16), String> {
     let mut verses = BTreeMap::new();
     let mut chapter = 0u16;
     let mut current: Option<((u16, u16), usize)> = None;
     let mut flush = |current: &mut Option<((u16, u16), usize)>, end: usize| {
         if let Some((key, start)) = current.take() {
-            let mut h = DefaultHasher::new();
-            words(&usfm[start..end]).hash(&mut h);
-            verses.insert(key, h.finish());
+            verses.insert(key, words(&usfm[start..end]));
         }
     };
     let mut at = 0;
@@ -149,7 +160,7 @@ pub fn fingerprint(usfm: &str) -> Fingerprint {
         at = marker_end.max(start + 1);
     }
     flush(&mut current, usfm.len());
-    Fingerprint { verses }
+    verses
 }
 
 #[cfg(test)]

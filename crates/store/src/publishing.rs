@@ -400,3 +400,81 @@ impl Store {
         Ok(())
     }
 }
+
+// --- what is published (migration 0009) --------------------------------------
+
+/// The published repo for a language and resource, and whether a publisher
+/// chose it (`true`) or it is the official org's `{ietf}_{resource}` by
+/// default (`false`). `None`: nothing published.
+pub fn published_of(
+    conn: &Connection,
+    language: &str,
+    resource: &str,
+    org: &str,
+) -> Result<Option<(String, bool)>> {
+    let (l, r) = (language.to_lowercase(), resource.to_lowercase());
+    let chosen: Option<String> = conn
+        .query_row(
+            "SELECT repo FROM published WHERE language = ?1 AND resource = ?2",
+            params![l, r],
+            |row| row.get(0),
+        )
+        .optional()?;
+    if let Some(repo) = chosen {
+        return Ok(Some((repo, true)));
+    }
+    let official = format!("{}/{l}_{r}", org.to_lowercase());
+    let exists: bool = conn.query_row(
+        "SELECT EXISTS (SELECT 1 FROM repo WHERE lower(owner || '/' || name) = ?1 AND scanned_unix IS NOT NULL)",
+        params![official],
+        |row| row.get(0),
+    )?;
+    Ok(exists.then_some((official, false)))
+}
+
+impl Store {
+    /// Point a language and resource at `repo` as its published text, or clear it (`None`).
+    pub fn set_published(
+        &self,
+        language: &str,
+        resource: &str,
+        repo: Option<&str>,
+        username: &str,
+    ) -> Result<()> {
+        let (l, r) = (language.to_lowercase(), resource.to_lowercase());
+        let w = self.writer();
+        match repo {
+            Some(repo) => w.execute(
+                "INSERT OR REPLACE INTO published (language, resource, repo, username, at)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![l, r, repo.to_lowercase(), username, now_unix()],
+            )?,
+            None => w.execute(
+                "DELETE FROM published WHERE language = ?1 AND resource = ?2",
+                params![l, r],
+            )?,
+        };
+        Ok(())
+    }
+}
+
+/// The consolidated repo (not a Writer project) to suggest blessing for a
+/// language and resource: WA-Catalog's first, then the most books, the newest.
+pub fn best_consolidated(
+    conn: &Connection,
+    language: &str,
+    resource: &str,
+) -> Result<Option<String>> {
+    Ok(conn
+        .query_row(
+            "SELECT r.owner || '/' || r.name FROM repo r
+             WHERE r.language = ?1 AND r.resource = ?2 AND r.synthetic IS NULL AND r.scanned_unix IS NOT NULL
+               AND r.is_archived = 0
+             ORDER BY lower(r.owner) = 'wa-catalog' DESC,
+                      (SELECT count(*) FROM repo_book b WHERE b.repo_id = r.id) DESC, r.head_unix DESC
+             LIMIT 1",
+            params![language.to_lowercase(), resource.to_lowercase()],
+            |r| r.get(0),
+        )
+        .optional()?)
+}

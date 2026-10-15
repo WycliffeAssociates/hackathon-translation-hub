@@ -800,6 +800,14 @@ async fn consolidate(
         ));
     }
     let (org, target) = target_of(&pb, &f.detail).map_err(|e| fail(StatusCode::CONFLICT, e))?;
+    if let Some(other) = blessed_elsewhere(&s, &f.detail, &org).await {
+        return Err(fail(
+            StatusCode::CONFLICT,
+            format!(
+                "{other} is the published text for this language and resource; the hub writes only to {org}. Clear that choice first."
+            ),
+        ));
+    }
     if pb
         .forgejo
         .repo_exists(&org, &target)
@@ -1008,6 +1016,14 @@ async fn pull(
     let f = facts(&s, &owner, &name).await?;
     let book = body.book.to_uppercase();
     let (org, target) = target_of(&pb, &f.detail).map_err(|e| fail(StatusCode::CONFLICT, e))?;
+    if let Some(other) = blessed_elsewhere(&s, &f.detail, &org).await {
+        return Err(fail(
+            StatusCode::CONFLICT,
+            format!(
+                "{other} is the published text for this language and resource; the hub writes only to {org}. Clear that choice first."
+            ),
+        ));
+    }
     if f.detail.summary.owner.eq_ignore_ascii_case(&org) {
         return Err(fail(StatusCode::CONFLICT, "this repo is the official one"));
     }
@@ -1383,6 +1399,28 @@ fn manifest_with_book(
     projects.push(Value::Mapping(project));
     projects.sort_by_key(|p| p.get("sort").and_then(Value::as_i64).unwrap_or(i64::MAX));
     serde_yaml::to_string(&doc).ok()
+}
+
+/// The published repo for this repo's language and resource, when a publisher
+/// chose one outside the official org: the hub must not start a second
+/// published text beside it.
+async fn blessed_elsewhere(s: &AppState, d: &read::RepoDetail, org: &str) -> Option<String> {
+    let (lang, res) = (d.summary.language.clone()?, d.summary.resource.clone()?);
+    let (store, org) = (s.store.clone(), org.to_owned());
+    let found = tokio::task::spawn_blocking(move || {
+        publishing::published_of(&store.reader().ok()?, &lang, &res, &org)
+            .ok()
+            .flatten()
+    })
+    .await
+    .ok()
+    .flatten()?;
+    (found.1
+        && !found.0.starts_with(&format!(
+            "{}/",
+            s.publish.as_ref()?.config.official_org.to_lowercase()
+        )))
+    .then_some(found.0)
 }
 
 /// Record what each written book of an official repo now follows (the

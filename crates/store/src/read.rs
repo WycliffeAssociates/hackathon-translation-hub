@@ -1004,7 +1004,7 @@ pub fn language_card(
     let resources = conn
         .prepare(
             "SELECT resource, count(*), sum(synthetic IS NOT NULL), sum(lower(owner) = ?2)
-             FROM repo WHERE language = ?1 AND resource IS NOT NULL AND scanned_unix IS NOT NULL
+             FROM repo WHERE language = ?1 AND coalesce(resource, '') != '' AND scanned_unix IS NOT NULL
              GROUP BY resource ORDER BY count(*) DESC",
         )?
         .query_map(params![ietf, org.to_lowercase()], |r| {

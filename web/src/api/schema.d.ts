@@ -109,6 +109,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/languages/{ietf}/published": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Per resource of a language: what is published (a publisher's choice, or
+         *     the official org's repo by default), its newest release, or a suggestion.
+         */
+        get: operations["published"];
+        put?: never;
+        /**
+         * Make a repo the published text for a language and resource (a pointer; no
+         *     copy is made), or clear the choice. Publishers only.
+         */
+        post: operations["set_published"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/languages/{ietf}/sources": {
         parameters: {
             query?: never;
@@ -117,10 +141,27 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Every copy of every book of a language and brand, grouped into versions by
+         * Every copy of every book of a language and brand, grouped into variants by
          *     their words, with the pick and the official copy's state.
          */
         get: operations["sources"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/languages/{ietf}/sources/diff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Two copies of a book, verse by verse: the verses whose words differ. */
+        get: operations["diff"];
         put?: never;
         post?: never;
         delete?: never;
@@ -643,6 +684,14 @@ export interface components {
             present: number;
             total: number;
         };
+        BookDiff: {
+            a: string;
+            b: string;
+            book: string;
+            same: number;
+            /** @description Verses that differ, in order (at most 2,000). */
+            verses: components["schemas"]["VerseChange"][];
+        };
         /**
          * @description One book of one version (resource type + track) in a language, with the
          *     repos that could be its text and the rules' verdicts on them.
@@ -762,8 +811,6 @@ export interface components {
         Copy: components["schemas"]["BookCopy"] & {
             /** @description Set aside by a publisher, for this book or for every book. */
             ignored: boolean;
-            /** @description The copy in the official repo. */
-            official: boolean;
         };
         CoverageRow: {
             /**
@@ -997,10 +1044,10 @@ export interface components {
             commit: string;
             /** @description It has commits since the pull. */
             moved: boolean;
-            /** @description The repo the official book was pulled from, `owner/name`. */
+            /** @description The repo the published book was pulled from (it tracks), `owner/name`. */
             repo: string;
             taken_at: string;
-            /** @description Its version now, when it still has the book. */
+            /** @description Its variant now, when it still has the book. */
             version?: number | null;
         };
         LintRow: {
@@ -1075,18 +1122,6 @@ export interface components {
              *     language and brand's Writer books it would gather, one per book.
              */
             writer_books: components["schemas"]["WriterBook"][];
-        };
-        OfficialBook: {
-            linked?: null | components["schemas"]["Linked"];
-            /**
-             * @description `current` (same words as the repo it follows), `behind` (that repo
-             *     changed since), `edited` (the official copy changed, the repo did not),
-             *     `unlinked` (no record of where it came from).
-             */
-            state: string;
-            /** @description The official copy's version. */
-            version: number;
-            vs_linked?: null | components["schemas"]["Diff"];
         };
         OfficialRepo: {
             /** @description Whether it exists on Forgejo yet. */
@@ -1193,6 +1228,67 @@ export interface components {
             /** Format: int64 */
             ran_unix: number;
             sk_tag: string;
+        };
+        PublishBody: {
+            /** @description `owner/name` to make the published text, or null to clear the choice. */
+            repo?: string | null;
+            resource: string;
+        };
+        /** @description What is published for one resource of a language, or what could be. */
+        Published: {
+            /** Format: int64 */
+            books?: number | null;
+            /** @description Its newest release tag, and when. */
+            last_tag?: string | null;
+            /** Format: int64 */
+            last_tag_unix?: number | null;
+            published?: null | components["schemas"]["PublishedRef"];
+            /**
+             * Format: int64
+             * @description Repos of this language and resource.
+             */
+            repos: number;
+            resource: string;
+            /**
+             * @description With nothing published: the repo to bless first (WA-Catalog's, else
+             *     the one with the most books), when there is a consolidated one.
+             */
+            suggest?: string | null;
+            /**
+             * Format: int64
+             * @description Of them, Writer projects.
+             */
+            writer: number;
+        };
+        /** @description The published copy of one book, and what it tracks. */
+        PublishedBook: {
+            /** Format: int64 */
+            chapters: number;
+            /**
+             * Format: int64
+             * @description The published repo's last commit.
+             */
+            head_unix: number;
+            linked?: null | components["schemas"]["Linked"];
+            /**
+             * @description `current` (same words as the repo it tracks), `behind` (that repo
+             *     changed since), `edited` (the published copy changed, the repo did not),
+             *     `unlinked` (no record of where it came from).
+             */
+            state: string;
+            verses: number;
+            /** @description Its variant. */
+            version: number;
+            vs_linked?: null | components["schemas"]["Diff"];
+        };
+        /** @description What is published for this language and resource. */
+        PublishedRef: {
+            /** @description A publisher chose it; false: the official org's `{ietf}_{resource}` by default. */
+            chosen: boolean;
+            /** @description `owner/name`. */
+            repo: string;
+            /** @description In the official org, so the hub may pull into it and release from it. */
+            writable: boolean;
         };
         PullBody: {
             /** @description The book to pull: `RUT`. */
@@ -1310,18 +1406,23 @@ export interface components {
         };
         SourceBook: {
             book: string;
-            official?: null | components["schemas"]["OfficialBook"];
             /**
-             * @description The version the hub would take: the one the official copy follows,
-             *     else the best version not set aside.
+             * @description The variant the hub would take: the one the published copy tracks,
+             *     else the best variant not set aside.
              */
             pick?: number | null;
+            published?: null | components["schemas"]["PublishedBook"];
+            /**
+             * @description What the other variants are compared with: the published copy's
+             *     variant, else the pick.
+             */
+            reference?: number | null;
             /**
              * Format: int64
              * @description Verses in the gateway source, when one resolves.
              */
             source_verses?: number | null;
-            versions: components["schemas"]["Version"][];
+            variants: components["schemas"]["Variant"][];
         };
         /**
          * @description The language and brand's text (the official copy, else the pick) against
@@ -1337,12 +1438,11 @@ export interface components {
             /** @description Copies read, across every book. */
             copies: number;
             language: string;
-            /** @description The official repo has a copy of at least one book. */
-            official_exists: boolean;
             /** @description Against each source asked for (or declared). */
             progress: components["schemas"]["SourceProgress"][];
+            published?: null | components["schemas"]["PublishedRef"];
             resource: string;
-            /** @description `TextTranslation/{ietf}_{resource}`, when publishing is configured. */
+            /** @description `TextTranslation/{ietf}_{resource}`, where the hub would create one, when publishing is configured. */
             target?: string | null;
         };
         /** @description What the hub serves in place of a Writer repo's chunk files. */
@@ -1409,6 +1509,36 @@ export interface components {
             /** @description A mark in brackets (`[']`), a word form, or a class (`a letter`). */
             text: string;
         };
+        /**
+         * @description A variant: copies with the same words in every verse. (A *version* is a
+         *     release, `v1.0`; a variant is just a distinct text.)
+         */
+        Variant: {
+            /** Format: int64 */
+            chapters: number;
+            /** @description Every member is set aside. */
+            ignored: boolean;
+            /**
+             * @description Best first: Primary and on BIEL, then Primary, Active, unlisted; then
+             *     the most verses, the newest. The published copy is not listed here:
+             *     it is the book's `published`, what the others are compared with.
+             */
+            members: components["schemas"]["Copy"][];
+            /** @description The published copy has these words. */
+            published: boolean;
+            /** @description Verses with text. */
+            verses: number;
+            vs_reference?: null | components["schemas"]["Diff"];
+        };
+        /** @description One verse that differs between two copies; a side is absent when that copy lacks the verse. */
+        VerseChange: {
+            a?: string | null;
+            b?: string | null;
+            /** Format: int32 */
+            chapter: number;
+            /** Format: int32 */
+            verse: number;
+        };
         /** @description One target verse beside its source. */
         VersePair: {
             /** Format: int32 */
@@ -1433,21 +1563,6 @@ export interface components {
             target_len: number;
             /** Format: int32 */
             verse: number;
-        };
-        /** @description Copies with the same words in every verse. */
-        Version: {
-            /** Format: int64 */
-            chapters: number;
-            /** @description Every member is set aside. */
-            ignored: boolean;
-            /**
-             * @description Best first: Primary and on BIEL, then Primary, Active, unlisted; then
-             *     the most verses, the newest.
-             */
-            members: components["schemas"]["Copy"][];
-            /** @description Verses with text. */
-            verses: number;
-            vs_pick?: null | components["schemas"]["Diff"];
         };
         /** @description Saves by one author in one week. */
         WeekSaves: {
@@ -1638,6 +1753,60 @@ export interface operations {
             };
         };
     };
+    published: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ietf: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Published"][];
+                };
+            };
+        };
+    };
+    set_published: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ietf: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": boolean;
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     sources: {
         parameters: {
             query: {
@@ -1664,6 +1833,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Sources"];
+                };
+            };
+        };
+    };
+    diff: {
+        parameters: {
+            query: {
+                resource: string;
+                /** @description USFM id: `MAT`. */
+                book: string;
+                /** @description `owner/name`: the copy shown on the left (usually the published one). */
+                a: string;
+                /** @description `owner/name`: the copy compared with it. */
+                b: string;
+            };
+            header?: never;
+            path: {
+                ietf: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookDiff"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
                 };
             };
         };

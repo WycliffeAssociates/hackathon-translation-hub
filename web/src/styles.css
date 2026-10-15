@@ -485,7 +485,7 @@ button.primary:disabled { opacity: .5; cursor: progress; }
 .sources-summary { max-width: 75ch; }
 .sources-books { list-style: none; padding: 0; margin: 1rem 0; border-top: 1px solid var(--rule); }
 .sources-book { border-bottom: 1px solid var(--rule); }
-.sources-row { display: grid; grid-template-columns: 3.5rem minmax(0, 1.4fr) 7rem minmax(0, 1fr) minmax(0, 1.2fr); gap: .8rem; align-items: baseline; width: 100%; text-align: left; border: 0; border-radius: 0; background: none; padding: .55rem .4rem; }
+.sources-row { display: grid; grid-template-columns: 3.5rem minmax(0, 1.3fr) 7rem minmax(0, 1.2fr) 8rem; gap: .8rem; align-items: baseline; width: 100%; text-align: left; border: 0; border-radius: 0; background: none; padding: .55rem .4rem; }
 .sources-row:hover, .sources-book.open > .sources-row { background: var(--paper-2); }
 .sources-row:focus-visible { outline: 2px solid var(--lapis); outline-offset: -2px; }
 .sources-id { font-weight: 700; }
@@ -494,21 +494,47 @@ button.primary:disabled { opacity: .5; cursor: progress; }
 .official-state.behind { color: var(--draft); }
 .official-state.edited { color: var(--conflict); }
 .official-state.current { color: var(--official); }
-.sources-versions { padding: .2rem .4rem 1rem 4.3rem; }
-.sources-version { padding: .5rem 0; }
-.sources-version + .sources-version { border-top: 1px dashed var(--rule); }
-.sources-version.set { opacity: .6; }
-.sources-version-head { margin: 0 0 .3rem; font-size: .92rem; }
-.sources-members { list-style: none; padding: 0; margin: 0; display: grid; gap: .25rem; }
-.sources-members li { display: flex; flex-wrap: wrap; gap: .3rem 1rem; align-items: baseline; font-size: .9rem; }
-.sources-members li.set { text-decoration: line-through; text-decoration-color: var(--muted); }
-.sources-member { display: inline-flex; gap: .45rem; align-items: baseline; }
-.sources-member-actions { display: inline-flex; gap: .8rem; margin-left: auto; }
+/* An open book: the published copy and what it tracks, then the other copies. */
+.sources-detail { padding: .4rem .4rem 1rem 4.3rem; }
+.published-book { padding: .2rem 0 .6rem; }
+.published-book p { margin: .2rem 0; }
+.sources-sub { margin: .8rem 0 .2rem; font-size: .85rem; font-weight: 400; color: var(--muted); }
+.sources-variant { padding: .5rem 0; }
+.sources-variant + .sources-variant { border-top: 1px solid var(--rule); }
+.sources-variant.set { opacity: .6; }
+.sources-variant-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .3rem 1rem; margin: 0 0 .3rem; font-size: .92rem; }
+.sources-members { list-style: none; padding: 0; margin: 0; }
+/* One grid for every copy, so names, status, dates and actions line up and never wrap into each other. */
+.sources-member { display: grid; grid-template-columns: minmax(0, 1fr) 8rem 7rem 7rem 7.5rem; gap: 1rem; align-items: baseline; padding: .2rem 0; font-size: .9rem; }
+.sources-member.set .sources-member-name { text-decoration: line-through; text-decoration-color: var(--muted); }
+.sources-member-name { display: inline-flex; gap: .45rem; align-items: baseline; min-width: 0; overflow: hidden; }
+.sources-member-actions { display: inline-flex; gap: .6rem; justify-content: flex-end; align-items: baseline; }
+.tracked { font-size: .8rem; color: var(--official); }
 .sources-actions { display: flex; align-items: center; gap: 1rem; margin: .6rem 0 0; }
+details.more { position: relative; }
+details.more > summary { list-style: none; cursor: pointer; padding: 0 .4rem; border-radius: 6px; color: var(--muted); }
+details.more > summary::-webkit-details-marker { display: none; }
+details.more > summary:hover, details.more[open] > summary { background: var(--paper-2); color: var(--ink); }
+.more-menu { position: absolute; right: 0; z-index: 10; display: grid; min-width: 15rem; margin-top: .2rem; padding: .3rem; border: 1px solid var(--rule); border-radius: 8px; background: var(--wf-bg); box-shadow: 0 8px 24px rgb(0 0 0 / .14); }
+.more-menu button { border: 0; background: none; text-align: left; padding: .35rem .5rem; border-radius: 6px; font-size: .9rem; }
+.more-menu button:hover { background: var(--paper-2); }
+/* What is published leads the page. */
+.published-bar { margin: .4rem 0 1.2rem; padding: .7rem 1rem; border: 1px solid var(--rule); border-radius: 10px; background: var(--wf-bg); }
+.published-bar p { margin: .15rem 0; }
+.published-bar.none { border-style: dashed; }
+.published-actions { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: .5rem !important; }
+/* A verse diff: only the verses that differ, the changed words marked. */
+.verse-diff { margin: .4rem 0 .8rem; padding: .6rem .8rem; border: 1px solid var(--rule); border-radius: 8px; background: var(--wf-bg); max-height: 32rem; overflow: auto; }
+.verse-diff table { font-size: .9rem; }
+.verse-diff td { width: 48%; line-height: 1.5; }
+.verse-diff th.mono { font-size: .78rem; font-weight: 400; }
+.verse-diff mark { background: color-mix(in srgb, var(--draft) 28%, transparent); color: inherit; border-radius: 2px; padding: 0 1px; }
 @media (max-width: 760px) {
   .sources-row { grid-template-columns: 3rem minmax(0, 1fr) 5rem; }
   .sources-count, .sources-state { grid-column: 2 / -1; }
-  .sources-versions { padding-left: .4rem; }
+  .sources-detail { padding-left: .4rem; }
+  .sources-member { grid-template-columns: minmax(0, 1fr) auto; }
+  .sources-member > :nth-child(2), .sources-member > :nth-child(4) { display: none; }
 }
 .repo-name { white-space: nowrap; }
 .repo-owner { color: var(--ink); }
@@ -590,3 +616,15 @@ a:hover .repo-owner { text-decoration: underline; }
 .picker-results { position: absolute; z-index: 10; left: 0; right: 0; list-style: none; margin: .25rem 0 0; padding: .3rem; border: 1px solid var(--rule); border-radius: 10px; background: var(--wf-bg); box-shadow: 0 8px 24px rgb(0 0 0 / .12); }
 .picker-results button { width: 100%; text-align: left; border: 0; background: none; border-radius: 6px; padding: .35rem .5rem; }
 .picker-results button:hover, .picker-results button:focus-visible { background: var(--paper-2); }
+
+/* --- the language page: what is published first (pages/Language.tsx) --- */
+.published-list ul { list-style: none; padding: 0; margin: .4rem 0 1.4rem; border-top: 1px solid var(--rule); }
+.published-list li { display: grid; grid-template-columns: 15rem minmax(0, 1fr) auto; gap: 1rem; align-items: baseline; padding: .6rem .2rem; border-bottom: 1px solid var(--rule); }
+.published-resource { font-weight: 700; }
+.published-what { min-width: 0; }
+.published-go { white-space: nowrap; }
+@media (max-width: 760px) { .published-list li { grid-template-columns: minmax(0, 1fr); gap: .2rem; } }
+.resource-head { font-size: 1.05rem; margin-top: 1.4rem; }
+.publishing { margin: 0 0 1.4rem; padding: .7rem 1rem; border: 1px solid var(--rule); border-radius: 10px; background: var(--wf-bg); }
+.publishing p { margin: .2rem 0; }
+.publishing-actions { display: flex; flex-wrap: wrap; gap: .6rem; margin: .5rem 0 .3rem; }

@@ -39,16 +39,19 @@ export default function Repo() {
   const [tree] = createResource(id, (c) => api.json("/v1/repos/{owner}/{name}/tree", c));
   const [counts] = createResource(id, (c) => api.json("/v1/repos/{owner}/{name}/findings", c));
 
+  // A failed resource rethrows from `.latest`; read these only through `ok`, so a
+  // 404 shows as a failure instead of breaking the page in "Loading…".
+  const ok = <T,>(r: { error: unknown; latest: T | undefined }) => (r.error ? undefined : r.latest);
   const source = () => search.source === "true";
   // With no file picked, a one-book repo (every synthetic repo) opens its book.
-  const file = () => search.file ?? (!source() && repo.latest?.books.length === 1 ? repo.latest.books[0]!.path : undefined);
+  const file = () => search.file ?? (!source() && ok(repo)?.books.length === 1 ? ok(repo)!.books[0]!.path : undefined);
   const focus = () => {
     const m = /^(\d+)-(\d+)$/.exec(search.at ?? "");
     return m ? { from: Number(m[1]), to: Number(m[2]) } : null;
   };
 
   // The open book's id (`MAT`).
-  const openBookId = () => (source() ? undefined : repo.latest?.books.find((b) => b.path === file())?.book);
+  const openBookId = () => (source() ? undefined : ok(repo)?.books.find((b) => b.path === file())?.book);
   // Sous Chef's stored rows for the open book, every check. Lint rows are not
   // served: the viewer's engine draws lint for the open book itself.
   const [rows] = createResource(
@@ -65,7 +68,7 @@ export default function Repo() {
   };
   const openBook = (path: string, ch?: string) => show({ file: path, ch });
   const openCheck = (c: Pick<CodeCount, "engine" | "code">, book: string) => {
-    const path = repo.latest?.books.find((b) => b.book === book)?.path;
+    const path = ok(repo)?.books.find((b) => b.book === book)?.path;
     if (path) show({ file: path, check: checkKey(c) });
   };
 
@@ -92,14 +95,14 @@ export default function Repo() {
 
   // Checks: the open book, else the first book with findings, else the first.
   const checkFile = (r: RepoDetail) =>
-    file() ?? r.books.find((b) => (counts.latest ?? []).some((c) => c.books.some((x) => x.book === b.book)))?.path ?? r.books[0]?.path;
+    file() ?? r.books.find((b) => (ok(counts) ?? []).some((c) => c.books.some((x) => x.book === b.book)))?.path ?? r.books[0]?.path;
   const [sideBySide, setSideBySide] = createSignal(false);
   const [following, setFollowing] = createSignal<string | null>(null);
   /** The verse of the finding picked last (`3:15`), lit in the source pane too. */
   const [pickedVerse, setPickedVerse] = createSignal<string | null>(null);
   /** The source this book was compared with, when the last run recorded one. */
   const compareWith = (r: RepoDetail, path: string) => {
-    const corpus = rows.latest?.corpus;
+    const corpus = ok(rows)?.corpus;
     const book = corpus?.books.find((b) => b.id === path);
     return corpus?.source && book?.source ? { owner: r.owner, name: r.name, book: book.book } : null;
   };
@@ -110,14 +113,14 @@ export default function Repo() {
       path={path}
       source={source()}
       book={source() ? undefined : r.books.find((b) => b.path === path)}
-      findings={(rows.latest?.findings ?? [])
+      findings={(ok(rows)?.findings ?? [])
         .filter((f) => f.id === path)
         // Hygiene is "the text should never hold this"; convention is "rare here".
         .map((f) => ({ ...f, severity: f.rule === "hygiene" ? ("warning" as const) : ("info" as const) }))}
       focus={focus()}
       chapter={search.ch ?? null}
       verse={search.v ?? null}
-      counts={counts.latest ?? []}
+      counts={ok(counts) ?? []}
       check={search.check ?? null}
       onBook={(engine, code, book) => openCheck({ engine, code }, book)}
       compareWith={compareWith(r, path)}
@@ -264,7 +267,7 @@ export default function Repo() {
             </Match>
 
             <Match when={tab() === "releases"}>
-              <Official owner={r().owner} name={r().name} books={r().books} openBook={openBookId()} />
+              <Official owner={r().owner} name={r().name} language={r().language} resource={r().resource} />
               <Show when={official()?.is_official && official()?.target}>
                 {(t) => <Releases owner={r().owner} name={r().name} releases={t().releases} onPublished={() => void refetchOfficial()} />}
               </Show>
