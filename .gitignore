@@ -10,3 +10,6 @@ web/smoke-shots/
 *.sqlite
 *.sqlite-*
 var/
+
+# The hub's settings on a server (deploy/wacsdev/setup.py writes it; it holds secrets).
+/hub.env

@@ -41,83 +41,66 @@ network:
 
 ## Steps (Will, on wacsdev)
 
-**1. The read-only database user.** It's the same SQL as local, with a real password:
+Tried end to end in this shape against WACS-local (2026-10-15): the image
+built from GitHub with no credentials (162 MB); `setup.py` against a real
+Forgejo 15; the container through `deploy/wacsdev/compose.yml` on the Forgejo
+stack's network with the repositories mounted read-only. It read the repo list
+as `dashboard_ro`, sign-in redirected to Forgejo and back, and the first poll
+scanned 3,544 repos in 70 s and proofread 3,239 in 20 s, with no failures.
+**At wacsdev's ~32,000 repos, expect the first poll to take about 15 minutes**;
+pages work meanwhile and fill in.
+
+**0. The code.**
+```sh
+git clone https://github.com/<org>/wacs-dashboard-2 && cd wacs-dashboard-2 && git checkout hub-core
+docker network ls | grep wacs        # the Forgejo stack's network; wacs2_default if compose's default
+docker exec wacs2-gitea-1 id         # the user Forgejo runs as (git, uid 1000)
+```
+
+**1. The read-only database user**, with a real password:
 ```sh
 PW=$(openssl rand -hex 16)
 sed "s/'dev'/'$PW'/" dev/db-init/10-readonly-user.sql \
-  | docker exec -i wacs2-db-1 sh -c 'exec mariadb -uroot -p"$MARIADB_ROOT_PASSWORD"'
-echo "HUB_FORGEJO_DB=mysql://dashboard_ro:$PW@wacs2-db-1/gitea" >> hub.env
+  | docker exec -i wacs2-db-1 sh -c 'exec mariadb -uroot -p"${MARIADB_ROOT_PASSWORD:-$MYSQL_ROOT_PASSWORD}"'
+echo "$PW"   # goes into hub.env in step 2
 ```
 
-**2. Publishing on Forgejo:** what `dev/wacs/publishing.py` does locally, against content.wacsdev.org with an admin token.
-- The `TextTranslation` org (it does not exist on wacsdev yet). No `publishers` team: publishers are the site admins (`HUB_PUBLISHERS_TEAM=admins`).
-- A user `hub-bot` in TextTranslation's Owners team, and its token, made with the Forgejo CLI:
-  ```sh
-  docker exec -u git wacs2-gitea-1 forgejo admin user generate-access-token \
-    --username hub-bot --token-name translation-hub --scopes all --raw
-  ```
-- An OAuth2 application, `Translation Hub`, with the redirect `http://<wacsdev-host>:8787/v1/auth/callback`.
-
-`publishing.py` can take the URL, admin token and container name as arguments, and print the env lines instead of writing `target/wacs/hub.env`. That's a small change, to make before deploy day.
-
-**3. `hub.env`** (kept on the server, mode 600):
+**2. Publishing on Forgejo, once.** Make an access token as a site admin (Forgejo → Settings → Applications; scopes write:admin, write:organization, write:user), then:
 ```sh
-HUB_FORGEJO_DB=mysql://dashboard_ro:…@wacs2-db-1/gitea
-HUB_BASE_URL=https://content.wacsdev.org            # clone links shown to people
-HUB_FORGEJO_URL=http://wacs2-gitea-1:3000           # API and push, inside Docker
-HUB_FORGEJO_PUBLIC_URL=https://content.wacsdev.org  # sign-in, in the browser
-HUB_FORGEJO_TOKEN=…                                 # hub-bot
-HUB_OAUTH_CLIENT_ID=…
-HUB_OAUTH_CLIENT_SECRET=…
-HUB_PUBLIC_URL=http://<wacsdev-host>:8787
-HUB_PUBLISHERS_TEAM=admins
-HUB_WRITE_HOSTS=wacs2-gitea-1,content.wacsdev.org
-HUB_POLL_SECS=300
+ADMIN_TOKEN=… python3 deploy/wacsdev/setup.py \
+  --forgejo https://content.wacsdev.org --hub http://<wacsdev-host>:8787 --container wacs2-gitea-1
 ```
+- It creates TextTranslation and `hub-bot` (an owner of it), mints `hub-bot`'s token in the container, and makes the OAuth app "Translation Hub".
+- It writes `hub.env` (mode 600, git-ignored).
+- It refuses production WACS and checks the token is an admin's.
+- Re-running it is safe; it makes a new OAuth secret and a new bot token.
 
-**4. Run it**, as a compose file beside wacs2's (the network name is wacs2's; check with `docker network ls`):
-```yaml
-services:
-  hub:
-    image: translation-hub:<git sha>
-    restart: unless-stopped
-    env_file: hub.env
-    volumes:
-      - /var/lib/docker/volumes/wacs2_gitea_data/_data/git/repositories:/repos:ro,z
-      - hub-data:/data
-      - hub-logs:/logs
-    ports: ["8787:8787"]   # reached by IP on the VPN
-    networks: [wacs2_default]
-volumes: { hub-data: {}, hub-logs: {} }
-networks: { wacs2_default: { external: true } }
+Put the step-1 password into `hub.env` in place of `CHANGE-ME`.
+
+**3. Build and run.**
+```sh
+docker build -t translation-hub:$(git rev-parse --short HEAD) .
+TAG=$(git rev-parse --short HEAD) WACS_NETWORK=wacs2_default docker compose -f deploy/wacsdev/compose.yml up -d
+docker logs -f $(docker compose -f deploy/wacsdev/compose.yml ps -q hub) | grep '"event":"poll"'
 ```
+Nothing writes on start or while polling. The hub writes only when a publisher presses a button.
 
-**5. No proxy route for the demo:** browse `http://<wacsdev-host>:8787` on the VPN.
+**4. The port.** Open 8787 to the VPN on <wacsdev-host>'s firewall, if it is closed, then browse `http://<wacsdev-host>:8787`.
 
-**6. Watch the first poll.**
-- **Locally:** 3,542 repos scanned in 41 s and proofread in 14 s.
-- **For about 32,000, expect:**
-  - roughly 6–10 minutes for the first scan and the proofreading;
-  - a few GB of SQLite, mostly findings;
-  - the pages to work while it runs, filling in as the poll goes.
-- **To follow it:** `docker logs -f` shows one `event:"poll"` line per round. `scripts/latency.py` reads the log volume.
-
-**7. Verify:**
-- `scripts/verify.py --base http://<wacsdev-host>:8787 --no-catalog`, if the dev-data-specific checks are skipped there. It needs a `--live` switch first, which is a small change.
-- The browser smoke test against the host.
-- Sign in as a publisher.
-- On a throwaway language: create a published repo, pull a book, and publish a release. Check that the release has `SHA256SUMS` and `release.json`.
+**5. Verify.**
+- Sign in as a site admin; the header shows "publisher".
+- Watch `/status` fill in.
+- On a throwaway language, choose or create a published repo, pull a book, and publish a release. The release has `SHA256SUMS` and `release.json`.
 
 ## Rollback
 
 `docker compose down`, which leaves Forgejo untouched. To undo test writes, delete the `TextTranslation/*` repos made while testing, in Forgejo's UI. The hub never wrote anywhere else.
 
-## Changes to make before deploy day (small)
+## Left open
 
-- `publishing.py`: take a URL, an admin token and a container name, and print the env instead of writing locally.
-- `verify.py --live`: drive a hub on real data without dev-data's fixed expectations.
-- Nothing else: starring from the hub was dropped (2026-10-15) so the hub keeps no one's Forgejo token; people star on WACS, and Your work lists those stars.
-- The first poll on 32,000 repos is untested at that size. The local run suggests minutes, not hours. To be sure, run one locally on a larger dev-data slice first.
+- `verify.py --live` (driving a hub on real data without dev-data's fixed expectations) is not built. Step 5 is a by-hand check instead.
+- The first poll at 32,000 repos is estimated from the 3,544-repo run, not measured.
+- The hub keeps no one's Forgejo token: starring from the hub was dropped. People star on WACS, and Your work lists those stars.
 
 ## Not in this plan
 
