@@ -8,8 +8,8 @@ publish.workspace = true
 # scripture-kitchen by tag, never by path. galley is where onion and sous meet:
 # it parses a book into the neutral projection sous-core reads (`OnionBook`).
 # Keep both tags equal to `KITCHEN_TAG` in src/lib.rs.
-usfm_galley = { git = "https://github.com/WycliffeAssociates/scripture-kitchen", tag = "v0.1.9" }
-sous-core = { git = "https://github.com/WycliffeAssociates/scripture-kitchen", tag = "v0.1.9" }
+usfm_galley = { git = "https://github.com/WycliffeAssociates/scripture-kitchen", tag = "v0.1.10" }
+sous-core = { git = "https://github.com/WycliffeAssociates/scripture-kitchen", tag = "v0.1.10" }
 serde.workspace = true
 # The findings are an API response body; the server documents them in OpenAPI.
 utoipa = "5"

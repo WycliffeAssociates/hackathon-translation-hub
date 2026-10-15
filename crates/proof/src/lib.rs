@@ -47,7 +47,7 @@ use usfm_galley::sous::OnionBook;
 
 /// The scripture-kitchen tag this crate's engine was built from. It must match
 /// the `tag` of `usfm_galley` and `sous-core` in this crate's Cargo.toml.
-pub const KITCHEN_TAG: &str = "v0.1.9";
+pub const KITCHEN_TAG: &str = "v0.1.10";
 
 /// One book handed in: the host's id for it (a path in practice) and its raw
 /// USFM.

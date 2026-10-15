@@ -28,10 +28,10 @@ thiserror = "2"
 git2 = { version = "0.20", default-features = false }
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
 rayon = "1"
-# scripture-kitchen by tag, never by path. v0.1.10 is not pushed yet; its engine
-# is byte-identical to v0.1.9 (only onion/Cargo.toml's version moved).
-usfm_onion = { git = "https://github.com/WycliffeAssociates/scripture-kitchen", tag = "v0.1.9" }
-mise = { git = "https://github.com/WycliffeAssociates/scripture-kitchen", tag = "v0.1.9" }
+# scripture-kitchen by tag, never by path. v0.1.10: the engine fills `{aux}` in
+# a diagnostic's message itself (Sefer's editor-v0.1.0 expects it).
+usfm_onion = { git = "https://github.com/WycliffeAssociates/scripture-kitchen", tag = "v0.1.10" }
+mise = { git = "https://github.com/WycliffeAssociates/scripture-kitchen", tag = "v0.1.10" }
 
 hub-manifest = { path = "crates/manifest" }
 hub-repo-read = { path = "crates/repo-read" }

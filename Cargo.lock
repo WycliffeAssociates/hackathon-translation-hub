@@ -1300,8 +1300,8 @@ dependencies = [
 
 [[package]]
 name = "mise"
-version = "0.1.9"
-source = "git+https://github.com/WycliffeAssociates/scripture-kitchen?tag=v0.1.9#5fe3f72cee3b887f5e3aca55ea701832da361437"
+version = "0.1.10"
+source = "git+https://github.com/WycliffeAssociates/scripture-kitchen?tag=v0.1.10#32bf2dffe5ba123a3c21dbf279d146ea78a866c8"
 
 [[package]]
 name = "mysql"
@@ -2186,8 +2186,8 @@ dependencies = [
 
 [[package]]
 name = "sous-core"
-version = "0.1.9"
-source = "git+https://github.com/WycliffeAssociates/scripture-kitchen?tag=v0.1.9#5fe3f72cee3b887f5e3aca55ea701832da361437"
+version = "0.1.10"
+source = "git+https://github.com/WycliffeAssociates/scripture-kitchen?tag=v0.1.10#32bf2dffe5ba123a3c21dbf279d146ea78a866c8"
 dependencies = [
  "memchr",
  "mise",
@@ -2331,8 +2331,8 @@ dependencies = [
 
 [[package]]
 name = "ticket"
-version = "0.1.9"
-source = "git+https://github.com/WycliffeAssociates/scripture-kitchen?tag=v0.1.9#5fe3f72cee3b887f5e3aca55ea701832da361437"
+version = "0.1.10"
+source = "git+https://github.com/WycliffeAssociates/scripture-kitchen?tag=v0.1.10#32bf2dffe5ba123a3c21dbf279d146ea78a866c8"
 
 [[package]]
 name = "time"
@@ -2697,8 +2697,8 @@ dependencies = [
 
 [[package]]
 name = "usfm_galley"
-version = "0.1.9"
-source = "git+https://github.com/WycliffeAssociates/scripture-kitchen?tag=v0.1.9#5fe3f72cee3b887f5e3aca55ea701832da361437"
+version = "0.1.10"
+source = "git+https://github.com/WycliffeAssociates/scripture-kitchen?tag=v0.1.10#32bf2dffe5ba123a3c21dbf279d146ea78a866c8"
 dependencies = [
  "memchr",
  "mise",
@@ -2711,8 +2711,8 @@ dependencies = [
 
 [[package]]
 name = "usfm_onion"
-version = "0.1.9"
-source = "git+https://github.com/WycliffeAssociates/scripture-kitchen?tag=v0.1.9#5fe3f72cee3b887f5e3aca55ea701832da361437"
+version = "0.1.10"
+source = "git+https://github.com/WycliffeAssociates/scripture-kitchen?tag=v0.1.10#32bf2dffe5ba123a3c21dbf279d146ea78a866c8"
 dependencies = [
  "memchr",
  "mise",

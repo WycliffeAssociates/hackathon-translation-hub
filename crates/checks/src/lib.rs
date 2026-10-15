@@ -19,4 +19,4 @@ pub use lint::{LintSummary, lint_book, lint_book_with, uses_s5};
 /// The scripture-kitchen tag this crate's engine was built from. It must match
 /// the `tag` of `usfm_onion` in the workspace Cargo.toml; it is part of every
 /// lint cache key, so bumping the engine invalidates cached summaries.
-pub const KITCHEN_TAG: &str = "v0.1.9";
+pub const KITCHEN_TAG: &str = "v0.1.10";

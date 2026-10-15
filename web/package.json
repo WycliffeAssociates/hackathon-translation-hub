@@ -15,10 +15,10 @@
     "@codemirror/state": "^6.7.6",
     "@codemirror/view": "^6.43.14",
     "@observablehq/plot": "0.6.17",
-    "@sefer/editor": "github:Bible-Translation-Tools/Sefer#082c09cc53e34520a218cfe73be216cc5f23fcbb&path:packages/editor",
-    "@sefer/text": "github:Bible-Translation-Tools/Sefer#082c09cc53e34520a218cfe73be216cc5f23fcbb&path:packages/text",
+    "@sefer/editor": "github:Bible-Translation-Tools/Sefer#editor-v0.1.0&path:packages/editor",
+    "@sefer/text": "github:Bible-Translation-Tools/Sefer#editor-v0.1.0&path:packages/text",
     "@solidjs/router": "1.0.0",
-    "@wycliffeassociates/scripture-kitchen": "github:WycliffeAssociates/scripture-kitchen#v0.1.9",
+    "@wycliffeassociates/scripture-kitchen": "github:WycliffeAssociates/scripture-kitchen#v0.1.10",
     "effect": "4.0.0-rc.112",
     "solid-js": "1.9.17"
   },

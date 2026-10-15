@@ -10,8 +10,10 @@
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   color-scheme: light dark;
 }
+/* Dark: the system's choice unless the reader picked light, or the reader's
+   pick (the header's theme switch sets data-theme on <html>). */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --paper: #141618; --paper-2: #1C1F22; --ink: #E6E8EA; --muted: #9BA3AA; --rule: #2C3034;
     --lapis: #7FAEDB; --official: #5FB58A; --draft: #E0AE48; --conflict: #D9788C; --empty: #2A2E32;
     --inactive: #4A555E;
@@ -19,6 +21,15 @@
     --wf-bg: #191C1F; --wf-ink: #D7DCE0; --wf-line: #353A3F; --wf-fill: #212528;
   }
 }
+:root[data-theme="dark"] {
+    --paper: #141618; --paper-2: #1C1F22; --ink: #E6E8EA; --muted: #9BA3AA; --rule: #2C3034;
+    --lapis: #7FAEDB; --official: #5FB58A; --draft: #E0AE48; --conflict: #D9788C; --empty: #2A2E32;
+    --inactive: #4A555E;
+    --mock: #B89AF0; --mock-fill: #221B30;
+    --wf-bg: #191C1F; --wf-ink: #D7DCE0; --wf-line: #353A3F; --wf-fill: #212528;
+  color-scheme: dark;
+}
+:root[data-theme="light"] { color-scheme: light; }
 
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--ui); font-size: 1rem; line-height: 1.55; -webkit-font-smoothing: antialiased; }
@@ -645,3 +656,7 @@ a:hover .repo-owner { text-decoration: underline; }
 .coverage-filter { margin-left: auto; }
 .coverage-head + .strip-legend, .progress-tab .strip-legend { display: flex; flex-wrap: wrap; gap: .3rem .9rem; align-items: center; }
 .release-diff { margin: .4rem 0 1rem; }
+
+.theme-toggle { border: 0; background: none; padding: .2rem .4rem; font-size: 1rem; color: var(--muted); }
+.theme-toggle:hover { color: var(--ink); }
+.repo-state { margin: .8rem 0 0; padding: .55rem .9rem; border: 1px solid var(--rule); border-radius: 10px; background: var(--wf-bg); } .repo-state p { margin: .15rem 0; }

@@ -13,6 +13,7 @@ import { Async, Counts, FORGEJO, StatusChip, seferLink, ago, checkKey, dateOf } 
 import FileTree from "./repo/FileTree";
 import FileView from "./repo/FileView";
 import History from "./repo/History";
+import RepoState from "./repo/RepoState";
 import { lazy } from "solid-js";
 // Charts (Observable Plot) load with the tab, not with every repo page.
 const Progress = lazy(() => import("./repo/Progress"));
@@ -213,6 +214,8 @@ export default function Repo() {
             </p>
             <Show when={r().scan_error}><div class="failure">Scan failed: {r().scan_error}</div></Show>
           </header>
+
+          <RepoState repo={r()} onTab={(t) => setSearch({ tab: t })} />
 
           <nav class="tabs" aria-label="Repo">
             <For each={tabs(r())}>

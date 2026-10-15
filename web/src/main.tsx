@@ -9,6 +9,7 @@ import Biel from "./pages/Biel";
 import Status from "./pages/Status";
 import Checks from "./pages/Checks";
 import { SessionCorner, me } from "./ui/session";
+import { ThemeToggle } from "./ui/theme";
 import { TourOutlet } from "./tour/TourOutlet";
 
 // The repo page carries the USFM viewer (CodeMirror + the engine wasm), so it
@@ -43,6 +44,7 @@ function Layout(props: RouteSectionProps) {
           <A href="/checks" activeClass="on">Checks</A>
           <A href="/status" activeClass="on">Status</A>
         </nav>
+        <ThemeToggle />
         <SessionCorner />
       </header>
       <main>{props.children}</main>
