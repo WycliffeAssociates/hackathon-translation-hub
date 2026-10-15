@@ -97,7 +97,8 @@ Gaps, in the order they would bite:
 
 - **The demo tour:** the machine is built (`web/src/tour/`, `?tour=demo`). Write the real stops with Will, who talks through the what and the why. Add a visible way to start it.
 - **Rebuild on wacsdev** after today's changes: `git pull`, the build with `--build-arg HUB_UID=1001 --build-arg HUB_GID=1002`, `export TAG=$(git rev-parse --short HEAD)`, then `compose up -d` (DEPLOY-WACSDEV.md). The database volume keeps its scans.
-- **Poll by Forgejo's update time (bookmarked):** the poll reads every repo's HEAD from disk each round (about 30 s idle at wacsdev's 32,575 repos), to catch a push Forgejo did not record. Nobody edits on the server, so trust `repository.updated_unix` from the database and read HEAD only where it moved. Idle polls become milliseconds and the interval can drop to seconds.
+- **Poll by Forgejo's update time (bookmarked):** the poll reads every repo's HEAD from disk each round (about 30 s idle at wacsdev's 32,575 repos), to catch a push Forgejo did not record. Nobody edits on the server, so trust `repository.updated_unix` from the database and read HEAD only where it moved. Idle polls become milliseconds and the interval can drop to seconds. As the safety net (Will): when a page opens a repo whose HEAD on disk differs from the stored commit, rescan that one repo then.
+- **Write scans in batches as the poll goes:** today a round scans every repo in memory and writes them all at the end, so a first poll shows "scanned 0" for its whole run (about 15–30 minutes at 32,575 repos) and holds every scan in memory. Write, say, every 500, so `/status` counts up and memory stays flat.
 
 ## Integrating with Joe's version (2026-10-15; built against WACS-local, revert freely)
 
