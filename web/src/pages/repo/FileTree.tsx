@@ -1,6 +1,10 @@
 // The repo's files as a collapsible tree. Directories on the way to the open
 // file start open; so does a small top level.
-import { For, Show, createEffect } from "solid-js";
+//
+// A folder's contents are built only while it is open. A closed <details>
+// still holds its children, so en_tn (30,624 files) once put every row in the
+// page and took 18 s to draw; now it starts with its top level.
+import { For, Show, createEffect, createMemo, createSignal } from "solid-js";
 import type { TreeEntry } from "../../api/types";
 
 interface Dir {
@@ -31,7 +35,7 @@ const size = (n: number | null | undefined) =>
 
 export default function FileTree(props: { entries: readonly TreeEntry[]; selected: string | null; onPick: (path: string) => void }) {
   let nav!: HTMLElement;
-  const root = () => build(props.entries);
+  const root = createMemo(() => build(props.entries));
   // Keep the open file in view inside the tree (not the page).
   createEffect(() => {
     if (!props.selected) return;
@@ -48,11 +52,18 @@ export default function FileTree(props: { entries: readonly TreeEntry[]; selecte
       <For each={[...p.dir.dirs.keys()].sort(byName)}>
         {(name) => {
           const path = `${p.prefix}${name}/`;
-          const open = () => (props.selected?.startsWith(path) ?? false) || (p.depth === 0 && p.dir.dirs.size + p.dir.files.length < 8);
+          const startsOpen = () => (props.selected?.startsWith(path) ?? false) || (p.depth === 0 && p.dir.dirs.size + p.dir.files.length < 8);
+          // What the reader did wins; until then, the rule above (which also
+          // opens the way to a file picked elsewhere, e.g. from a link).
+          const [toggled, setToggled] = createSignal<boolean>();
+          createEffect(() => props.selected?.startsWith(path) && setToggled(undefined));
+          const open = () => toggled() ?? startsOpen();
           return (
-            <details open={open()}>
+            <details open={open()} onToggle={(e) => e.currentTarget.open !== open() && setToggled(e.currentTarget.open)}>
               <summary>{name}/</summary>
-              <Level dir={p.dir.dirs.get(name)!} prefix={path} depth={p.depth + 1} />
+              <Show when={open()}>
+                <Level dir={p.dir.dirs.get(name)!} prefix={path} depth={p.depth + 1} />
+              </Show>
             </details>
           );
         }}
