@@ -50,7 +50,9 @@ export default function Repo() {
   };
 
   // The open book's id (`MAT`).
-  const openBookId = () => (source() ? undefined : ok(repo)?.books.find((b) => b.path === file())?.book);
+  // The book shown: the file in the URL, else (Checks tab) the one checkFile picks.
+  const shownFile = () => file() ?? (tab() === "checks" && ok(repo) ? checkFile(ok(repo)!) : undefined);
+  const openBookId = () => (source() ? undefined : ok(repo)?.books.find((b) => b.path === shownFile())?.book);
   // Sous Chef's stored rows for the open book, every check. Lint rows are not
   // served: the viewer's engine draws lint for the open book itself.
   const [rows] = createResource(
@@ -93,8 +95,15 @@ export default function Repo() {
   );
 
   // Checks: the open book, else the first book with findings, else the first.
-  const checkFile = (r: RepoDetail) =>
-    file() ?? r.books.find((b) => (ok(counts) ?? []).some((c) => c.books.some((x) => x.book === b.book)))?.path ?? r.books[0]?.path;
+  // With a check in the URL, the book where it fires most.
+  const checkFile = (r: RepoDetail) => {
+    if (file()) return file();
+    const all = ok(counts) ?? [];
+    const wanted = search.check ? all.find((c) => checkKey(c) === search.check) : undefined;
+    const top = wanted ? [...wanted.books].sort((a, b) => b.n - a.n)[0]?.book : undefined;
+    const book = top ?? r.books.find((b) => all.some((c) => c.books.some((x) => x.book === b.book)))?.book;
+    return r.books.find((b) => b.book === book)?.path ?? r.books[0]?.path;
+  };
   const [sourceShown, setSourceShown] = createSignal(true);
   // The Files tab's tree, folded or not: this browser's preference.
   const [treeFolded, setTreeFoldedSignal] = createSignal((() => {

@@ -172,20 +172,23 @@ await step("repo-en_ulb-findings", async () => {
     if (list.some((c) => c.engine === "sous")) break;
     await page.waitForTimeout(1000);
   }
-  // The findings table is the Checks tab's.
+  // The Checks tab: the checks sidebar lists every check across the repo under "All books".
   await page.goto(`${base}/repos/wa-catalog/en_ulb?tab=checks`);
-  await page.locator(".checks-table tbody tr.check-row").first().waitFor();
-  const rows = await checkRows();
-  expect(rows.length > 0 && sortedByTotal(rows), `findings sorted by total (${rows.map((r) => r[2]).join(", ")})`);
-  expect(rows.some((r) => r[1] === "lint") && rows.some((r) => r[1] === "sous"), "both engines in the table");
+  await page.locator(".rail .rail-scope button", { hasText: "All books" }).click();
+  await page.locator(".rail .rail-check").first().waitFor();
+  const rows = await page.locator(".rail .rail-check").evaluateAll((els) =>
+    els.map((e) => [e.querySelector(".code")?.textContent ?? "", e.querySelector(".tag")?.textContent ?? "", Number((e.querySelector(".n")?.textContent ?? "0").replace(/,/g, ""))]),
+  );
+  // The sidebar orders worst first, then noisiest; the global Checks page checks the order by total.
+  expect(rows.length > 0, "checks listed");
+  expect(rows.some((r) => r[1] === "lint") && rows.some((r) => r[1] === "sous"), "both engines listed");
   results.push({ name: `  ${rows.length} checks; top ${rows.slice(0, 3).map((r) => `${r[0]} ${r[2]}`).join(", ")}`, ok: true, ms: 0, notes: [] });
-  // Open the top Sous Chef check, then its noisiest book.
-  const sous = page.locator(".checks-table tbody tr.check-row", { has: page.locator(".tag.eng-sous") }).first();
-  const code = (await sous.locator("th button").innerText()).replace(/^[▸▾]\s*/, "").trim();
+  // Open the top Sous Chef check, then one of its books.
+  const sous = page.locator(".rail .rail-check", { has: page.locator(".tag.eng-sous") }).first();
+  const code = (await sous.locator(".code").innerText()).trim();
   await sous.click();
-  const chip = page.locator(".checks-table tr.check-books button.book-chip").first();
+  const chip = page.locator(".rail .rail-books button.book-chip:not(.here)").first();
   const book = (await chip.innerText()).split(/\s/)[0];
-  await sous.scrollIntoViewIfNeeded();
   await shot("05a-repo-en_ulb-findings");
   await chip.click();
   await page.waitForURL(new RegExp(`check=sous(%3A|:)${code}`));
@@ -205,7 +208,6 @@ await step("repo-en_ulb-findings", async () => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.locator(".rail").scrollIntoViewIfNeeded();
   await shot("05b-repo-en_ulb-finding-390");
-  await page.locator(".checks-table").scrollIntoViewIfNeeded();
   await shot("05c-repo-en_ulb-findings-390");
   await page.setViewportSize({ width: 1280, height: 900 });
   // The books table is on the Files tab.
@@ -232,9 +234,6 @@ await step("checks", async () => {
   // Through to the repo: the check is open there, and a book shows its kept rows against the true count.
   await top.click();
   await page.waitForURL(/\/repos\/wa-catalog\/km_ulb\?tab=checks&check=/);
-  const chip = page.locator(".checks-table tr.check-books button.book-chip").first();
-  await chip.waitFor();
-  await chip.click();
   const capped = page.locator(".rail-capped").first();
   await capped.waitFor();
   const note = await capped.innerText();
