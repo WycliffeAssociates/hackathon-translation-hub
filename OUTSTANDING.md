@@ -93,6 +93,12 @@ Gaps, in the order they would bite:
 - **CSRF**: writes rely on `SameSite=Lax` and a JSON body. Enough for a POC; add a token before anyone else's browser can reach it.
 - Team membership is read at sign-in; removal takes effect at the next sign-in.
 
+## Next (2026-10-16, demo day)
+
+- **The demo tour:** the machine is built (`web/src/tour/`, `?tour=demo`). Write the real stops with Will, who talks through the what and the why. Add a visible way to start it.
+- **Rebuild on wacsdev** after today's changes: `git pull`, the build with `--build-arg HUB_UID=1001 --build-arg HUB_GID=1002`, `export TAG=$(git rev-parse --short HEAD)`, then `compose up -d` (DEPLOY-WACSDEV.md). The database volume keeps its scans.
+- **Poll by Forgejo's update time (bookmarked):** the poll reads every repo's HEAD from disk each round (about 30 s idle at wacsdev's 32,575 repos), to catch a push Forgejo did not record. Nobody edits on the server, so trust `repository.updated_unix` from the database and read HEAD only where it moved. Idle polls become milliseconds and the interval can drop to seconds.
+
 ## Integrating with Joe's version (2026-10-15; built against WACS-local, revert freely)
 
 Will clicked through Joe's hub (cloned to `../translation-hub`, run in Docker on :8080 in fixture mode) and asked for these; each is built, tried in a browser on WACS-local, and committed:
