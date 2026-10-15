@@ -39,3 +39,5 @@ export type SourceBook = S["SourceBook"];
 export type SourceVersion = S["Version"];
 export type SourceCopy = S["Copy"];
 export type VerseDiff = S["Diff"];
+export type SourceProgress = S["SourceProgress"];
+export type BookCoverage = S["BookCoverage"];

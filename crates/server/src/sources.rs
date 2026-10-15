@@ -7,9 +7,10 @@
 //! the official one. Each copy's verses are fingerprinted (`hub_domain::
 //! fingerprint`); copies with the same words in every verse are one version.
 //! Each version is compared with the book's pick, and the official repo's
-//! copy with the copy it was pulled from (its `.upstreams.json`, Sefer's
-//! format), which says whether the official text is current, behind the repo
-//! it follows, or edited since.
+//! copy with the copy it was pulled from (the hub's pointer, written by pull
+//! and consolidate; for a repo Sefer consolidated, its `.upstreams.json`),
+//! which says whether the official text is current, behind the repo it
+//! follows, or edited since.
 
 use std::collections::{BTreeMap, HashMap};
 
@@ -58,6 +59,28 @@ fn fail(status: StatusCode, msg: impl Into<String>) -> Failure {
 pub struct SourcesQuery {
     /// The brand (resource code): `reg`, `ulb`.
     resource: String,
+    /// More sources to measure progress against, `owner/name,owner/name`
+    /// (a reader's pins), after the ones the copies declare (the three most
+    /// declared).
+    against: Option<String>,
+}
+
+/// One book's verses against a source: how many of the source's verses the
+/// book has (by number), of how many.
+#[derive(Serialize, ToSchema)]
+pub struct BookCoverage {
+    pub book: String,
+    pub present: usize,
+    pub total: usize,
+}
+
+/// The language and brand's text (the official copy, else the pick) against
+/// one source, book by book in the source's order.
+#[derive(Serialize, ToSchema)]
+pub struct SourceProgress {
+    /// `owner/name`.
+    pub source: String,
+    pub books: Vec<BookCoverage>,
 }
 
 /// How one copy differs from another, in verses.
@@ -154,6 +177,8 @@ pub struct Sources {
     /// Copies read, across every book.
     pub copies: usize,
     pub books: Vec<SourceBook>,
+    /// Against each source asked for (or declared).
+    pub progress: Vec<SourceProgress>,
 }
 
 /// Lower rank is better: what BIEL shows today first (as `default_pick`).
@@ -214,6 +239,7 @@ async fn sources(
     Query(q): Query<SourcesQuery>,
 ) -> Result<Json<Sources>, Failure> {
     let (lang, res) = (ietf.to_lowercase(), q.resource.to_lowercase());
+    let against = q.against.clone();
     let org = s
         .publish
         .as_ref()
@@ -257,10 +283,10 @@ async fn sources(
             })
             .collect();
 
-        // Where the official copies came from.
-        let upstreams = copies
-            .iter()
-            .find(|c| is_official(c))
+        // What the official copies follow: the hub's pointers, else (a repo
+        // Sefer consolidated) its `.upstreams.json`.
+        let official_repo = copies.iter().find(|c| is_official(c));
+        let mut upstreams: HashMap<String, (String, String, String)> = official_repo
             .and_then(|c| {
                 let reader = RepoReader::open(
                     &state
@@ -272,8 +298,17 @@ async fn sources(
                 Some(upstreams_of(&String::from_utf8_lossy(&bytes)))
             })
             .unwrap_or_default();
+        if let Some(c) = official_repo {
+            let links = publishing::official_links(&conn, &format!("{}/{}", c.owner, c.name))
+                .map_err(|e| internal(e.to_string()))?;
+            for (book, (repo, commit, at)) in links {
+                upstreams.insert(book, (repo, commit, hub_synthetic::date_of(at)));
+            }
+        }
 
         let mut books = Vec::new();
+        // Per book, the words that stand for the language: the official copy, else the pick.
+        let mut standing: Vec<(String, Fingerprint)> = Vec::new();
         let mut start = 0;
         while start < copies.len() {
             let book = copies[start].book.clone();
@@ -372,6 +407,9 @@ async fn sources(
                         .collect(),
                 })
                 .collect();
+            if let Some(v) = official.as_ref().map(|o| o.version).or(pick) {
+                standing.push((book.clone(), groups[v].0.clone()));
+            }
             books.push(SourceBook {
                 source_verses: copies[start..end].iter().find_map(|c| c.source_verses),
                 book,
@@ -381,6 +419,71 @@ async fn sources(
             });
             start = end;
         }
+        // Progress against each source: the sources asked for, else those declared.
+        let against: Vec<String> = {
+            let mut counts: HashMap<String, usize> = HashMap::new();
+            for c in &copies {
+                if let Some(src) = &c.source_repo {
+                    *counts.entry(src.to_lowercase()).or_default() += 1;
+                }
+            }
+            let mut v: Vec<(String, usize)> = counts.into_iter().collect();
+            v.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+            let mut list: Vec<String> = v.into_iter().take(3).map(|(s, _)| s).collect();
+            for extra in against.iter().flat_map(|a| a.split(',')) {
+                let extra = extra.trim().to_lowercase();
+                if extra.contains('/') && !list.contains(&extra) {
+                    list.push(extra);
+                }
+            }
+            list
+        };
+        let progress = against
+            .iter()
+            .filter_map(|src| {
+                let (o, n) = src.split_once('/')?;
+                let detail = hub_store::read::repo(&conn, o, n).ok()??;
+                let sha = detail.head_sha.clone()?;
+                let synthetic = detail.synthetic.is_some();
+                let mut source_books: Vec<(String, Fingerprint)> = detail
+                    .books
+                    .par_iter()
+                    .filter(|b| !b.book.is_empty())
+                    .filter_map(|b| {
+                        let text =
+                            crate::compare::book_text(&state, o, n, &sha, synthetic, &b.path)
+                                .ok()?;
+                        Some((b.book.clone(), fingerprint(&text)))
+                    })
+                    .collect();
+                source_books
+                    .sort_by_key(|(b, _)| hub_stitch::usfm_file_name(b).unwrap_or_default());
+                let books = source_books
+                    .iter()
+                    .map(|(book, fp)| {
+                        let present =
+                            standing
+                                .iter()
+                                .find(|(b, _)| b == book)
+                                .map_or(0, |(_, ours)| {
+                                    fp.verses
+                                        .keys()
+                                        .filter(|k| ours.verses.contains_key(k))
+                                        .count()
+                                });
+                        BookCoverage {
+                            book: book.clone(),
+                            present,
+                            total: fp.verses.len(),
+                        }
+                    })
+                    .collect();
+                Some(SourceProgress {
+                    source: src.clone(),
+                    books,
+                })
+            })
+            .collect();
         // Canonical order, not alphabetical.
         books.sort_by_key(|b| hub_stitch::usfm_file_name(&b.book).unwrap_or_default());
         let official_exists = books.iter().any(|b| b.official.is_some());
@@ -391,6 +494,7 @@ async fn sources(
             official_exists,
             copies: copies.len(),
             books,
+            progress,
         })
     })
     .await
@@ -443,8 +547,8 @@ async fn set_ignored(
 
 #[cfg(test)]
 mod tests {
-    // Why: the official repo's link to its sources is Sefer's file, written by
-    // Sefer and by the hub; reading it wrong would mark every book "unlinked".
+    // Why: a repo Sefer consolidated says what it follows only in Sefer's
+    // file; reading it wrong would mark every book "unlinked".
     #[test]
     fn upstreams_are_read_per_book() {
         let u = super::upstreams_of(

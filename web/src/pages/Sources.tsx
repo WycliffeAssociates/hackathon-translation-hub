@@ -15,6 +15,7 @@ import { api, startPageView } from "../api/client";
 import type { Done, SourceBook, SourceCopy, SourceVersion, VerseDiff } from "../api/types";
 import { Async, ago, dateOf, plural } from "../ui/bits";
 import { me, signInHref } from "../ui/session";
+import SourcesProgress, { readPins } from "./SourcesProgress";
 
 const key = (c: { owner: string; name: string }) => `${c.owner}/${c.name}`;
 
@@ -66,7 +67,11 @@ export default function Sources() {
 }
 
 export function SourcesView(props: { ietf: string; resource: string }) {
-  const call = () => ({ path: { ietf: props.ietf }, query: { resource: props.resource } });
+  const [pins, setPins] = createSignal(readPins(props.ietf, props.resource));
+  const call = () => ({
+    path: { ietf: props.ietf },
+    query: { resource: props.resource, against: pins().length ? pins().join(",") : undefined },
+  });
   const [data, { refetch }] = createResource(call, (c) => api.json("/v1/languages/{ietf}/sources", c));
   /** Book → owner/name, over the server's pick. */
   const [picks, setPicks] = createSignal<Record<string, string>>({});
@@ -163,6 +168,7 @@ export function SourcesView(props: { ietf: string; resource: string }) {
                 <Show when={behind()}>; {plural(behind(), "book")} behind the repo it follows</Show>.
               </Show>
             </p>
+            <SourcesProgress ietf={props.ietf} resource={props.resource} progress={d().progress} onAgainst={setPins} />
             <Show when={!publisher() && me()?.publishing}>
               <p class="small">
                 <Show when={me()?.me} fallback={<a href={signInHref()} rel="external">Sign in</a>}>

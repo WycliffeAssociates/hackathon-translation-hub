@@ -707,7 +707,6 @@ fn build_consolidated(
     resource: &str,
     target: &str,
     who: &str,
-    base_url: &str,
 ) -> Result<(std::path::PathBuf, hub_history::Replayed, usize), String> {
     use rayon::prelude::*;
     let err = |e: git2::Error| e.message().to_owned();
@@ -756,25 +755,6 @@ fn build_consolidated(
             0o100644,
         )
         .map_err(err)?;
-        // Where each book came from, for the sources page's "current / behind".
-        let today = hub_synthetic::date_of(hub_store::now_unix());
-        let upstreams = books.iter().fold(None::<String>, |acc, b| {
-            Some(upstreams_with(
-                acc.as_deref(),
-                &b.book,
-                &format!("{base_url}/{}/{}", b.owner, b.name),
-                &b.head_sha,
-                &today,
-            ))
-        });
-        if let Some(u) = upstreams {
-            tb.insert(
-                ".upstreams.json",
-                repo.blob(u.as_bytes()).map_err(err)?,
-                0o100644,
-            )
-            .map_err(err)?;
-        }
         let tree = repo.find_tree(tb.write().map_err(err)?).map_err(err)?;
         let sig =
             git2::Signature::now("Translation Hub", "hub@translation-hub.invalid").map_err(err)?;
@@ -846,9 +826,8 @@ async fn consolidate(
     let (dir, replayed, saves) = {
         let (scanner, books, who) = (s.scanner.clone(), books.clone(), me.username.clone());
         let (lang, resource, target) = (lang.clone(), resource.clone(), target.clone());
-        let base = pb.config.forgejo_public_url.clone();
         tokio::task::spawn_blocking(move || {
-            build_consolidated(&scanner, &books, &lang, &resource, &target, &who, &base)
+            build_consolidated(&scanner, &books, &lang, &resource, &target, &who)
         })
         .await
         .map_err(|e| fail(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
@@ -913,6 +892,17 @@ async fn consolidate(
         })),
     })
     .await;
+    let followed: Vec<(String, String, String)> = books
+        .iter()
+        .map(|b| {
+            (
+                b.book.clone(),
+                format!("{}/{}", b.owner, b.name),
+                b.head_sha.clone(),
+            )
+        })
+        .collect();
+    link(&s, &format!("{org}/{target}"), &followed, &me.username).await;
     Ok(Json(Done {
         message: format!(
             "{org}/{target} created from {} Writer projects: {} commits, every save kept with its author and date (built in {replay_ms} ms).",
@@ -1116,18 +1106,6 @@ async fn pull(
         &file_name,
     );
     let src = format!("{}/{}", f.detail.summary.owner, f.detail.summary.name);
-    let upstreams_now = pb
-        .forgejo
-        .file_text(&org, &target, ".upstreams.json")
-        .await
-        .map_err(upstream)?;
-    let upstreams = upstreams_with(
-        upstreams_now.as_ref().map(|(_, t)| t.as_str()),
-        &book,
-        &format!("{}/{src}", pb.config.forgejo_public_url),
-        &sha,
-        &hub_synthetic::date_of(hub_store::now_unix()),
-    );
     let message = format!(
         "{} {book} from {src}{}\n\nSource: {src}@{sha}\nSource-path: {}\nPulled-by: {}\nPulled-with: translation-hub\n",
         if replaces.is_some() { "Replace" } else { "Add" },
@@ -1154,11 +1132,6 @@ async fn pull(
                     replaces: existing.as_ref().map(|(sha, _)| sha.clone()),
                 });
             }
-            files.push(FileChange {
-                path: ".upstreams.json",
-                text: &upstreams,
-                replaces: upstreams_now.as_ref().map(|(sha, _)| sha.clone()),
-            });
             files
         })
         .await
@@ -1172,6 +1145,13 @@ async fn pull(
         reference: Some(&commit),
         detail: Some(serde_json::json!({ "path": file_name, "replaced": replaces.is_some(), "created_repo": created })),
     })
+    .await;
+    link(
+        &s,
+        &format!("{org}/{target}"),
+        &[(book.clone(), src.clone(), sha.clone())],
+        &me.username,
+    )
     .await;
     Ok(Json(Done {
         message: format!(
@@ -1405,36 +1385,26 @@ fn manifest_with_book(
     serde_yaml::to_string(&doc).ok()
 }
 
-/// The official repo's `.upstreams.json` (Sefer's format, as the synthetic
-/// repos write it) with `book` now taken from `url` at `commit`: the book
-/// leaves any entry that listed it, and gets an entry of its own. This is the
-/// link the sources page reads to say whether the official book is current.
-fn upstreams_with(
-    existing: Option<&str>,
-    book: &str,
-    url: &str,
-    commit: &str,
-    taken_at: &str,
-) -> String {
-    use serde_json::{Value, json};
-    let mut doc: Value = existing
-        .and_then(|t| serde_json::from_str(t).ok())
-        .filter(|d: &Value| d["upstreams"].is_array())
-        .unwrap_or_else(|| json!({ "v": 1, "upstreams": [] }));
-    let list = doc["upstreams"].as_array_mut().expect("checked above");
-    for entry in list.iter_mut() {
-        if let Some(books) = entry["books"].as_array_mut() {
-            books.retain(|b| !b.as_str().is_some_and(|b| b.eq_ignore_ascii_case(book)));
-        }
-    }
-    list.retain(|e| e["books"].as_array().is_some_and(|b| !b.is_empty()));
-    list.push(
-        json!({ "books": [book], "via": "git", "url": url, "commit": commit, "takenAt": taken_at }),
+/// Record what each written book of an official repo now follows (the
+/// pointer the sources page compares with). Like the log, a failure here is a
+/// warning: Forgejo already holds the write, and its commit names the source.
+async fn link(s: &AppState, target: &str, books: &[(String, String, String)], username: &str) {
+    let (store, target, books, username) = (
+        s.store.clone(),
+        target.to_owned(),
+        books.to_vec(),
+        username.to_owned(),
     );
-    format!(
-        "{}\n",
-        serde_json::to_string_pretty(&doc).expect("json values serialize")
-    )
+    let res = tokio::task::spawn_blocking(move || -> hub_store::Result<()> {
+        for (book, repo, commit) in &books {
+            store.set_official_link(&target, book, repo, commit, &username)?;
+        }
+        Ok(())
+    })
+    .await;
+    if !matches!(res, Ok(Ok(()))) {
+        tracing::warn!(?res, "could not record what the official books follow");
+    }
 }
 
 /// The hub's log of a write; a failure to log is a warning, not a failed write

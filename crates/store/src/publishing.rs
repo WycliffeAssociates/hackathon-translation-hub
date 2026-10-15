@@ -249,6 +249,8 @@ pub struct BookCopy {
     pub writer: bool,
     /// Proofreading findings in this book at the last run.
     pub findings: Option<i64>,
+    /// The source the repo declares for this book, `owner/name`.
+    pub source_repo: Option<String>,
 }
 
 /// Every public copy of every book of one language and brand, by book.
@@ -261,7 +263,8 @@ pub fn book_copies(conn: &Connection, language: &str, resource: &str) -> Result<
                 coalesce((SELECT max(c.show_on_biel) FROM catalog_content c
                           WHERE c.owner = r.owner AND c.name = r.name), 0),
                 r.synthetic IS NOT NULL,
-                (SELECT json_extract(p.by_book, '$.' || b.book) FROM proof p WHERE p.repo_id = r.id)
+                (SELECT json_extract(p.by_book, '$.' || b.book) FROM proof p WHERE p.repo_id = r.id),
+                b.source_repo
          FROM repo r JOIN repo_book b ON b.repo_id = r.id
          WHERE r.language = ?1 AND r.resource = ?2 AND r.head_sha IS NOT NULL
            AND r.is_archived = 0 AND b.book != ''
@@ -284,6 +287,7 @@ pub fn book_copies(conn: &Connection, language: &str, resource: &str) -> Result<
                 show_on_biel: r.get::<_, i64>(10)? != 0,
                 writer: r.get::<_, i64>(11)? != 0,
                 findings: r.get(12)?,
+                source_repo: r.get(13)?,
             })
         },
     )?;
@@ -333,6 +337,47 @@ impl Store {
                 params![l, r, b, o],
             )?;
         }
+        Ok(())
+    }
+}
+
+// --- what each official book follows (migration 0007) ----------------------
+
+/// Book → (owner/name it follows, commit taken, unix time taken), for one official repo.
+pub fn official_links(
+    conn: &Connection,
+    target: &str,
+) -> Result<std::collections::HashMap<String, (String, String, i64)>> {
+    let mut stmt =
+        conn.prepare("SELECT book, repo, commit_sha, at FROM official_link WHERE target = ?1")?;
+    let rows = stmt.query_map(params![target.to_lowercase()], |r| {
+        Ok((r.get::<_, String>(0)?, (r.get(1)?, r.get(2)?, r.get(3)?)))
+    })?;
+    Ok(rows.collect::<rusqlite::Result<_>>()?)
+}
+
+impl Store {
+    /// Record that `book` of the official repo `target` now follows `repo` at `commit`.
+    pub fn set_official_link(
+        &self,
+        target: &str,
+        book: &str,
+        repo: &str,
+        commit: &str,
+        username: &str,
+    ) -> Result<()> {
+        self.writer().execute(
+            "INSERT OR REPLACE INTO official_link (target, book, repo, commit_sha, username, at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![
+                target.to_lowercase(),
+                book.to_uppercase(),
+                repo.to_lowercase(),
+                commit,
+                username,
+                now_unix()
+            ],
+        )?;
         Ok(())
     }
 }

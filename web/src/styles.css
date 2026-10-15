@@ -553,3 +553,22 @@ a:hover .repo-owner { text-decoration: underline; }
 .release-list { list-style: none; padding: 0; margin: 0; }
 .release-list li { padding: .5rem 0; border-bottom: 1px solid var(--rule); }
 .release-body { margin: .3rem 0 0; color: var(--muted); white-space: pre-wrap; max-width: 75ch; }
+
+/* --- progress against sources (pages/SourcesProgress.tsx) --- */
+.progress { margin: 1rem 0 1.6rem; }
+.progress-tabs { display: flex; flex-wrap: wrap; gap: .2rem; align-items: center; border-bottom: 1px solid var(--rule); }
+.progress-tabs [role=tab] { border: 0; border-radius: 0; background: none; padding: .4rem .7rem; color: var(--muted); font-family: var(--mono); font-size: .85rem; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.progress-tabs [role=tab][aria-selected=true] { color: var(--ink); border-bottom-color: var(--ink); }
+.progress-pin { margin-left: auto; }
+.progress-pin input { font: inherit; font-size: .85rem; padding: .25rem .5rem; border: 1px solid var(--rule); border-radius: 6px; background: var(--wf-bg); color: var(--ink); }
+.progress-number { display: flex; gap: .8rem; align-items: baseline; flex-wrap: wrap; margin: .8rem 0 .5rem; color: var(--muted); }
+.progress-number b { font-size: 2rem; color: var(--ink); font-variant-numeric: tabular-nums; line-height: 1; }
+/* One cell per book of the source, 2px apart; a wider gap where the NT starts. */
+.strip { display: flex; flex-wrap: wrap; gap: 2px; }
+.strip-cell { width: 13px; height: 22px; border-radius: 2px; }
+.strip-cell.nt { margin-left: 8px; }
+.strip-tip { position: fixed; transform: translate(-50%, calc(-100% - 6px)); background: var(--ink); color: var(--paper); font-size: .8rem; padding: .25rem .5rem; border-radius: 6px; pointer-events: none; white-space: nowrap; z-index: 20; }
+.progress-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .6rem 1.5rem; margin-top: .5rem; color: var(--muted); }
+.strip-legend { display: inline-flex; flex-wrap: wrap; gap: .3rem .9rem; }
+.strip-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; }
+.progress-saves { display: inline-flex; gap: .5rem; align-items: center; }

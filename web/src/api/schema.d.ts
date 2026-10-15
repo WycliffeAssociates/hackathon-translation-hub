@@ -584,6 +584,8 @@ export interface components {
             /** @description The file in the repo (the stitched file for a Writer project). */
             path: string;
             show_on_biel: boolean;
+            /** @description The source the repo declares for this book, `owner/name`. */
+            source_repo?: string | null;
             /** Format: int64 */
             source_verses?: number | null;
             status?: string | null;
@@ -597,6 +599,15 @@ export interface components {
             book: string;
             /** Format: int64 */
             n: number;
+        };
+        /**
+         * @description One book's verses against a source: how many of the source's verses the
+         *     book has (by number), of how many.
+         */
+        BookCoverage: {
+            book: string;
+            present: number;
+            total: number;
         };
         /**
          * @description One book of one version (resource type + track) in a language, with the
@@ -1248,6 +1259,15 @@ export interface components {
             source_verses?: number | null;
             versions: components["schemas"]["Version"][];
         };
+        /**
+         * @description The language and brand's text (the official copy, else the pick) against
+         *     one source, book by book in the source's order.
+         */
+        SourceProgress: {
+            books: components["schemas"]["BookCoverage"][];
+            /** @description `owner/name`. */
+            source: string;
+        };
         Sources: {
             books: components["schemas"]["SourceBook"][];
             /** @description Copies read, across every book. */
@@ -1255,6 +1275,8 @@ export interface components {
             language: string;
             /** @description The official repo has a copy of at least one book. */
             official_exists: boolean;
+            /** @description Against each source asked for (or declared). */
+            progress: components["schemas"]["SourceProgress"][];
             resource: string;
             /** @description `TextTranslation/{ietf}_{resource}`, when publishing is configured. */
             target?: string | null;
@@ -1557,6 +1579,12 @@ export interface operations {
             query: {
                 /** @description The brand (resource code): `reg`, `ulb`. */
                 resource: string;
+                /**
+                 * @description More sources to measure progress against, `owner/name,owner/name`
+                 *     (a reader's pins), after the ones the copies declare (the three most
+                 *     declared).
+                 */
+                against?: string;
             };
             header?: never;
             path: {

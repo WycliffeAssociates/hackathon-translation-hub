@@ -248,6 +248,15 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "against",
+            "in": "query",
+            "description": "More sources to measure progress against, `owner/name,owner/name`\n(a reader's pins), after the ones the copies declare (the three most\ndeclared).",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -1657,6 +1666,13 @@
           "show_on_biel": {
             "type": "boolean"
           },
+          "source_repo": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The source the repo declares for this book, `owner/name`."
+          },
           "source_verses": {
             "type": [
               "integer",
@@ -1694,6 +1710,28 @@
           "n": {
             "type": "integer",
             "format": "int64"
+          }
+        }
+      },
+      "BookCoverage": {
+        "type": "object",
+        "description": "One book's verses against a source: how many of the source's verses the\nbook has (by number), of how many.",
+        "required": [
+          "book",
+          "present",
+          "total"
+        ],
+        "properties": {
+          "book": {
+            "type": "string"
+          },
+          "present": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
           }
         }
       },
@@ -3601,6 +3639,26 @@
           }
         }
       },
+      "SourceProgress": {
+        "type": "object",
+        "description": "The language and brand's text (the official copy, else the pick) against\none source, book by book in the source's order.",
+        "required": [
+          "source",
+          "books"
+        ],
+        "properties": {
+          "books": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BookCoverage"
+            }
+          },
+          "source": {
+            "type": "string",
+            "description": "`owner/name`."
+          }
+        }
+      },
       "Sources": {
         "type": "object",
         "required": [
@@ -3608,7 +3666,8 @@
           "resource",
           "official_exists",
           "copies",
-          "books"
+          "books",
+          "progress"
         ],
         "properties": {
           "books": {
@@ -3628,6 +3687,13 @@
           "official_exists": {
             "type": "boolean",
             "description": "The official repo has a copy of at least one book."
+          },
+          "progress": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceProgress"
+            },
+            "description": "Against each source asked for (or declared)."
           },
           "resource": {
             "type": "string"
