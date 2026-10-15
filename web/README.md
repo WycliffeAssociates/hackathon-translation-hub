@@ -21,8 +21,7 @@ pnpm smoke [base-url]   # drives the app in headless Chromium; screenshots → s
 - **Tracing**: every `/v1` call sends `traceparent` (one trace id per page view,
   a new span id per call) and `x-hub-page`. The server logs the rest.
 - **The USFM viewer** is Sefer's editor, installed: `@sefer/editor` and
-  `@sefer/text` from Sefer by git (`package.json`; the repo is private, so
-  `pnpm install` needs git credentials for github.com, as for
+  `@sefer/text` from Sefer by git (`package.json`; public on GitHub, like
   scripture-kitchen). The engine is the hub's onion-only build
   (`src/engine/onion.ts`). The viewer is lazy-loaded with the file it shows.
   `EDITOR-PIECES.md` at the root maps what comes from the package.

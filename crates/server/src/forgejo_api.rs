@@ -67,10 +67,8 @@ pub struct User {
 
 /// A person's OAuth tokens from Forgejo.
 pub struct Tokens {
+    /// Used once, at sign-in, to ask Forgejo who the person is; never stored.
     pub access: String,
-    pub refresh: Option<String>,
-    /// Seconds the access token lasts.
-    pub expires_in: i64,
 }
 
 /// A release, as the hub shows it.
@@ -237,18 +235,6 @@ impl Forgejo {
             .await
     }
 
-    /// A new access token from a refresh token (Forgejo's last an hour).
-    pub async fn refresh(&self, p: &Publishing, refresh_token: &str) -> Result<Tokens> {
-        self.token_grant(
-            p,
-            &[
-                ("refresh_token", refresh_token),
-                ("grant_type", "refresh_token"),
-            ],
-        )
-        .await
-    }
-
     async fn token_grant(&self, p: &Publishing, grant: &[(&str, &str)]) -> Result<Tokens> {
         let redirect = format!("{}/v1/auth/callback", p.public_url);
         let mut form: Vec<(&str, &str)> = vec![
@@ -270,37 +256,9 @@ impl Forgejo {
             .as_str()
             .map(str::to_owned)
             .ok_or_else(|| ForgejoError::Refused("Forgejo gave no access token".into()))?;
-        Ok(Tokens {
-            access,
-            refresh: res["refresh_token"].as_str().map(str::to_owned),
-            expires_in: res["expires_in"].as_i64().unwrap_or(3600),
-        })
+        Ok(Tokens { access })
     }
 
-    /// Star or unstar a repo as the person whose token this is.
-    pub async fn star_as(&self, token: &str, owner: &str, name: &str, on: bool) -> Result<()> {
-        let url = self.url(&format!("/user/starred/{owner}/{name}"));
-        let req = if on {
-            self.http.put(url)
-        } else {
-            self.http.delete(url)
-        };
-        self.send("star", req.bearer_auth(token)).await?;
-        Ok(())
-    }
-
-    /// Whether the person whose token this is starred the repo.
-    pub async fn starred_as(&self, token: &str, owner: &str, name: &str) -> Result<bool> {
-        Ok(self
-            .send(
-                "starred",
-                self.http
-                    .get(self.url(&format!("/user/starred/{owner}/{name}")))
-                    .bearer_auth(token),
-            )
-            .await?
-            .is_some())
-    }
     /// Who an access token belongs to.
     pub async fn user(&self, access_token: &str) -> Result<User> {
         let v = self

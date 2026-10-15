@@ -21,9 +21,8 @@ RUN npm install -g pnpm@10.18.0
 ENV npm_config_strict_dep_builds=false
 WORKDIR /src
 COPY web/package.json web/pnpm-lock.yaml web/
-# git: Sefer's editor packages and scripture-kitchen are git dependencies.
-# Sefer's repo is private: the build needs git credentials for github.com
-# (for example a BuildKit secret or a token in the git config) to install them.
+# git: Sefer's editor packages and scripture-kitchen are git dependencies
+# (both public on GitHub, so no credentials are needed).
 RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates && rm -rf /var/lib/apt/lists/*
 RUN cd web && pnpm install --frozen-lockfile --ignore-workspace
 COPY web web

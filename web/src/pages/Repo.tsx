@@ -23,7 +23,6 @@ import { SourcesView } from "./Sources";
 import type { RepoDetail } from "../api/types";
 import type { AlignedGroup } from "@sefer/editor";
 import { me } from "../ui/session";
-import { StarButton } from "../ui/Star";
 
 type Params = { file?: string; source?: string; at?: string; ch?: string; v?: string; check?: string; tab?: string };
 
@@ -211,7 +210,6 @@ export default function Repo() {
               <Show when={r().show_on_biel}><span class="tag biel">shown on BIEL</span></Show>
               <a href={`${FORGEJO}/${r().owner}/${r().name}`} target="_blank" rel="noopener">Open in WACS ↗</a>
               <a href={seferLink(r().owner, r().name)} target="_blank" rel="noopener">Open in Sefer ↗</a>
-              <StarButton owner={r().owner} name={r().name} />
             </p>
             <Show when={r().scan_error}><div class="failure">Scan failed: {r().scan_error}</div></Show>
           </header>

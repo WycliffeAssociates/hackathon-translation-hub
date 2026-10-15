@@ -32,8 +32,7 @@ network:
 
 1. **No DNS for the demo.** The hub is reached by IP on the VPN: `http://<wacsdev-host>:8787`. That is also `HUB_PUBLIC_URL` and the OAuth redirect. Forgejo's sign-in page stays at `https://content.wacsdev.org`. The port must be open to VPN clients. Over http the session cookie is not `Secure`, which is fine for a demo. A name later goes through Cloudflare (bttdev).
 2. **Built on wacsdev from the GitHub checkout.**
-   - The web build installs Sefer's editor packages from GitHub, and Sefer is private, so the build needs a GitHub token as a BuildKit secret: `docker build --secret id=gh,env=GH_TOKEN …`.
-   - The Dockerfile has to read that secret before deploy day.
+   - The web build installs Sefer's editor packages and scripture-kitchen from GitHub; both are public, so no token is needed.
    - The fallback is building on the Mac for `linux/amd64` and `docker save | ssh … docker load`.
 3. **Publishers are Forgejo's site admins:** `HUB_PUBLISHERS_TEAM=admins`, so no team is needed.
 4. **TextTranslation does not exist on wacsdev.** Creating it is part of the one-time setup below, run by Will, never by the hub.
@@ -117,8 +116,7 @@ networks: { wacs2_default: { external: true } }
 
 - `publishing.py`: take a URL, an admin token and a container name, and print the env instead of writing locally.
 - `verify.py --live`: drive a hub on real data without dev-data's fixed expectations.
-- The Dockerfile reads a GitHub token as a BuildKit secret, for Sefer's private packages.
-- The person's Forgejo tokens are kept with the session in the hub's SQLite (for starring). Encrypt them, or drop starring, before anyone outside the team signs in.
+- Nothing else: starring from the hub was dropped (2026-10-15) so the hub keeps no one's Forgejo token; people star on WACS, and Your work lists those stars.
 - The first poll on 32,000 repos is untested at that size. The local run suggests minutes, not hours. To be sure, run one locally on a larger dev-data slice first.
 
 ## Not in this plan

@@ -270,18 +270,10 @@ async fn callback(
     let id = random_id();
     {
         let (store, id, me) = (s.store.clone(), id.clone(), me.clone());
-        let (access, refresh, expires) = (
-            token.access.clone(),
-            token.refresh.clone(),
-            hub_store::now_unix() + token.expires_in,
-        );
-        tokio::task::spawn_blocking(move || {
-            store.create_session(&id, &me, SESSION_SECS)?;
-            store.set_session_tokens(&id, &access, refresh.as_deref(), expires)
-        })
-        .await
-        .map_err(|e| fail(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
-        .map_err(|e| fail(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        tokio::task::spawn_blocking(move || store.create_session(&id, &me, SESSION_SECS))
+            .await
+            .map_err(|e| fail(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+            .map_err(|e| fail(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
     }
     tracing::info!(event = "sign-in", username = %me.username, publisher = me.publisher, "signed in");
     Ok(redirect(
@@ -1551,50 +1543,6 @@ fn release_files(
         sums,
         serde_json::to_string_pretty(&manifest).unwrap_or_default() + "\n",
     ))
-}
-
-/// The signed-in person's Forgejo access token, renewed with the refresh token
-/// when it has a minute or less left. For acting as the person (starring).
-pub(crate) async fn user_token(s: &AppState, headers: &HeaderMap) -> Result<String, Failure> {
-    let pb = publisher(s)?.clone();
-    let id = cookie(headers, SESSION_COOKIE)
-        .ok_or_else(|| fail(StatusCode::UNAUTHORIZED, "sign in first"))?
-        .to_owned();
-    let (store, key) = (s.store.clone(), id.clone());
-    let found =
-        tokio::task::spawn_blocking(move || publishing::session_tokens(&store.reader()?, &key))
-            .await
-            .map_err(|e| fail(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
-            .map_err(|e| fail(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
-            .ok_or_else(|| {
-                fail(
-                    StatusCode::UNAUTHORIZED,
-                    "sign in again: this session has no Forgejo token",
-                )
-            })?;
-    let (access, refresh, expires) = found;
-    if expires > hub_store::now_unix() + 60 {
-        return Ok(access);
-    }
-    let refresh = refresh.ok_or_else(|| {
-        fail(
-            StatusCode::UNAUTHORIZED,
-            "sign in again: the Forgejo token expired",
-        )
-    })?;
-    let renewed = pb
-        .forgejo
-        .refresh(&pb.config, &refresh)
-        .await
-        .map_err(upstream)?;
-    let (store, access) = (s.store.clone(), renewed.access.clone());
-    let until = hub_store::now_unix() + renewed.expires_in;
-    tokio::task::spawn_blocking(move || {
-        store.set_session_tokens(&id, &renewed.access, renewed.refresh.as_deref(), until)
-    })
-    .await
-    .ok();
-    Ok(access)
 }
 
 /// Record what each written book of an official repo now follows (the

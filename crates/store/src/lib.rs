@@ -46,6 +46,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/0008_my_language.sql"),
     include_str!("../migrations/0009_published.sql"),
     include_str!("../migrations/0010_session_tokens.sql"),
+    include_str!("../migrations/0011_no_session_tokens.sql"),
 ];
 
 pub struct Store {

@@ -540,24 +540,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/repos/{owner}/{name}/star": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Whether the signed-in person starred this repo on Forgejo. */
-        get: operations["starred"];
-        put?: never;
-        /** Star or unstar this repo on Forgejo, as the signed-in person. */
-        post: operations["set_star"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/repos/{owner}/{name}/tree": {
         parameters: {
             query?: never;
@@ -1532,16 +1514,6 @@ export interface components {
             resource: string;
             /** @description `TextTranslation/{ietf}_{resource}`, where the hub would create one, when publishing is configured. */
             target?: string | null;
-        };
-        /**
-         * @description Whether the signed-in person starred a repo: Forgejo's own pin, which is
-         *     how the hub's Your work follows a repo.
-         */
-        Star: {
-            starred: boolean;
-        };
-        StarBody: {
-            star: boolean;
         };
         /** @description What the hub serves in place of a Writer repo's chunk files. */
         SyntheticInfo: {
@@ -2628,70 +2600,6 @@ export interface operations {
                 };
             };
             404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiError"];
-                };
-            };
-        };
-    };
-    starred: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                owner: string;
-                name: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Star"];
-                };
-            };
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiError"];
-                };
-            };
-        };
-    };
-    set_star: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                owner: string;
-                name: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["StarBody"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Star"];
-                };
-            };
-            401: {
                 headers: {
                     [name: string]: unknown;
                 };
