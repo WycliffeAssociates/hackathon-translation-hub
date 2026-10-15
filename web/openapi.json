@@ -1754,6 +1754,62 @@
         }
       }
     },
+    "/v1/repos/{owner}/{name}/unreleased/diff": {
+      "get": {
+        "tags": [],
+        "summary": "One book's verses that changed since the newest release tag (left: the\nrelease, right: now), the words that changed for the page to mark.",
+        "operationId": "unreleased_diff",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "description": "The file, as `unreleased` lists it: `41-MAT.usfm`.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookDiff"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/status": {
       "get": {
         "tags": [],

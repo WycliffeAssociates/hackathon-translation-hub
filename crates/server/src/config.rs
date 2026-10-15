@@ -43,6 +43,7 @@ pub struct Publishing {
     /// `HUB_OFFICIAL_ORG` (`TextTranslation`): the only owner the hub writes to.
     pub official_org: String,
     /// `HUB_PUBLISHERS_TEAM` (`publishers`): who may adopt, pull and publish.
+    /// `admins` makes Forgejo's site admins the publishers, with no team.
     pub publishers_team: String,
     /// `HUB_OAUTH_CLIENT_ID`, `HUB_OAUTH_CLIENT_SECRET`: the hub's OAuth app on Forgejo.
     pub oauth_client_id: String,

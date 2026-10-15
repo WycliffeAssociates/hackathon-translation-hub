@@ -4,6 +4,7 @@
 // marks are drawn here, a longest-common-subsequence over each verse's words.
 import { For, Show, createResource, createSignal } from "solid-js";
 import { api } from "../api/client";
+import type { BookDiff } from "../api/types";
 import { Async, plural } from "../ui/bits";
 
 type Mark = { word: string; changed: boolean };
@@ -52,11 +53,16 @@ function Words(props: { marks: Mark[] }) {
 
 const SHOWN = 40;
 
-export default function VerseDiffView(props: { ietf: string; resource: string; book: string; a: string; b: string }) {
-  const [diff] = createResource(
-    () => ({ path: { ietf: props.ietf }, query: { resource: props.resource, book: props.book, a: props.a, b: props.b } }),
-    (c) => api.json("/v1/languages/{ietf}/sources/diff", c),
-  );
+/** Two copies of a book on the sources page. */
+export const sourcesDiff = (ietf: string, resource: string, book: string, a: string, b: string) => () =>
+  api.json("/v1/languages/{ietf}/sources/diff", { path: { ietf }, query: { resource, book, a, b } });
+
+/** One file of a repo, the newest release against now. */
+export const releaseDiff = (owner: string, name: string, path: string) => () =>
+  api.json("/v1/repos/{owner}/{name}/unreleased/diff", { path: { owner, name }, query: { path } });
+
+export default function VerseDiffView(props: { load: () => Promise<BookDiff> }) {
+  const [diff] = createResource(() => props.load, (load) => load());
   const [all, setAll] = createSignal(false);
   return (
     <div class="verse-diff">

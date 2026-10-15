@@ -28,18 +28,17 @@ network:
   - ignores, published choices, pointers and languages, which publishers would redo;
   - nothing that Forgejo holds.
 
-## Decisions Will makes first
+## Decided (Will, 2026-10-15)
 
-1. **Host name for the hub.** For example `hub.wacsdev.org`, or a port on the existing proxy. A subdomain is simplest: the app assumes it is served at `/`. HTTPS matters, because the session cookie is `Secure` when `HUB_PUBLIC_URL` is https.
-2. **Which proxy fronts wacsdev** (nginx, Caddy, Traefik?) and who adds the route.
-3. **Where the image is built:**
-   - (a) on the Mac, with `docker buildx build --platform linux/amd64 …`, then `docker save | ssh … docker load`;
-   - (b) on wacsdev from a git checkout after the push;
-   - (c) in CI to a registry.
-
-   (b) is simplest now that the code is on GitHub.
-4. **Who is in `publishers`** on wacsdev, and whether `TextTranslation` already exists there.
-5. **Joe's hub:** does it run beside this, or is one of them the demo?
+1. **No DNS for the demo.** The hub is reached by IP on the VPN: `http://<wacsdev-host>:8787`. That is also `HUB_PUBLIC_URL` and the OAuth redirect. Forgejo's sign-in page stays at `https://content.wacsdev.org`. The port must be open to VPN clients. Over http the session cookie is not `Secure`, which is fine for a demo. A name later goes through Cloudflare (bttdev).
+2. **Built on wacsdev from the GitHub checkout.**
+   - The web build installs Sefer's editor packages from GitHub, and Sefer is private, so the build needs a GitHub token as a BuildKit secret: `docker build --secret id=gh,env=GH_TOKEN …`.
+   - The Dockerfile has to read that secret before deploy day.
+   - The fallback is building on the Mac for `linux/amd64` and `docker save | ssh … docker load`.
+3. **Publishers are Forgejo's site admins:** `HUB_PUBLISHERS_TEAM=admins`, so no team is needed.
+4. **TextTranslation does not exist on wacsdev.** Creating it is part of the one-time setup below, run by Will, never by the hub.
+5. **Joe's hub is a separate demo.**
+6. **Nothing writes on `compose up`.** The hub writes only when a publisher presses a button. The one-time setup (org, `hub-bot`, OAuth app) is a manual step.
 
 ## Steps (Will, on wacsdev)
 
@@ -52,13 +51,13 @@ echo "HUB_FORGEJO_DB=mysql://dashboard_ro:$PW@wacs2-db-1/gitea" >> hub.env
 ```
 
 **2. Publishing on Forgejo:** what `dev/wacs/publishing.py` does locally, against content.wacsdev.org with an admin token.
-- The `TextTranslation` org (if missing), and a `publishers` team (read access; the people who may publish).
+- The `TextTranslation` org (it does not exist on wacsdev yet). No `publishers` team: publishers are the site admins (`HUB_PUBLISHERS_TEAM=admins`).
 - A user `hub-bot` in TextTranslation's Owners team, and its token, made with the Forgejo CLI:
   ```sh
   docker exec -u git wacs2-gitea-1 forgejo admin user generate-access-token \
     --username hub-bot --token-name translation-hub --scopes all --raw
   ```
-- An OAuth2 application, `Translation Hub`, with the redirect `https://<hub host>/v1/auth/callback`.
+- An OAuth2 application, `Translation Hub`, with the redirect `http://<wacsdev-host>:8787/v1/auth/callback`.
 
 `publishing.py` can take the URL, admin token and container name as arguments, and print the env lines instead of writing `target/wacs/hub.env`. That's a small change, to make before deploy day.
 
@@ -71,7 +70,8 @@ HUB_FORGEJO_PUBLIC_URL=https://content.wacsdev.org  # sign-in, in the browser
 HUB_FORGEJO_TOKEN=…                                 # hub-bot
 HUB_OAUTH_CLIENT_ID=…
 HUB_OAUTH_CLIENT_SECRET=…
-HUB_PUBLIC_URL=https://<hub host>
+HUB_PUBLIC_URL=http://<wacsdev-host>:8787
+HUB_PUBLISHERS_TEAM=admins
 HUB_WRITE_HOSTS=wacs2-gitea-1,content.wacsdev.org
 HUB_POLL_SECS=300
 ```
@@ -87,13 +87,13 @@ services:
       - /var/lib/docker/volumes/wacs2_gitea_data/_data/git/repositories:/repos:ro,z
       - hub-data:/data
       - hub-logs:/logs
-    ports: ["127.0.0.1:8787:8787"]   # the proxy forwards to this
+    ports: ["8787:8787"]   # reached by IP on the VPN
     networks: [wacs2_default]
 volumes: { hub-data: {}, hub-logs: {} }
 networks: { wacs2_default: { external: true } }
 ```
 
-**5. The proxy route:** `<hub host>` → `127.0.0.1:8787`, with TLS.
+**5. No proxy route for the demo:** browse `http://<wacsdev-host>:8787` on the VPN.
 
 **6. Watch the first poll.**
 - **Locally:** 3,542 repos scanned in 41 s and proofread in 14 s.
@@ -104,7 +104,7 @@ networks: { wacs2_default: { external: true } }
 - **To follow it:** `docker logs -f` shows one `event:"poll"` line per round. `scripts/latency.py` reads the log volume.
 
 **7. Verify:**
-- `scripts/verify.py --base https://<hub host> --no-catalog`, if the dev-data-specific checks are skipped there. It needs a `--live` switch first, which is a small change.
+- `scripts/verify.py --base http://<wacsdev-host>:8787 --no-catalog`, if the dev-data-specific checks are skipped there. It needs a `--live` switch first, which is a small change.
 - The browser smoke test against the host.
 - Sign in as a publisher.
 - On a throwaway language: create a published repo, pull a book, and publish a release. Check that the release has `SHA256SUMS` and `release.json`.
@@ -117,7 +117,8 @@ networks: { wacs2_default: { external: true } }
 
 - `publishing.py`: take a URL, an admin token and a container name, and print the env instead of writing locally.
 - `verify.py --live`: drive a hub on real data without dev-data's fixed expectations.
-- Decide the host name, then set `HUB_PUBLIC_URL` and the OAuth redirect to match.
+- The Dockerfile reads a GitHub token as a BuildKit secret, for Sefer's private packages.
+- The person's Forgejo tokens are kept with the session in the hub's SQLite (for starring). Encrypt them, or drop starring, before anyone outside the team signs in.
 - The first poll on 32,000 repos is untested at that size. The local run suggests minutes, not hours. To be sure, run one locally on a larger dev-data slice first.
 
 ## Not in this plan

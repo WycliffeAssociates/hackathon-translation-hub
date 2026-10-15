@@ -252,11 +252,15 @@ async fn callback(
         .await
         .map_err(upstream)?;
     let user = pb.forgejo.user(&token.access).await.map_err(upstream)?;
-    let is_publisher = pb
-        .forgejo
-        .in_team(&pb.config.publishers_team, &user.login)
-        .await
-        .map_err(upstream)?;
+    // Publishers are a team in the official org, or (`admins`) Forgejo's site admins.
+    let is_publisher = if pb.config.publishers_team == "admins" {
+        user.is_admin
+    } else {
+        pb.forgejo
+            .in_team(&pb.config.publishers_team, &user.login)
+            .await
+            .map_err(upstream)?
+    };
     let me = Me {
         username: user.login,
         full_name: Some(user.full_name).filter(|n| !n.is_empty()),
@@ -1237,11 +1241,7 @@ async fn publish_release(
     let tag = body.tag.trim();
     // A date (`2026.10.15`, the default, `.2` for a second that day) or a
     // version (`v1.2`): digits and dots, a leading `v` allowed.
-    let digits = tag.strip_prefix('v').unwrap_or(tag);
-    let ok = !digits.is_empty()
-        && digits
-            .split('.')
-            .all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()));
+    let ok = crate::changes::is_release_tag(tag);
     if !ok {
         return Err(fail(
             StatusCode::BAD_REQUEST,

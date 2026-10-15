@@ -746,10 +746,11 @@ pub struct Published {
 fn last_tag(s: &AppState, repo: &str) -> Option<(String, i64)> {
     let (o, n) = repo.split_once('/')?;
     let r = git2::Repository::open_bare(s.scanner.repo_path(o, n)).ok()?;
-    let names = r.tag_names(Some("v*")).ok()?;
+    let names = r.tag_names(None).ok()?;
     names
         .iter()
         .flatten()
+        .filter(|t| crate::changes::is_release_tag(t))
         .filter_map(|t| {
             let c = r
                 .revparse_single(&format!("refs/tags/{t}"))

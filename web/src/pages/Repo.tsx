@@ -10,7 +10,6 @@ import { For, Match, Show, Switch, createMemo, createResource, createSignal } fr
 import { api, startPageView } from "../api/client";
 import type { CodeCount } from "../api/types";
 import { Async, Counts, FORGEJO, StatusChip, seferLink, ago, checkKey, dateOf } from "../ui/bits";
-import Books from "./repo/Books";
 import FileTree from "./repo/FileTree";
 import FileView from "./repo/FileView";
 import History from "./repo/History";
@@ -270,15 +269,6 @@ export default function Repo() {
                   {(file) => <div class="viewer-col">{view(r(), file)}</div>}
                 </Show>
               </section>
-              <Show when={r().books.length}>
-                <section>
-                  <div class="section-head">
-                    <h2>Books</h2>
-                    <Counts errors={r().errors} warnings={r().warnings} />
-                  </div>
-                  <Books books={r().books} onOpen={openBook} />
-                </section>
-              </Show>
             </Match>
 
             <Match when={tab() === "checks"}>

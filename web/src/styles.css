@@ -639,3 +639,9 @@ a:hover .repo-owner { text-decoration: underline; }
 .release-assets { display: inline-flex; gap: .8rem; margin-left: .8rem; }
 .working { padding: .6rem .8rem; border: 1px solid var(--rule); border-radius: 8px; background: var(--wf-bg); }
 .star { padding: .15rem .6rem; font-size: .85rem; } .star[aria-pressed="true"] { color: var(--draft); }
+
+/* The editor's text keeps off the pane's edges (the Sefer editor sets none for a host). */
+.viewer-pane .cm-content { padding: 1rem 1.4rem 2rem; }
+.coverage-filter { margin-left: auto; }
+.coverage-head + .strip-legend, .progress-tab .strip-legend { display: flex; flex-wrap: wrap; gap: .3rem .9rem; align-items: center; }
+.release-diff { margin: .4rem 0 1rem; }

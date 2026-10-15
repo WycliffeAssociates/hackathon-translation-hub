@@ -9,6 +9,7 @@ import { api } from "../../api/client";
 import type { Release } from "../../api/types";
 import { Async, ago, dateOf, plural } from "../../ui/bits";
 import { me } from "../../ui/session";
+import VerseDiffView, { releaseDiff } from "../VerseDiffView";
 
 /**
  * Releases are named by date (Will, 2026-10-15): today as `2026.10.15`, and
@@ -33,6 +34,8 @@ export default function Releases(props: { owner: string; name: string; releases:
   const [busy, setBusy] = createSignal(false);
   const [done, setDone] = createSignal<string>();
   const [failed, setFailed] = createSignal<string>();
+  /** The changed book whose verse diff is open. */
+  const [openDiff, setOpenDiff] = createSignal<string>();
   const [translations, setTranslations] = createSignal<{ language: string; text: string }[]>([]);
   const publisher = () => me()?.me?.publisher === true;
 
@@ -107,6 +110,9 @@ export default function Releases(props: { owner: string; name: string; releases:
                             </Show>
                           </td>
                           <td>
+                            <button type="button" class="linkish small release-diff-toggle" onClick={() => setOpenDiff(openDiff() === b.path ? undefined : b.path)}>
+                              {openDiff() === b.path ? "Hide" : "See"}
+                            </button>{" "}
                             {!b.before ? "new book" : !b.after ? "removed" : [
                               b.diff.changed && `${b.diff.changed.toLocaleString()} changed`,
                               b.diff.added && `${b.diff.added.toLocaleString()} added`,
@@ -118,6 +124,16 @@ export default function Releases(props: { owner: string; name: string; releases:
                     </For>
                   </tbody>
                 </table>
+                <Show when={openDiff()}>
+                  {(path) => (
+                    <div class="release-diff">
+                      <h4 class="sources-sub">
+                        {bookOf(path())}: {u().last_tag ?? "nothing released"} → now
+                      </h4>
+                      <VerseDiffView load={releaseDiff(props.owner, props.name, path())} />
+                    </div>
+                  )}
+                </Show>
               </Show>
             </Show>
 

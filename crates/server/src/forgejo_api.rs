@@ -56,6 +56,9 @@ pub struct Forgejo {
 #[derive(Debug, Deserialize)]
 pub struct User {
     pub login: String,
+    /// A Forgejo site admin (the person's own /user says so).
+    #[serde(default)]
+    pub is_admin: bool,
     #[serde(default)]
     pub full_name: String,
     #[serde(default)]

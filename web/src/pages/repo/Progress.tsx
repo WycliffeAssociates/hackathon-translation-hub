@@ -20,6 +20,8 @@ export default function Progress(props: { repo: RepoDetail; compared: readonly {
   const navigate = useNavigate();
   const r = () => props.repo;
   const [against, setAgainst] = createSignal<string>();
+  /** Show only books with a chapter missing verses. */
+  const [incomplete, setIncomplete] = createSignal(false);
   const [cov] = createResource(
     () => ({ path: { owner: r().owner, name: r().name }, query: { against: against() } }),
     (c) => api.json("/v1/repos/{owner}/{name}/coverage", c),
@@ -49,8 +51,10 @@ export default function Progress(props: { repo: RepoDetail; compared: readonly {
             }
             return { present, total, done, pct: total ? Math.round((100 * present) / total) : 0 };
           });
+          const shown = () =>
+            incomplete() ? c().books.filter((b) => b.chapters.some((x) => x.present < x.total)) : c().books;
           const cells = () =>
-            c().books.flatMap((b) =>
+            shown().flatMap((b) =>
               b.chapters.map((x) => ({
                 book: b.book,
                 path: b.path,
@@ -81,20 +85,6 @@ export default function Progress(props: { repo: RepoDetail; compared: readonly {
                   </span>
                 </p>
               </section>
-              <Chart
-                onPick={(cell: { path?: string | null; chapter: number }) => open(cell.path, cell.chapter)}
-                make={(width) =>
-                  Plot.plot({
-                    width,
-                    height: 50 + 22 * c().books.length,
-                    marginLeft: 48,
-                    x: { label: "chapter", axis: "top", ticks: [1, ...Array.from({ length: 15 }, (_, i) => (i + 1) * 10)] },
-                    y: { domain: c().books.map((b) => b.book).sort(byCanon), label: null },
-                    color: { type: "threshold", domain: [0.0001, 0.5, 0.9, 1], range: SHADES },
-                    marks: [Plot.cell(cells(), { x: "chapter", y: "book", fill: "share", inset: 1, rx: 2, tip: true, title: "label" })],
-                  })
-                }
-              />
               <p class="strip-legend small">
                 <For each={SHADES}>
                   {(s, i) => (
@@ -104,7 +94,24 @@ export default function Progress(props: { repo: RepoDetail; compared: readonly {
                   )}
                 </For>
                 <span class="muted">· a chapter opens in the viewer</span>
+                <label class="coverage-filter">
+                  <input type="checkbox" checked={incomplete()} onChange={(e) => setIncomplete(e.currentTarget.checked)} /> Only books not yet complete
+                </label>
               </p>
+              <Chart
+                onPick={(cell: { path?: string | null; chapter: number }) => open(cell.path, cell.chapter)}
+                make={(width) =>
+                  Plot.plot({
+                    width,
+                    height: 50 + 22 * Math.max(1, shown().length),
+                    marginLeft: 48,
+                    x: { label: "chapter", axis: "top", ticks: [1, ...Array.from({ length: 15 }, (_, i) => (i + 1) * 10)] },
+                    y: { domain: shown().map((b) => b.book).sort(byCanon), label: null },
+                    color: { type: "threshold", domain: [0.0001, 0.5, 0.9, 1], range: SHADES },
+                    marks: [Plot.cell(cells(), { x: "chapter", y: "book", fill: "share", inset: 1, rx: 2, tip: true, title: "label" })],
+                  })
+                }
+              />
             </Show>
           );
         }}

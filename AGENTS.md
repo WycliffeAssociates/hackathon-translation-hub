@@ -86,7 +86,7 @@ Configuration is environment variables, all optional in development:
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | — | export spans over OTLP/HTTP (build `--features otel`) |
 | `HUB_FORGEJO_URL`, `HUB_FORGEJO_TOKEN` | — | publishing (proposal): Forgejo's API and the service account; both set turns sign-in and writes on |
 | `HUB_FORGEJO_PUBLIC_URL` | `HUB_FORGEJO_URL` | Forgejo as a browser reaches it (the sign-in page) |
-| `HUB_OFFICIAL_ORG`, `HUB_PUBLISHERS_TEAM` | `TextTranslation`, `publishers` | the only owner the hub writes to; the team whose members may |
+| `HUB_OFFICIAL_ORG`, `HUB_PUBLISHERS_TEAM` | `TextTranslation`, `publishers` | the only owner the hub writes to; the team whose members may publish (`admins`: Forgejo site admins instead) |
 | `HUB_OAUTH_CLIENT_ID`, `HUB_OAUTH_CLIENT_SECRET` | — | the hub's OAuth app on Forgejo |
 | `HUB_PUBLIC_URL` | `http://HUB_LISTEN` | the hub as a browser reaches it, for the OAuth redirect |
 | `HUB_WRITE_HOSTS` | `127.0.0.1,localhost,gitea,content.wacsdev.org` | hosts the hub may write to; production WACS is refused regardless |

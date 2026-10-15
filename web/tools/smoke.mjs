@@ -60,8 +60,8 @@ await step("home", async () => {
 await step("repo-en_ulb", async () => {
   await page.goto(`${base}/repos/wa-catalog/en_ulb`);
   await page.getByRole("heading", { level: 1, name: "Unlocked Literal Bible" }).waitFor();
-  await page.locator(".books tbody tr").first().waitFor();
-  expect((await page.locator(".books tbody tr").count()) === 66, "66 book rows");
+  await page.locator(".tree .file").first().waitFor();
+  expect((await page.locator(".tree .file", { hasText: /\.usfm$/ }).count()) === 66, "66 books in the tree");
   await page.locator(".tree .file", { hasText: /^41-MAT\.usfm$/ }).click();
   await page.waitForURL(/file=41-MAT\.usfm/);
   await page.locator(".viewer-pane .cm-editor .cm-content").waitFor();
@@ -210,10 +210,11 @@ await step("repo-en_ulb-findings", async () => {
   await shot("05b-repo-en_ulb-finding-390");
   await shot("05c-repo-en_ulb-findings-390");
   await page.setViewportSize({ width: 1280, height: 900 });
-  // The books table is on the Files tab.
-  await page.goto(`${base}/repos/wa-catalog/en_ulb`);
-  await page.locator(".books").scrollIntoViewIfNeeded();
-  await shot("06-repo-en_ulb-books");
+  // Each book's chapters and coverage are the Progress tab's map.
+  await page.goto(`${base}/repos/wa-catalog/en_ulb?tab=progress`);
+  // en_ulb is a source itself: the tab says there is nothing to measure it against.
+  await page.locator(".progress-tab").waitFor();
+  await shot("06-repo-en_ulb-progress");
 });
 
 await step("checks", async () => {
@@ -263,11 +264,13 @@ await step("source-compare", async () => {
 });
 
 await step("repo-coverage", async () => {
-  await page.goto(`${base}/repos/wa-catalog/ru_ulb`);
-  const psa = page.locator(".books tbody tr", { has: page.locator("th", { hasText: /^PSA$/ }) });
-  await psa.waitFor();
-  await psa.locator("details summary").click();
-  await psa.evaluate((el) => (el.scrollIntoView({ block: "start" }), scrollBy(0, -120)));
+  // ru_ulb's Psalms miss verses against en_ulb: the Progress map shows which chapters.
+  await page.goto(`${base}/repos/wa-catalog/ru_ulb?tab=progress`);
+  await page.locator(".progress-tab .progress-number").waitFor();
+  const cov = await (await page.request.get(`${base}/v1/repos/wa-catalog/ru_ulb/coverage`)).json();
+  const short = (cov.books.find((b) => b.book === "PSA")?.chapters ?? []).filter((c) => c.present < c.total).length;
+  expect(short > 0, `Psalms chapters missing verses (${short})`);
+  await page.getByLabel("Only books not yet complete").check();
   await shot("07a-repo-coverage-gaps");
 });
 

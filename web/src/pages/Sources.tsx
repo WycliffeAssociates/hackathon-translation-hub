@@ -17,7 +17,7 @@ import { Async, ago, dateOf, plural } from "../ui/bits";
 import { resourceTitle } from "../ui/resources";
 import { me, signInHref } from "../ui/session";
 import SourcesProgress, { readPins } from "./SourcesProgress";
-import VerseDiffView from "./VerseDiffView";
+import VerseDiffView, { sourcesDiff } from "./VerseDiffView";
 
 const key = (c: { owner: string; name: string }) => `${c.owner}/${c.name}`;
 
@@ -372,7 +372,7 @@ export function SourcesView(props: { ietf: string; resource: string }) {
                                   )}
                                 </Show>
                                 <Show when={p().linked && diffOpen() === `${b.book} ${p().linked!.repo}`}>
-                                  <VerseDiffView ietf={props.ietf} resource={props.resource} book={b.book} a={d().published!.repo} b={p().linked!.repo} />
+                                  <VerseDiffView load={sourcesDiff(props.ietf, props.resource, b.book, d().published!.repo, p().linked!.repo)} />
                                 </Show>
                               </div>
                             )}
@@ -412,7 +412,7 @@ export function SourcesView(props: { ietf: string; resource: string }) {
                                       </span>
                                     </p>
                                     <Show when={diffOpen() === id() && first() && reference()}>
-                                      <VerseDiffView ietf={props.ietf} resource={props.resource} book={b.book} a={reference()} b={key(first()!)} />
+                                      <VerseDiffView load={sourcesDiff(props.ietf, props.resource, b.book, reference(), key(first()!))} />
                                     </Show>
                                     <ul class="sources-members">
                                       <For each={v.members}>

@@ -7,19 +7,21 @@
 //!   release tag, book by book in chapters and verses (verse fingerprints, as
 //!   the sources page uses), for the Releases tab's "since v1.2".
 
+use std::collections::BTreeMap;
+
 use axum::Json;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
-use hub_domain::fingerprint::{Fingerprint, fingerprint};
+use hub_domain::fingerprint::{Fingerprint, fingerprint, verse_words};
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, OpenApi, ToSchema};
 
 use crate::api::{AppState, Failure};
-use crate::sources::Diff;
+use crate::sources::{BookDiff, Diff, VerseChange};
 
 #[derive(OpenApi)]
 #[openapi(
-    paths(commits, unreleased),
+    paths(commits, unreleased, unreleased_diff),
     components(schemas(CommitRow, Unreleased, BookChange, Size))
 )]
 pub struct ChangesDoc;
@@ -33,6 +35,10 @@ pub fn router() -> axum::Router<AppState> {
         .route(
             "/v1/repos/{owner}/{name}/unreleased",
             axum::routing::get(unreleased),
+        )
+        .route(
+            "/v1/repos/{owner}/{name}/unreleased/diff",
+            axum::routing::get(unreleased_diff),
         )
 }
 
@@ -112,11 +118,20 @@ fn open(s: &AppState, owner: &str, name: &str) -> Result<git2::Repository, Failu
     })
 }
 
-/// Release tags (`v…`) by the commit they point at.
+/// A release tag: a date (`2026.10.15`, `.2`) or a version (`v1.2`), digits and dots.
+pub(crate) fn is_release_tag(tag: &str) -> bool {
+    let digits = tag.strip_prefix('v').unwrap_or(tag);
+    !digits.is_empty()
+        && digits
+            .split('.')
+            .all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()))
+}
+
+/// Release tags by the commit they point at.
 fn tags_by_commit(repo: &git2::Repository) -> std::collections::HashMap<git2::Oid, Vec<String>> {
     let mut out: std::collections::HashMap<git2::Oid, Vec<String>> = Default::default();
-    if let Ok(names) = repo.tag_names(Some("v*")) {
-        for name in names.iter().flatten() {
+    if let Ok(names) = repo.tag_names(None) {
+        for name in names.iter().flatten().filter(|n| is_release_tag(n)) {
             if let Ok(obj) = repo.revparse_single(&format!("refs/tags/{name}"))
                 && let Ok(c) = obj.peel_to_commit()
             {
@@ -293,4 +308,91 @@ async fn unreleased(
     span.record("rows", out.commits.len());
     span.record("work_ms", started.elapsed().as_secs_f64() * 1000.0);
     Ok(Json(out))
+}
+
+#[derive(Deserialize, IntoParams)]
+#[into_params(parameter_in = Query)]
+pub struct FileQuery {
+    /// The file, as `unreleased` lists it: `41-MAT.usfm`.
+    path: String,
+}
+
+/// One book's verses that changed since the newest release tag (left: the
+/// release, right: now), the words that changed for the page to mark.
+#[utoipa::path(get, path = "/v1/repos/{owner}/{name}/unreleased/diff",
+    params(("owner" = String, Path), ("name" = String, Path), FileQuery),
+    responses((status = 200, body = BookDiff), (status = 404, body = crate::api::ApiError)))]
+async fn unreleased_diff(
+    State(s): State<AppState>,
+    Path((owner, name)): Path<(String, String)>,
+    Query(q): Query<FileQuery>,
+) -> Result<Json<BookDiff>, Failure> {
+    tokio::task::spawn_blocking(move || -> Result<BookDiff, Failure> {
+        let internal =
+            |e: git2::Error| fail(StatusCode::INTERNAL_SERVER_ERROR, e.message().to_owned());
+        let repo = open(&s, &owner, &name)?;
+        let head = repo
+            .head()
+            .and_then(|h| h.peel_to_commit())
+            .map_err(internal)?;
+        let tags = tags_by_commit(&repo);
+        let last = tags
+            .iter()
+            .filter_map(|(oid, names)| {
+                let c = repo.find_commit(*oid).ok()?;
+                let reachable =
+                    *oid == head.id() || repo.graph_descendant_of(head.id(), *oid).unwrap_or(false);
+                reachable.then(|| {
+                    (
+                        c.time().seconds(),
+                        names.iter().max().cloned().unwrap_or_default(),
+                        c,
+                    )
+                })
+            })
+            .max_by_key(|(t, name, _)| (*t, name.clone()));
+        let words_at = |commit: Option<&git2::Commit>| -> BTreeMap<(u16, u16), String> {
+            commit
+                .and_then(|c| c.tree().ok())
+                .and_then(|t| t.get_path(std::path::Path::new(&q.path)).ok())
+                .and_then(|e| repo.find_blob(e.id()).ok())
+                .map(|b| verse_words(&String::from_utf8_lossy(b.content())))
+                .unwrap_or_default()
+        };
+        let (a, b) = (
+            words_at(last.as_ref().map(|(_, _, c)| c)),
+            words_at(Some(&head)),
+        );
+        let mut keys: Vec<&(u16, u16)> = a.keys().chain(b.keys()).collect();
+        keys.sort();
+        keys.dedup();
+        let mut verses = Vec::new();
+        let mut same = 0;
+        for k in keys {
+            let (x, y) = (a.get(k), b.get(k));
+            if x == y {
+                same += 1;
+            } else if verses.len() < 2000 {
+                verses.push(VerseChange {
+                    chapter: k.0,
+                    verse: k.1,
+                    a: x.cloned(),
+                    b: y.cloned(),
+                });
+            }
+        }
+        let tag = last
+            .map(|(_, n, _)| n)
+            .unwrap_or_else(|| "nothing released".into());
+        Ok(BookDiff {
+            book: q.path.clone(),
+            a: tag,
+            b: "now".into(),
+            verses,
+            same,
+        })
+    })
+    .await
+    .map_err(|e| fail(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+    .map(Json)
 }

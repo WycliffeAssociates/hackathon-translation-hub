@@ -592,6 +592,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/repos/{owner}/{name}/unreleased/diff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One book's verses that changed since the newest release tag (left: the
+         *     release, right: now), the words that changed for the page to mark.
+         */
+        get: operations["unreleased_diff"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/status": {
         parameters: {
             query?: never;
@@ -2729,6 +2749,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Unreleased"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    unreleased_diff: {
+        parameters: {
+            query: {
+                /** @description The file, as `unreleased` lists it: `41-MAT.usfm`. */
+                path: string;
+            };
+            header?: never;
+            path: {
+                owner: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookDiff"];
                 };
             };
             404: {
