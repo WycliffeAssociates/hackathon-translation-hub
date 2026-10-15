@@ -58,21 +58,28 @@ pub fn compare(
     texts: bool,
     keep: impl Fn(u16, u16) -> bool,
 ) -> Option<Comparison> {
-    let t = OnionBook::parse(target).ok()?;
-    let s = OnionBook::parse(source).ok()?;
-    let source_verses: Vec<(VerseKey, u32, u32)> = s
-        .verses()
-        .map(|v| (v.key(), v.text().from(), v.text().to()))
-        .collect();
+    // The two books parse at once; the source's verses are then indexed by
+    // chapter, so pairing is a lookup per verse rather than a scan of the book.
+    let (t, s) = rayon::join(|| OnionBook::parse(target), || OnionBook::parse(source));
+    let (t, s) = (t.ok()?, s.ok()?);
+    let mut by_chapter: std::collections::HashMap<u16, Vec<(VerseKey, u32, u32)>> =
+        std::collections::HashMap::new();
+    for v in s.verses() {
+        by_chapter.entry(v.key().chapter()).or_default().push((
+            v.key(),
+            v.text().from(),
+            v.text().to(),
+        ));
+    }
     let mut ratios = Vec::new();
     let mut verses = Vec::new();
     for v in t.verses() {
         let key = v.key();
-        let covered: Vec<&(VerseKey, u32, u32)> = source_verses
-            .iter()
-            .filter(|(k, _, _)| {
-                k.chapter() == key.chapter() && k.first() >= key.first() && k.last() <= key.last()
-            })
+        let covered: Vec<&(VerseKey, u32, u32)> = by_chapter
+            .get(&key.chapter())
+            .into_iter()
+            .flatten()
+            .filter(|(k, _, _)| k.first() >= key.first() && k.last() <= key.last())
             .collect();
         if covered.is_empty() {
             continue;

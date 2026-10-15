@@ -21,6 +21,7 @@ hub only pins the result. Numbers are from dev-data (1,441 repos) on
 - [ ] **`\s5` in Sous.** `galley::sous::OnionBook::parse` uses the default lexer, so the hub cannot apply Sefer's `\s5` policy there as `hub-checks` does for lint (`lex_with` + a registry). An `OnionBook::parse_with(text, &Extensions)` would let it.
 - [ ] **Lint `delimiter-surplus`** (34,964 info findings in 414 repos; 39% in one repo) is formatter-level. Check whether its severity or category is right. The hub counts `hint` and `info` together and skips only severity `form`.
 - [ ] **Sous book keys**: `\id` is taken as written (first three bytes), so `\id gen` and `\id GEN` are two books. Upper-case it, as onion's canon does.
+- [ ] **galley `OnionBook::locate` walks the whole mask per call** (`KITCHEN-RFC.md`): it starts at range 0 and does not stop past the range, so mapping every finding cost O(findings × mask). It was 90% of hbo_uhb's 4 s proofread. The hub works around it (`parse_book` in `crates/proof`, a kept mask and `Mask::to_source`); drop that after a fix.
 - [ ] **Push tag v0.1.10** (it exists only in the local clone), then bump every pin together: root `Cargo.toml` (`usfm_onion`, `mise`), `crates/proof/Cargo.toml` (`usfm_galley`, `sous-core`), `spikes/viewer/package.json`, and `KITCHEN_TAG` in `crates/checks` and `crates/proof`. Bumping makes the hub rescan and re-proofread everything on its next poll.
 
 ## Sefer

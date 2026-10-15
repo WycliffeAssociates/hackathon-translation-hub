@@ -240,22 +240,30 @@ impl Scanner {
             return Ok(());
         }
 
-        // Otherwise every root USFM file is a book.
+        // Otherwise every root USFM file is a book. The blobs are read in
+        // order (one git handle), then each book is counted and linted on its
+        // own, in parallel: a 66-book repo is 66 independent lint runs.
+        use rayon::prelude::*;
+        let mut texts = Vec::new();
         for entry in &root_entries {
             if entry.kind != EntryKind::Blob || !is_usfm_path(&entry.path) {
                 continue;
             }
             let bytes = reader.blob(entry.oid).map_err(|e| e.to_string())?;
-            let text = String::from_utf8_lossy(&bytes);
-            let book = book_id(&text).unwrap_or_default();
-            scan.books.push(self.book(
-                &book,
-                &entry.path,
-                content_key_for_blob(&entry.oid.to_string()),
-                &text,
-                source.as_deref(),
-            ));
+            texts.push((entry, String::from_utf8_lossy(&bytes).into_owned()));
         }
+        scan.books = texts
+            .par_iter()
+            .map(|(entry, text)| {
+                self.book(
+                    &book_id(text).unwrap_or_default(),
+                    &entry.path,
+                    content_key_for_blob(&entry.oid.to_string()),
+                    text,
+                    source.as_deref(),
+                )
+            })
+            .collect();
         Ok(())
     }
 

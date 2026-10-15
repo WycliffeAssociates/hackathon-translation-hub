@@ -105,6 +105,12 @@ book × check). D: WACS (9 which checks are noise, 10 how much is alive, 11 BIEL
 shown twice by language, 12 a language's book × version state). The choices in
 each card's picker are fixed lists for the demo.
 
+## Performance notes (2026-10-14, profiled with samply)
+
+- Proofreading: books parse in parallel, and findings map to raw bytes by binary search instead of galley's whole-mask walk (`KITCHEN-RFC.md`). hbo_uhb 4 s → 237 ms, km_ulb (301k findings) 436 ms; output byte-identical on en_ulb, hbo_uhb, km_ulb, ru_ulb. A full proof round on dev-data: about 8.3 s → 5–7 s on a loaded laptop.
+- What is left in the noisiest repos is sous-core's own analysis (~65%) and the hub converting every finding (~20%, ~100 ms for 301k) although it stores 200 per book and check. Sefer's pattern is to count from the packed rows and convert only what is shown; worth it if the conversion ever shows up again.
+- The scan lints a repo's books in parallel; repos were already parallel, so the scan is unchanged (~1.4 s standalone, identical output). The poll's `proof_slowest_ms` is wall time while sharing the pool with every other repo, so it names a repo that waited, not one that is expensive: lo_bible read 3.4 s there and takes 300 ms alone.
+
 ## Not built yet, but agreed earlier
 
 - A person overriding the Official pick (`picked_by = person`) has no table yet.

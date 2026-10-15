@@ -42,7 +42,7 @@ use sous_core::{
     ProjectedBook, Reasons, SourceLengths, SourceVerse, SourceWords, TextRange, VerseKey,
     analyze_paired, source_lengths,
 };
-use usfm_galley::onion::{Sid, Utf16Index, utf16_index};
+use usfm_galley::onion::{Filter, Mask, Sid, Utf16Index, cst, lex, mask, toc, utf16_index};
 use usfm_galley::sous::OnionBook;
 
 /// The scripture-kitchen tag this crate's engine was built from. It must match
@@ -203,21 +203,26 @@ impl Source {
     /// `\id`, the first is kept (sous's own rule, `judge_lengths` @ v0.1.9
     /// `core/src/proportionality.rs:480`).
     pub fn prepare(books: &[Book]) -> Self {
+        use rayon::prelude::*;
+        // Parsed and measured per book in parallel; kept in input order after.
+        let prepared: Vec<Option<SourceBook>> = books
+            .par_iter()
+            .map(|book| {
+                let onion = OnionBook::parse(book.text).ok()?;
+                let key = onion.key();
+                (key.as_bytes() != [0; 3]).then(|| SourceBook {
+                    id: book.id.to_owned(),
+                    key,
+                    verses: source_lengths(&onion),
+                    words: SourceWords::of(&onion),
+                })
+            })
+            .collect();
         let mut out = Self::default();
-        for book in books {
-            let Ok(onion) = OnionBook::parse(book.text) else {
-                continue;
-            };
-            let key = onion.key();
-            if key.as_bytes() == [0; 3] || out.books.iter().any(|b| b.key == key) {
-                continue;
+        for book in prepared.into_iter().flatten() {
+            if !out.books.iter().any(|b| b.key == book.key) {
+                out.books.push(book);
             }
-            out.books.push(SourceBook {
-                id: book.id.to_owned(),
-                key,
-                verses: source_lengths(&onion),
-                words: SourceWords::of(&onion),
-            });
         }
         out
     }
@@ -264,18 +269,40 @@ pub fn proofread_paired(
     run(books, Some((source, source_copy)))
 }
 
+/// `OnionBook::parse`, keeping a copy of the projection's offset map.
+///
+/// galley's `OnionBook::locate` walks the mask from its first range for every
+/// call and does not stop past the range, so mapping a finding back to raw
+/// bytes cost a pass over the whole book: 163k findings in hbo_uhb made that
+/// 90% of a 4 s run. The same mask, kept here, answers by binary search
+/// (`Mask::to_source`). The book is built from the same parts galley's
+/// `parse` builds (`from_parts`), so nothing sous sees changes.
+fn parse_book(text: &str) -> Result<(OnionBook, Mask), sous_core::InputError> {
+    let tokens = lex(text);
+    let tree = cst::build(&tokens);
+    let toc = toc(text.as_bytes(), &tokens);
+    let kept = mask(text.as_bytes(), &tokens, &tree, &Filter::verse_text());
+    OnionBook::from_parts(text, kept.clone(), toc).map(|book| (book, kept))
+}
+
 fn run(books: &[Book], source: Option<(&Source, bool)>) -> Result<Proof, Error> {
+    use rayon::prelude::*;
     let mut proof = Proof::default();
-    // Index-aligned: `kept[i]` is the input book `parsed[i]` was parsed from.
+    // Each book parses on its own (in parallel); which books join the corpus
+    // is decided after, in input order, so the first of two `\id`s still wins.
+    let onions: Vec<_> = books.par_iter().map(|b| parse_book(b.text)).collect();
+    // Index-aligned: `kept[i]` is the input book `parsed[i]` was parsed from,
+    // and `masks[i]` its offset map.
     let mut kept: Vec<&Book> = Vec::with_capacity(books.len());
     let mut parsed: Vec<OnionBook> = Vec::with_capacity(books.len());
-    for book in books {
+    let mut masks: Vec<Mask> = Vec::with_capacity(books.len());
+    for (book, onion) in books.iter().zip(onions) {
         let skip = |reason: String| Skipped {
             id: book.id.to_owned(),
             reason,
         };
-        let onion = match OnionBook::parse(book.text) {
-            Ok(onion) => onion,
+        let (onion, book_mask) = match onion {
+            Ok(parts) => parts,
             Err(error) => {
                 proof.skipped.push(skip(error.to_string()));
                 continue;
@@ -294,6 +321,7 @@ fn run(books: &[Book], source: Option<(&Source, bool)>) -> Result<Proof, Error> 
         }
         kept.push(book);
         parsed.push(onion);
+        masks.push(book_mask);
     }
 
     let corpus = Corpus::try_new(&parsed).map_err(|error| Error::Corpus(error.to_string()))?;
@@ -332,6 +360,7 @@ fn run(books: &[Book], source: Option<(&Source, bool)>) -> Result<Proof, Error> 
         let target = Target {
             book: kept[at],
             onion: &parsed[at],
+            mask: &masks[at],
             utf16: utf16_index(kept[at].text.as_bytes()),
             patterns: &patterns,
             presence: paired.presence.get(at).map_or(&[], Vec::as_slice),
@@ -350,6 +379,8 @@ fn run(books: &[Book], source: Option<(&Source, bool)>) -> Result<Proof, Error> 
 struct Target<'a> {
     book: &'a Book<'a>,
     onion: &'a OnionBook,
+    /// The projection's offset map, for raw spans by binary search (`parse_book`).
+    mask: &'a Mask,
     utf16: Utf16Index<'a>,
     patterns: &'a [Pattern],
     /// Sous's own presence rows for this book: they carry the verse key the
@@ -471,11 +502,14 @@ impl Target<'_> {
             let (sid, _, to) = self.raw(previous)?;
             return Some((sid, to, to));
         }
+        // The address from the TOC (cheap); the bounding raw span from the
+        // mask: the first projected byte's raw byte, and one past the last's.
+        // The same span galley's run walk gives (first run's start, last
+        // run's end), without walking.
         let located = self.onion.locate(span)?;
-        let mut runs = located.spans;
-        let start = runs.next()?;
-        let end = runs.last().map_or(start.end, |run| run.end);
-        Some((located.first, start.start, end))
+        let start = self.mask.to_source(span.from());
+        let end = self.mask.to_source(span.to() - 1) + 1;
+        Some((located.first, start, end))
     }
 
     /// Graphemes in a length row's target unit, and in the source verses its

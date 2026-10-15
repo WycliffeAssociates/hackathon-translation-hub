@@ -14,6 +14,8 @@ serde.workspace = true
 # The findings are an API response body; the server documents them in OpenAPI.
 utoipa = "5"
 thiserror.workspace = true
+# Books parse in parallel; the corpus analysis that follows is sous's, whole.
+rayon.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true
