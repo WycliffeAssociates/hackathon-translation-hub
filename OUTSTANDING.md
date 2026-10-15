@@ -89,9 +89,25 @@ Gaps, in the order they would bite:
 - **Pushing to wacsdev over https**: git2 is built without its `https` feature (the workspace sets `default-features = false`). The macOS libgit2 has TLS; the Docker image's vendored libgit2 needs `git2/https` (OpenSSL) before consolidate can push to `https://content.wacsdev.org`.
 - **Consolidate runs in the request** (2 s for Tawara). A language with many long-lived Writer books may take longer; move it to a job with progress when it does.
 - **Port and BIEL** still mark Primary by hand. The pointer could feed them later; not touched.
-- **Editions** (`_e2`), bulletins, overwrite-with-confirmation for a pull that replaces a book: not built. A pull that replaces a book says so in the commit and the log, but does not ask twice.
+- **Editions** (`_e2`), overwrite-with-confirmation for a pull that replaces a book: not built. A pull that replaces a book says so in the commit and the log, but does not ask twice.
 - **CSRF**: writes rely on `SameSite=Lax` and a JSON body. Enough for a POC; add a token before anyone else's browser can reach it.
 - Team membership is read at sign-in; removal takes effect at the next sign-in.
+
+## Integrating with Joe's version (2026-10-15; built against WACS-local, revert freely)
+
+Will clicked through Joe's hub (cloned to `../translation-hub`, run in Docker on :8080 in fixture mode) and asked for these; each is built, tried in a browser on WACS-local, and committed:
+
+- **Sources by book** (`/languages/{ietf}/sources?resource=`, and the Sources tab of any repo with a language and brand). Every copy of every book (Writer projects, consolidated repos, the official one) grouped into **versions by their words**: each copy's verses are fingerprinted (`hub_domain::fingerprint`: markers and spacing dropped, headings left out), copies with the same words in every verse are one version, and each version says how it differs from the pick ("1,060 changed", "35 fewer"). The official copy is compared with the copy it follows: `current`, `behind` (that copy moved on), `edited` (the official copy changed), `unlinked`. Publishers can set a copy aside (one book or every book; migration 0006), take one repo for all its books, pull a pick, or create the official repo from the picks (Writer picks consolidated with history, the rest pulled). 100–450 ms for 100–140 copies. Joe's link / ignore / pull map onto pick (follow), set aside, pull.
+- **What official books follow** is the hub's own pointer (`official_link`, migration 0007), written by pull and consolidate; **no `.upstreams.json` is committed** to official repos (Will, 2026-10-15). Every pull commit still names its source in a `Source:` trailer; a repo Sefer consolidated is still read from its `.upstreams.json`.
+- **Progress against gateway sources** at the top of the sources page: a tab per source (the three the copies declare most, plus pins kept in the browser), a strip of the source's books shaded in one hue by the share of its verses present, the overall share, and Writer saves per week over a year.
+- **The repo page in tabs**: Files, Checks (findings, the text, and the source text as a second pane that follows the chapter and lights the picked finding's verse), Sources, Releases, History (`GET /v1/repos/{o}/{n}/commits`, trailers pulled out). `?tab=` in the URL.
+- **Releases first class**: on an official repo, what changed since the newest tag book by book in chapters and verses (`GET /v1/repos/{o}/{n}/unreleased`), and a new release whose **bulletin** can carry translations, committed as `bulletins/{tag}/{language}.md` before the tag. Translating a bulletin in the browser with NLLB-200 (transformers.js v4, opt-in ~600 MB download, CC-BY-NC weights, gateway languages only) is an idea, not built.
+- **Your work** (`/welcome`): languages picked with one multi-select (migration 0008), each with its resources; repos owned by the person or their orgs (Forgejo lists public memberships only); repos starred on WACS (Forgejo's own pin; edit permission alone would list everything for an admin).
+- **Open in Sefer** beside Open in WACS: a bare r-link to the r-links dev preview.
+- **Quieter**: PRODUCT.md (who, why, how it should feel), neutral surfaces, one type family, status as a dot and a word, zero counts hidden.
+- dev-data grew to 3,542 repos (2,889 Writer projects): every language with all 66 books, and the 14 with the most duplicate copies (Swati, Galician, Oxchuc Tzeltal with 6 owners, …), for the by-book cases.
+
+Still open from this round: who may create the official repo stays "the robot writes, the publishers team decides" (Will agreed; site admins can always write); private org memberships do not count toward Your work.
 
 ## Charts: candidates to keep or cut (`/viz`, 2026-10-14)
 
