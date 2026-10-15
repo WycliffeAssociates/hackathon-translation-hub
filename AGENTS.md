@@ -107,7 +107,8 @@ The `/verify-hub` skill (`.claude/skills/verify-hub/`) wraps this as launch → 
 
 Each unit of work writes **one JSON line** that has everything needed to explain it:
 
-- `event:"request"`: method, route, path, query, status, `duration_ms`, `db_ms`, `bytes`, `traceparent`, `page` (the web app sends `x-hub-page`).
+- `event:"request"`: method, route, path, query, status, `duration_ms`, `db_ms`, `bytes`, `traceparent`, `page` (the web app sends `x-hub-page`). Where a route does more than read the store: `work_ms` (git history read or replayed), `push_ms` (a git push), `forgejo_calls` and `forgejo_ms` (Forgejo's API), `rows`. The sign-in callback's query (an OAuth code) is logged as `<redacted>`.
+- `event:"sign-in"`, `event:"publish"`, `event:"consolidate"` (books, saves, commits, `replay_ms`): the publishing proposal's writes, beside the request's own event.
 - `event:"poll"`: repos public/removed/rescanned, `scan_ms`, proofread count, `proof_ms`, the slowest repo, `proof_paired` (repos compared against their source), `proof_sources` and `proof_source_ms` (source texts prepared this round), `duration_ms`.
 - `event:"catalog"`: languages, catalog rows, `duration_ms`.
 

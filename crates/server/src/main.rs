@@ -161,9 +161,26 @@ async fn wide_event(req: Request, next: Next) -> Response {
         page = %page,
         db_ms = Empty,
         rows = Empty,
+        // Time in the routes' own work off the async pool: reading and
+        // replaying git history, and git pushes (progress, assemble, consolidate).
+        work_ms = Empty,
+        push_ms = Empty,
+        // Calls to Forgejo's HTTP API during the request, and their total time.
+        forgejo_calls = Empty,
+        forgejo_ms = Empty,
     );
     telemetry::link_parent(&span, req.headers());
-    let res = next.run(req).instrument(span.clone()).await;
+    let res = forgejo_api::UPSTREAM
+        .scope(Default::default(), async {
+            let res = next.run(req).instrument(span.clone()).await;
+            let (calls, ms) = forgejo_api::UPSTREAM.with(|u| u.get());
+            if calls > 0 {
+                span.record("forgejo_calls", calls);
+                span.record("forgejo_ms", ms);
+            }
+            res
+        })
+        .await;
     let bytes = res
         .headers()
         .get(axum::http::header::CONTENT_LENGTH)

@@ -633,7 +633,9 @@ async fn assemble(
         .await
         .map_err(upstream)?;
     let all = candidates_of(&s, &f.detail).await?;
+    tracing::Span::current().record("rows", all.len());
     let scanner = s.scanner.clone();
+    let started = std::time::Instant::now();
     let books = tokio::task::spawn_blocking(move || {
         use rayon::prelude::*;
         let history: Vec<(usize, Option<i64>, Vec<i64>)> = all
@@ -690,6 +692,9 @@ async fn assemble(
         exists,
         books,
     }))
+    .inspect(|_| {
+        tracing::Span::current().record("work_ms", started.elapsed().as_secs_f64() * 1000.0);
+    })
 }
 
 /// The consolidated history, built in a scratch repository: every Writer save
@@ -828,6 +833,8 @@ async fn consolidate(
         .map_err(|e| fail(StatusCode::INTERNAL_SERVER_ERROR, e))?
     };
     let replay_ms = started.elapsed().as_millis() as u64;
+    tracing::Span::current().record("work_ms", replay_ms as f64);
+    tracing::Span::current().record("rows", replayed.commits);
 
     let pushed = async {
         pb.forgejo
@@ -838,9 +845,12 @@ async fn consolidate(
             )
             .await?;
         let (p, dir, login, org, target) = (pb.clone(), dir.clone(), login.clone(), org.clone(), target.clone());
-        tokio::task::spawn_blocking(move || p.forgejo.push(&login, &dir, &org, &target, "master"))
+        let pushing = std::time::Instant::now();
+        let pushed = tokio::task::spawn_blocking(move || p.forgejo.push(&login, &dir, &org, &target, "master"))
             .await
-            .map_err(|e| ForgejoError::Refused(e.to_string()))?
+            .map_err(|e| ForgejoError::Refused(e.to_string()))?;
+        tracing::Span::current().record("push_ms", pushing.elapsed().as_secs_f64() * 1000.0);
+        pushed
     }
     .await;
     let _ = std::fs::remove_dir_all(&dir);

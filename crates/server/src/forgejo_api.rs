@@ -39,6 +39,12 @@ pub enum ForgejoError {
 
 pub type Result<T> = std::result::Result<T, ForgejoError>;
 
+tokio::task_local! {
+    /// Forgejo API calls made by the current request, and their total time
+    /// in ms: the wide event reports them (`forgejo_calls`, `forgejo_ms`).
+    pub static UPSTREAM: std::cell::Cell<(u32, f64)>;
+}
+
 pub struct Forgejo {
     base: String,
     token: String,
@@ -130,6 +136,22 @@ impl Forgejo {
     }
 
     async fn send(&self, what: &str, req: reqwest::RequestBuilder) -> Result<Option<Value>> {
+        let started = std::time::Instant::now();
+        let out = self.send_untimed(what, req).await;
+        let ms = started.elapsed().as_secs_f64() * 1000.0;
+        // Outside a request (none today) there is nothing to add to.
+        let _ = UPSTREAM.try_with(|u| {
+            let (n, t) = u.get();
+            u.set((n + 1, t + ms));
+        });
+        out
+    }
+
+    async fn send_untimed(
+        &self,
+        what: &str,
+        req: reqwest::RequestBuilder,
+    ) -> Result<Option<Value>> {
         let res = req.send().await?;
         let status = res.status();
         if status == reqwest::StatusCode::NOT_FOUND {

@@ -46,6 +46,12 @@ def main():
                 "ms": float(e.get("duration_ms", 0)),
                 "db_ms": float(span.get("db_ms", 0) or 0),
                 "page": span.get("page", ""),
+                # Where the time went, when the route says: its own work off
+                # the async pool (git history, replay), a git push, Forgejo's API.
+                "work_ms": span.get("work_ms"),
+                "push_ms": span.get("push_ms"),
+                "forgejo_calls": span.get("forgejo_calls"),
+                "forgejo_ms": span.get("forgejo_ms"),
             }
             by_route[(span.get("method", "GET"), row["route"])].append(row)
             requests.append(row)
@@ -66,7 +72,13 @@ def main():
     print("\nslowest requests")
     for r in sorted(requests, key=lambda r: -r["ms"])[:8]:
         q = f"?{r['query']}" if r["query"] else ""
-        print(f"  {r['ms']:>8.1f} ms  {r['status']}  {r['path']}{q}  {('page=' + r['page']) if r['page'] else ''}")
+        split = [
+            f"work {float(r['work_ms']):.0f}" if r["work_ms"] is not None else "",
+            f"push {float(r['push_ms']):.0f}" if r["push_ms"] is not None else "",
+            f"forgejo {r['forgejo_calls']}× {float(r['forgejo_ms']):.0f}" if r["forgejo_calls"] else "",
+        ]
+        where = " ".join(s for s in split if s)
+        print(f"  {r['ms']:>8.1f} ms  {r['status']}  {r['path']}{q}  {('page=' + r['page']) if r['page'] else ''}{('  [' + where + ']') if where else ''}")
 
     if rounds:
         print("\npoll and catalog rounds")

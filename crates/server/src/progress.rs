@@ -84,6 +84,7 @@ async fn language_progress(
     let (store, scanner) = (s.store.clone(), s.scanner.clone());
     let (lang, resource) = (ietf.to_lowercase(), q.resource.to_lowercase());
     let (l, r) = (lang.clone(), resource.clone());
+    let started = std::time::Instant::now();
     let out = tokio::task::spawn_blocking(
         move || -> Result<(Vec<BookProgress>, Vec<WeekSaves>), String> {
             use rayon::prelude::*;
@@ -147,6 +148,10 @@ async fn language_progress(
     .await
     .map_err(|e| Failure(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
     .map_err(|e| Failure(StatusCode::INTERNAL_SERVER_ERROR, e))?;
+    // The wide event: books read, and the time spent reading their history.
+    let span = tracing::Span::current();
+    span.record("rows", out.0.len());
+    span.record("work_ms", started.elapsed().as_secs_f64() * 1000.0);
     Ok(Json(LanguageProgress {
         language: lang,
         resource,
