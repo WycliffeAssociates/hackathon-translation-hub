@@ -440,3 +440,17 @@ button.primary:disabled { opacity: .5; cursor: progress; }
 .viz-controls { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; margin: .5rem 0; }
 .viz-controls select, .viz-controls input { font: inherit; padding: .3em .5em; border: 1px solid var(--rule); border-radius: 8px; background: var(--paper); color: var(--ink); }
 .viz-toc { margin: .3rem 0 0; }
+
+/* --- rendered markdown and TSV notes --- */
+.md-preview { border: 1px solid var(--rule); border-radius: 10px; background: var(--wf-bg); padding: 1rem 1.4rem; max-height: max(420px, calc(100vh - 200px)); overflow: auto; font-family: var(--serif); font-size: 1.02rem; line-height: 1.6; }
+.md-preview h1, .md-preview h2, .md-preview h3 { font-family: var(--ui); line-height: 1.25; margin: 1.2em 0 .4em; }
+.md-preview h1 { font-size: 1.35rem; } .md-preview h2 { font-size: 1.15rem; } .md-preview h3 { font-size: 1.02rem; }
+.md-preview > :first-child { margin-top: 0; }
+.md-preview code { font-size: .88em; }
+.md-preview pre { background: var(--paper-2); padding: .6rem .8rem; border-radius: 8px; overflow: auto; }
+.md-preview blockquote { margin: .6em 0; padding-left: .9em; border-left: 3px solid var(--rule); color: var(--muted); }
+.md-preview img { max-width: 100%; }
+.md-preview table { border-collapse: collapse; font-family: var(--ui); font-size: .88rem; }
+.md-preview th, .md-preview td { border: 1px solid var(--rule); padding: .3rem .5rem; vertical-align: top; text-align: left; }
+.md-preview.tsv { font-family: var(--ui); }
+.md-preview.tsv td p { margin: 0 0 .3em; }

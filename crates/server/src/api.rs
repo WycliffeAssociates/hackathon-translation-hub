@@ -32,6 +32,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
     doc.merge(crate::publish::PublishDoc::openapi());
     doc.merge(crate::progress::ProgressDoc::openapi());
     doc.merge(crate::compare::CompareDoc::openapi());
+    doc.merge(crate::render::RenderDoc::openapi());
     doc
 }
 
@@ -101,6 +102,7 @@ pub fn router(state: AppState) -> axum::Router {
         .merge(crate::publish::router())
         .merge(crate::progress::router())
         .merge(crate::compare::router())
+        .merge(crate::render::router())
         .with_state(state)
 }
 

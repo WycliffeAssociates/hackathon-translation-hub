@@ -17,6 +17,7 @@ hub-biel.workspace = true
 hub-proof.workspace = true
 hub-stitch.workspace = true
 hub-history.workspace = true
+hub-markdown.workspace = true
 git2.workspace = true
 serde_yaml.workspace = true
 # Publishing: file contents for Forgejo's contents API, and session ids.

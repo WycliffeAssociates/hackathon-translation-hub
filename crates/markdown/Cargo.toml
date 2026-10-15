@@ -1,0 +1,11 @@
+[package]
+name = "hub-markdown"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+
+[dependencies]
+# CommonMark + GitHub extensions (tables, task lists, strikethrough, footnotes).
+pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
+# Repo markdown is user content: what reaches the page is sanitised here.
+ammonia = "4"

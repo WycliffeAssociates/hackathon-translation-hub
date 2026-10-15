@@ -105,6 +105,19 @@ book × check). D: WACS (9 which checks are noise, 10 how much is alive, 11 BIEL
 shown twice by language, 12 a language's book × version state). The choices in
 each card's picker are fixed lists for the demo.
 
+## Markdown and TSV notes (2026-10-14)
+
+`.md` and `.tsv` files open in Preview (the server's HTML) with a Raw switch.
+`crates/markdown` renders CommonMark with GitHub's extras (pulldown-cmark) and
+sanitises the result (ammonia): repo markdown is user content. Links stay in
+the hub: relative paths resolve in the repo, `rc://` resource links (and bare
+`[[rc://…]]`, titled from the target's `title.md` or first heading) resolve
+to the repo that holds them (this owner first, then WA-Catalog, then newest;
+`ta` also looks for `_tm`), images load from the repo, web links open a tab.
+TSV notes render as a table (2,000 rows at most). en_tw `god.md`, 38 links,
+renders in 15 ms. Not done: a cache by blob (not needed at that speed);
+`rc://` links to a Bible (`book` kind) open the repo, not the verse.
+
 ## Performance notes (2026-10-14, profiled with samply)
 
 - Proofreading: books parse in parallel, and findings map to raw bytes by binary search instead of galley's whole-mask walk (`KITCHEN-RFC.md`). hbo_uhb 4 s → 237 ms, km_ulb (301k findings) 436 ms; output byte-identical on en_ulb, hbo_uhb, km_ulb, ru_ulb. A full proof round on dev-data: about 8.3 s → 5–7 s on a loaded laptop.

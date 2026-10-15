@@ -1057,6 +1057,61 @@
         }
       }
     },
+    "/v1/repos/{owner}/{name}/render/{path}": {
+      "get": {
+        "tags": [],
+        "summary": "A markdown or TSV file as sanitised HTML, links rewritten to the hub's\npages (relative paths, `rc://` resource links) or kept (web links).",
+        "operationId": "render_file",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "path",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rendered"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/repos/{owner}/{name}/tree": {
       "get": {
         "tags": [],
@@ -2623,6 +2678,28 @@
               "string",
               "null"
             ]
+          }
+        }
+      },
+      "Rendered": {
+        "type": "object",
+        "required": [
+          "kind",
+          "html",
+          "truncated"
+        ],
+        "properties": {
+          "html": {
+            "type": "string",
+            "description": "Sanitised HTML, safe to put in the page as is."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`markdown` or `tsv`."
+          },
+          "truncated": {
+            "type": "boolean",
+            "description": "A TSV longer than the rows shown."
           }
         }
       },

@@ -68,7 +68,7 @@ fn fail(status: StatusCode, msg: impl Into<String>) -> Failure {
 }
 
 /// A book file's text at HEAD: the stitched file for a Writer project.
-fn book_text(
+pub(crate) fn book_text(
     s: &AppState,
     owner: &str,
     name: &str,

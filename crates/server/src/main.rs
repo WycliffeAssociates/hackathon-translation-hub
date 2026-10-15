@@ -17,6 +17,7 @@ mod poll;
 mod progress;
 mod proof;
 mod publish;
+mod render;
 mod telemetry;
 
 use std::sync::Arc;

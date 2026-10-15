@@ -1,6 +1,8 @@
-// One file from the tree: USFM in the viewer, text in a <pre>, audio and
+// One file from the tree: USFM in the viewer, markdown and TSV notes rendered
+// by the server (Preview) or as text (Raw), other text in a <pre>, audio and
 // images by URL, anything else as a download link.
-import { Match, Show, Switch, createResource, lazy } from "solid-js";
+import { useNavigate } from "@solidjs/router";
+import { Match, Show, Switch, createResource, createSignal, lazy } from "solid-js";
 import { api, urlOf } from "../../api/client";
 import type { BookRow, CodeCount } from "../../api/types";
 import { Async, Counts, Sparkline } from "../../ui/bits";
@@ -12,6 +14,8 @@ const UsfmViewer = lazy(() => import("../../viewer/UsfmViewer"));
 const ext = (path: string) => path.slice(path.lastIndexOf(".") + 1).toLowerCase();
 const USFM = new Set(["usfm", "sfm"]);
 const TEXT = new Set(["md", "yaml", "yml", "json", "txt", "tsv", "csv", "toml", "xml", "html"]);
+/** Rendered by the server (`/render`): sanitised HTML with hub links. */
+const RENDERED = new Set(["md", "markdown", "tsv"]);
 const AUDIO = new Set(["mp3", "wav", "ogg", "opus", "m4a"]);
 const IMAGE = new Set(["png", "jpg", "jpeg", "svg", "gif", "webp"]);
 
@@ -50,7 +54,7 @@ export default function FileView(props: {
         <Match when={isText()}>
           <Async of={text} what={props.path}>
             {(t) => (
-              <Show when={USFM.has(kind())} fallback={<pre class="code">{t()}</pre>}>
+              <Show when={USFM.has(kind())} fallback={RENDERED.has(kind()) ? <Rendered owner={props.owner} name={props.name} path={props.path} raw={t()} /> : <pre class="code">{t()}</pre>}>
                 {/* Keyed on the text: a new file is a new editor. */}
                 <Show when={t()} keyed>
                   {(body) => (
@@ -79,6 +83,51 @@ export default function FileView(props: {
         </Match>
       </Switch>
     </section>
+  );
+}
+
+/**
+ * Markdown or a TSV note file: Preview (the server's sanitised HTML, links
+ * rewritten to hub pages) or Raw (the text). A link to a hub page moves within
+ * the app; a web link opens a new tab.
+ */
+function Rendered(props: { owner: string; name: string; path: string; raw: string }) {
+  const navigate = useNavigate();
+  const [mode, setMode] = createSignal<"preview" | "raw">("preview");
+  const [html] = createResource(
+    () => mode() === "preview" && { path: { owner: props.owner, name: props.name, path: props.path } },
+    (c) => api.json("/v1/repos/{owner}/{name}/render/{path}", c),
+  );
+  const onClick = (e: MouseEvent) => {
+    const a = (e.target as HTMLElement).closest("a");
+    const href = a?.getAttribute("href");
+    if (!a || !href || e.metaKey || e.ctrlKey || e.shiftKey) return;
+    if (href.startsWith("/repos/")) {
+      e.preventDefault();
+      navigate(href);
+      document.getElementById("files")?.scrollIntoView({ block: "start" });
+    } else if (/^https?:/.test(href)) {
+      a.setAttribute("target", "_blank");
+    }
+  };
+  return (
+    <div class="rendered">
+      <div class="viewer-bar">
+        <div class="seg" role="group" aria-label="View">
+          <button type="button" aria-pressed={mode() === "preview"} onClick={() => setMode("preview")}>Preview</button>
+          <button type="button" aria-pressed={mode() === "raw"} onClick={() => setMode("raw")}>Raw</button>
+        </div>
+        <Show when={mode() === "preview" && html()?.truncated}>
+          <span class="small">The first 2,000 rows are shown.</span>
+        </Show>
+      </div>
+      <Show when={mode() === "preview"} fallback={<pre class="code">{props.raw}</pre>}>
+        <Async of={html} what={`${props.path} rendered`}>
+          {/* Sanitised on the server (hub-markdown: ammonia), so it goes in as is. */}
+          {(r) => <div class="md-preview" classList={{ tsv: r().kind === "tsv" }} innerHTML={r().html} onClick={onClick} />}
+        </Async>
+      </Show>
+    </div>
   );
 }
 

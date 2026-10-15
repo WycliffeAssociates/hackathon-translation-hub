@@ -371,6 +371,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/repos/{owner}/{name}/render/{path}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A markdown or TSV file as sanitised HTML, links rewritten to the hub's
+         *     pages (relative paths, `rc://` resource links) or kept (web links).
+         */
+        get: operations["render_file"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/repos/{owner}/{name}/tree": {
         parameters: {
             query?: never;
@@ -945,6 +965,14 @@ export interface components {
             /** @description `v1.0`. */
             tag: string;
             title?: string | null;
+        };
+        Rendered: {
+            /** @description Sanitised HTML, safe to put in the page as is. */
+            html: string;
+            /** @description `markdown` or `tsv`. */
+            kind: string;
+            /** @description A TSV longer than the rows shown. */
+            truncated: boolean;
         };
         /** @description One repo's count for one check. */
         RepoCodeCount: {
@@ -1742,6 +1770,37 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    render_file: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                name: string;
+                path: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Rendered"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

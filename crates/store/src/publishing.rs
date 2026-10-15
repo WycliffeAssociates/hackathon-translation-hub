@@ -154,7 +154,11 @@ pub struct WriterBook {
 
 /// Every Writer project (served as a synthetic repo) of one language and
 /// brand, by book, with what the catalog says about each.
-pub fn writer_candidates(conn: &Connection, language: &str, resource: &str) -> Result<Vec<WriterBook>> {
+pub fn writer_candidates(
+    conn: &Connection,
+    language: &str,
+    resource: &str,
+) -> Result<Vec<WriterBook>> {
     let mut stmt = conn.prepare(
         "SELECT r.owner, r.name, b.book, b.chapters, b.verses, b.source_verses, b.present,
                 r.head_sha, coalesce(r.head_unix, 0),
@@ -167,21 +171,24 @@ pub fn writer_candidates(conn: &Connection, language: &str, resource: &str) -> R
            AND r.head_sha IS NOT NULL AND r.is_archived = 0 AND b.book != ''
          ORDER BY b.book, r.owner, r.name",
     )?;
-    let rows = stmt.query_map(params![language.to_lowercase(), resource.to_lowercase()], |r| {
-        Ok(WriterBook {
-            owner: r.get(0)?,
-            name: r.get(1)?,
-            book: r.get(2)?,
-            chapters: r.get(3)?,
-            verses: r.get(4)?,
-            source_verses: r.get(5)?,
-            present: r.get(6)?,
-            head_sha: r.get(7)?,
-            head_unix: r.get(8)?,
-            status: r.get(9)?,
-            show_on_biel: r.get::<_, i64>(10)? != 0,
-        })
-    })?;
+    let rows = stmt.query_map(
+        params![language.to_lowercase(), resource.to_lowercase()],
+        |r| {
+            Ok(WriterBook {
+                owner: r.get(0)?,
+                name: r.get(1)?,
+                book: r.get(2)?,
+                chapters: r.get(3)?,
+                verses: r.get(4)?,
+                source_verses: r.get(5)?,
+                present: r.get(6)?,
+                head_sha: r.get(7)?,
+                head_unix: r.get(8)?,
+                status: r.get(9)?,
+                show_on_biel: r.get::<_, i64>(10)? != 0,
+            })
+        },
+    )?;
     Ok(rows.collect::<rusqlite::Result<_>>()?)
 }
 

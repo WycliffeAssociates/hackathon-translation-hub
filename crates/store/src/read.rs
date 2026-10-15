@@ -911,3 +911,21 @@ pub fn proof_rows(
         )?
         .collect::<rusqlite::Result<_>>()?)
 }
+
+/// The repo named `name` (any owner) that a link should go to: `prefer`'s,
+/// then WA-Catalog's, then the newest. `(owner, name, head_sha)`; for
+/// resolving `rc://` links in markdown, which name a resource, not an owner.
+pub fn repo_named(
+    conn: &Connection,
+    name: &str,
+    prefer: &str,
+) -> Result<Option<(String, String, String)>> {
+    Ok(conn
+        .query_row(
+            "SELECT owner, name, head_sha FROM repo WHERE name = ?1 AND head_sha IS NOT NULL
+             ORDER BY (owner = ?2) DESC, (owner = 'wa-catalog') DESC, head_unix DESC LIMIT 1",
+            params![name, prefer],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .optional()?)
+}

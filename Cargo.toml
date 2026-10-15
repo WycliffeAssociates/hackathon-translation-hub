@@ -44,3 +44,4 @@ hub-store = { path = "crates/store" }
 hub-biel = { path = "crates/biel" }
 hub-proof = { path = "crates/proof" }
 hub-history = { path = "crates/history" }
+hub-markdown = { path = "crates/markdown" }
