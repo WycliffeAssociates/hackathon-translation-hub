@@ -1,9 +1,0 @@
-html, body { height: 100%; margin: 0; }
-body { display: flex; flex-direction: column; background: var(--surface-primary, #fff); color: var(--on-surface-primary, #111); font: 14px/1.4 system-ui, sans-serif; }
-.bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 8px 16px; border-bottom: 1px solid var(--surface-border, #ddd); }
-.seg button { padding: 4px 10px; border: 1px solid var(--surface-border, #ccc); background: transparent; color: inherit; cursor: pointer; }
-.seg button[aria-pressed="true"] { background: var(--brand-base, #0056d1); color: #fff; }
-.stats { font: 12px ui-monospace, monospace; opacity: 0.75; }
-#pane { flex: 1; min-height: 0; display: flex; }
-#pane > .cm-editor { flex: 1; height: 100%; }
-#pane .cm-scroller { overflow: auto; }

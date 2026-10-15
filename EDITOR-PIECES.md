@@ -1,63 +1,71 @@
-# Editor pieces: what the hub rebuilt around Sefer's editor
+# Editor pieces: what the hub uses of Sefer's editor
 
-Will wants Sefer's editor to be **installable** (a package other apps mount),
-not forked. This is the one list of everything the hub uses, adds or wishes it
-had, so the package can be cut from it. Keep it current when the viewer changes.
+Will wanted Sefer's editor to be **installable** (a package other apps mount),
+not forked. This list was how the package was cut; it is now the map of what
+the hub takes from it, what the hub keeps of its own, and what it still asks.
+Keep it current when the viewer changes.
 
-Today the hub does not install anything: `web/` imports `spikes/viewer/src`
-through the `@viewer` alias (`web/vite.config.ts`), and `spikes/viewer` is a fork
-of Sefer's editor at Sefer `50aa9cd` (`src/editor-fork/`), read-only, with the
-onion-only engine (build C). The engine itself is scripture-kitchen by tag.
+**Installed (2026-10-15).** `web/` depends on `@sefer/editor` and
+`@sefer/text`, from Sefer by git at master `082c09c` (no `editor-v*` tag yet;
+`web/package.json`, pnpm's `&path:` form). The packages ship TypeScript and
+Vite compiles them; their peers (CodeMirror, `effect`, scripture-kitchen) are
+`web/`'s own dependencies, one copy each. The fork (`spikes/viewer/src/editor-fork/`,
+taken at Sefer `50aa9cd`) and the spike's code are gone; the spike's write-ups
+stay in `spikes/viewer/` as the record. The engine host is the hub's:
+`web/src/engine/onion.ts`.
 
-## 1. Taken from Sefer as-is (the fork)
+## 1. Taken from the package
 
-What the package would export, because the hub already uses it unchanged:
-
-| Piece | Where (fork) | What the hub uses it for |
+| Piece | From | What the hub uses it for |
 |---|---|---|
-| Reading half of the editor: `analyzer`, `readingLayer`, `viewLayer()` | `editor-fork/core`, `views.ts` | Paints USFM the way Sefer does |
-| Projections: `modeView("regular" \| "usfm")`, `pickChapter` | `editor-fork/views.ts` | Regular/USFM switch; clip to one chapter |
-| Document structure: `structureAt(state).chapters` | `editor-fork/core/docStructure.ts` | Chapter list for the navigator |
-| Where am I: `watchLocation(view, report)` | `editor-fork/recipes/whereAmI.ts` | Chapter indicator follows the scroll |
-| Linter with a second source: `usfmLinter`, `showCorpusFindings` | `editor-fork/recipes/lint.ts` | Engine lint plus Sous Chef's stored rows as one set of marks |
-| Arrival mark: `flashing()`, `flash(view, range)` | `editor-fork/recipes/flash.ts` | Lights the span a finding jumps to |
-| Popover, gutter and lint panel styles (under `.cm-host`) | `editor-fork/editor.css` | The tooltip; the pane must carry `cm-host` or it is unstyled |
-| Tokens (light and dark) | `host/tokens.css` | Theme |
-| Engine host: `bootEngine()`, `memoize()` | `host/engine.onion.ts` | Parse + lint in the browser (540 KB wasm) |
+| `seatBook(makeBook(path, source), { analyze })`, `mountBookEditor({ parent, book, readOnly: true })` | `@sefer/editor`, `@sefer/text/book` | The read-only viewer (`web/src/viewer/UsfmViewer.tsx`) |
+| `decode` and `offsetMap(raw).toCanonical` | `@sefer/text/source` | Canonical text (LF, no mark); the server's raw-file offsets mapped onto it |
+| `setPolicy(editorPolicy("regular" \| "usfm"))` | `@sefer/editor` | The Regular/USFM switch; the reader stays put and the marks are redrawn |
+| `book.structure().chapters`, `anchorFrom(row)`, `reveal(range, { scroll: "start" })` | `@sefer/editor` | The chapter navigator's list and its jumps |
+| `onViewport((where, source) => …)` | `@sefer/editor` | The chapter indicator follows the scroll; `source` ("user" or "reveal") replaces the hub's scrollTop pin |
+| `jump(range, "center")` and `reveal(range, { select: true })` | `@sefer/editor` | Go to a finding: select, scroll, flash |
+| `diagnostics()` and `onDiagnostics(cb)` | `@sefer/editor` | The rail lists what the linter draws, told only when the set changes |
+| `setHostDiagnostics(findings)` with `stamp: book.source().stamp` | `@sefer/editor` | Sous Chef's stored rows drawn with the engine's lint as one set |
+| `addressAt(offset)`, `revealAddress(address)` | `@sefer/editor`, `@sefer/text/location/address` | A mark's `3:16` in the rail; the `?v=3:16` link from a chart |
+| `createAlignedGroup()` | `@sefer/editor` | The Checks tab: the text and its source kept on the same verse as either scrolls |
+| `editor.css` (popover, gutter, lint styles under `.cm-host`) | `@sefer/editor/editor.css` | The pane carries `cm-host` |
+| `Analysis` | `@sefer/text/engine/analysis` | The type the hub's engine host returns |
 
-## 2. Added in the hub's copy (candidates for the package)
+No hub file imports `@codemirror/*`: everything goes through the package's handle.
 
-| Piece | Where | Why it belongs in the editor |
+## 2. The hub's own (and which of its old wishes the package meets)
+
+| Piece | Where | Status |
 |---|---|---|
-| `mountViewer({parent, text, analyze, mode})`: a read-only viewer in one call | `spikes/viewer/src/viewer/mountViewer.ts` | Every host that only shows text wants this, not the editing apparatus |
-| `reveal(from, to)`: select, scroll to a third of the pane, flash | `mountViewer.ts` | "Go to this finding" is the same in every host |
-| `diagnostics()` / `onDiagnostics(cb)`: what the linter draws, announced only when the set changes | `mountViewer.ts` | Lets a host list marks beside the text (the rail) without reaching into CodeMirror's lint state |
-| Re-lint on a reconfiguration (mode switch) | `editor-fork/recipes/lint.ts` `needsRefresh` | **Bug fix.** Marks hidden by paint in Regular stayed hidden in USFM. Check Sefer for the same bug |
-| Sefer's `\s5` policy in the browser engine (`setExtensions` per text, `^\s5[ \t]*$`) | `host/engine.onion.ts` | **Bug fix.** Without it en_ulb Genesis shows 634 unknown-marker + 384 missing-paragraph the server never counts. The policy should live with the engine host, once |
-| CRLF canonicalisation that maps server offsets (UTF-16 into the raw file) to LF offsets | `web/src/viewer/UsfmViewer.tsx` `canonical()` | Any host fed offsets computed on raw text needs it |
-| Offset → `3:16` | `UsfmViewer.tsx` `addresses()` | Sefer has a better one (`core/location/locate.ts`); use that |
-| Chapter navigator: ‹ [Chapter 5 of 28 ▾] ›, a hundred-chart grid tinted by lint and marked where verses are missing; follows the scroll and stays pinned after a jump (a short last chapter cannot reach the top); `[` `]` and Alt+←/→ | `web/src/viewer/ChapterNav.tsx`, pin logic in `UsfmViewer.tsx` | Sefer's LocationBar does chapter + book; the grid and the marks are the hub's |
-| Findings rail: marks grouped by check, worst then noisiest; filters (words, engine, severity); this book / all books; a row selects its span; same-message rows show the marked text with invisible characters spelled out (`⟨200B⟩`); counted-by-scan vs drawn reconciliation | `web/src/viewer/FindingsRail.tsx` | A host-agnostic "problems panel" for the editor |
-| Source comparison card: the verse beside its source verse, length bars on one scale, this verse's ratio vs the book's usual (median), versification note for missing/extra | `web/src/viewer/SourceCompare.tsx` (draws; the server pairs and counts) | The reason behind a source-compared finding; Sefer's reference pane could host it |
-| Verse pairs with the source, in Sous Chef's terms | `crates/proof/src/compare.rs`, `/v1/repos/{o}/{n}/books/{book}/compare` | Was a regex in the browser; now galley's `OnionBook` verses and sous's `count_atoms`, the length lane's own numbers. An installed editor would call the engine the same way |
+| A read-only viewer in one call | was `mountViewer` | **Met**: `mountBookEditor({ readOnly: true })` |
+| Go to a finding: select, scroll, flash | was `mountViewer.reveal` | **Met**: `jump` plus `reveal({ select })` |
+| What the linter draws, told when it changes | was `mountViewer.onDiagnostics` | **Met**: `diagnostics()`, `onDiagnostics` |
+| Re-lint after a mode switch | was the fork's `needsRefresh` fix | **Met**: in the package |
+| CRLF offsets from the server | was `canonical()` | **Met**: `offsetMap` |
+| Offset → `3:16` | was `addresses()` | **Met**: `addressAt` |
+| The chapter indicator pinned after a jump | was a scrollTop pin | **Met**: `onViewport`'s `source` |
+| Verse pairing between panes | wished | **Met**: `createAlignedGroup` (the Checks tab) |
+| Sefer's `\s5` policy in the browser engine | `web/src/engine/onion.ts` | The hub's, as the handoff asked; it should live with the engine host once |
+| Chapter navigator (‹ [Chapter 5 of 28 ▾] ›, the hundred-chart grid, `[` `]`) | `web/src/viewer/ChapterNav.tsx` | The hub's UI |
+| Findings rail (checks grouped, filters, this book / all books, invisible characters spelled out, scan-vs-drawn reconciliation) | `web/src/viewer/FindingsRail.tsx` | The hub's UI |
+| Source comparison card | `web/src/viewer/SourceCompare.tsx`; the server pairs and counts | The hub's UI |
+| Verse pairs with the source, in Sous Chef's terms | `crates/proof/src/compare.rs` | The hub's server |
 
-## 3. In Sefer, wanted here, not built
+## 3. Asks for Sefer (what the package lacks)
 
-| Piece | Where in Sefer (`50aa9cd`) | Notes |
+- **scripture-kitchen v0.1.10.** `@sefer/text`'s message rendering expects kitchen 0.1.10 to fill `{aux}` itself; the hub still pins 0.1.9 everywhere (Rust and web, bumped together by rule), so a message with `{aux}` ("expected {aux}") shows the placeholder until the hub moves to 0.1.10. Either the hub bumps (its next step), or the package fills `{aux}` when the engine did not.
+- **A release tag.** The hub installs by commit SHA; an `editor-v0.1.0` tag would make the pin readable.
+- **The reading-only build.** The fork let the hub drop the editing layer (`virtual:viewer-layers` → `layers.split.ts`), for about 263 KB brotli. `seatBook` always adds the commands and note editing; a read-only seat (or a reading-only extension set) would let a viewer ship less.
+- **Marker settings are page-wide.** The engine's `setExtensions` is one process-wide registry; two viewers with different marker policies on one page would interfere (already logged with scripture-kitchen).
+- **The flash is shorter** than the fork's (about a second against 1.6 s). Fine; noted in case a host wants to choose.
+
+## 4. In Sefer, wanted here, not built
+
+| Piece | Where in Sefer | Notes |
 |---|---|---|
-| Location bar: Book · Chapter breadcrumb, book picker, ‹ › | `src/app/ui/workspace/LocationBar.tsx`, `Crumbs.tsx` | Solid 2 in Sefer, Solid 1.9 in the hub: a package would need one |
-| Address parser: "mark 3", "Lucas 3:1", `ROM 9:30-10:4` | `src/core/location/` (`citation.ts`, `names.ts`, `canon.ts`, `address.ts`; ~735 lines, plain TS) | Also for the "reference in prose → popover" idea |
+| Location bar: Book · Chapter breadcrumb, book picker, ‹ › | `src/app/ui/workspace/LocationBar.tsx`, `Crumbs.tsx` | Solid 2 in Sefer, Solid 1.9 in the hub |
+| Address parser: "mark 3", "Lucas 3:1", `ROM 9:30-10:4` | `@sefer/text/location/citation` (now installable) | For the "reference in prose → popover" idea |
 | Find in book / project | `Toolbar.tsx` search → `/find` | In-book find is CodeMirror's; project-wide needs a server route |
-| Reference pane (a second text, painted the same, read-only) | `editor-fork/recipes/reference.ts` (already in the fork, unused) | The source text beside the book; about half a day, chapter-synced |
-| Verse pairing between panes | `editor-fork/recipes/pairing.ts`, `align.ts` (in the fork, unused) | Click a verse, its source lights; about a day more |
-| Lint Fix actions | `lint.ts` (refused here by the read-only change filter) | For an installable *editor*, these come back |
+| Lint Fix actions | the package (`readOnly` hides them) | For an editing host |
 
 Not editor, but ported from Sefer too: `crates/history` is `src/core/migrate/writerHistory.ts` (Writer saves replayed as book-file commits) in Rust; Sefer's hand-written pack (`src/core/git/pack.ts`) is replaced by libgit2's in-memory store dumped as one pack.
-
-## 4. Packaging notes for when it is cut
-
-- The engine wasm is an asset (`?url` import); a package must let the host serve it.
-- The engine's extensions (`setExtensions`) are process-wide: one policy per page, decided per text.
-- CodeMirror must be a peer dependency, or two copies split the lint state (`forEachDiagnostic` sees nothing).
-- Styles are keyed on `.cm-host`; export that as the documented host class.
-- Solid 1.9 (hub) vs Solid 2 (Sefer): the UI pieces (navigator, rail, compare) need one version, or a framework-free core with thin wrappers.

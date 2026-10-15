@@ -19,8 +19,9 @@ crates/
   store      SQLite: migrations/, writes, read models (= API bodies)
   server     hub-server: /v1, soft poll, catalog refresh, wide-event logs
   hub-scan   CLI: the pipeline over a root → JSON or SQLite
-web/         Vite + Solid + Effect; types generated from the OpenAPI
-spikes/viewer  Sefer's editor forked as a read-only USFM viewer (the web app uses it)
+web/         Vite + Solid + Effect; types generated from the OpenAPI; the USFM
+             viewer is Sefer's editor installed (@sefer/editor, @sefer/text by git)
+spikes/viewer  the retired fork's write-ups (the code is gone; EDITOR-PIECES.md)
 scripts/     verify.py (end-to-end), latency.py (response times from logs)
 ```
 
@@ -28,8 +29,8 @@ scripts/     verify.py (end-to-end), latency.py (response times from logs)
 
 - **Never write** to Forgejo's repos, Forgejo's database, or `dev-data/`. Everything the hub owns is its SQLite and its logs. `scripts/verify.py` checks `dev-data/` was not written; keep it passing.
 - **Public repos only.** The repo list comes from Forgejo's `repository` table (`is_private = 0`); the disk also holds private repos.
-- **scripture-kitchen by git tag**, never by path (`Cargo.toml`, `crates/proof/Cargo.toml`, `spikes/viewer/package.json`). Bump all of them together, along with `KITCHEN_TAG` in `crates/checks` and `crates/proof`.
-- **Sefer is read-only** (`../Sefer`): port from its committed HEAD and name the file and commit you ported from.
+- **scripture-kitchen by git tag**, never by path (`Cargo.toml`, `crates/proof/Cargo.toml`, `web/package.json`). Bump all of them together, along with `KITCHEN_TAG` in `crates/checks` and `crates/proof`.
+- **Sefer is read-only** (`../Sefer`): port from its committed HEAD and name the file and commit you ported from. Its editor is installed, not copied: `@sefer/editor` and `@sefer/text` by git in `web/package.json`. Do not patch the packages inside the hub; write what is missing as an ask in `EDITOR-PIECES.md`.
 - No editing features in the hub: Sefer is the editor.
 - Do not push, and do not run anything on the wacsdev server without asking.
 

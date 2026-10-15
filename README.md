@@ -9,7 +9,7 @@ A read-only service beside WACS (Forgejo) that shows Bible translation work in t
 - `crates/` — the Rust side (below).
 - `web/` — the thin web app (Vite + Solid + Effect), calling `/v1` only.
 - `scripts/` — `verify.py` (run the real thing and check it), `latency.py` (response times from the logs).
-- `spikes/viewer/` — Sefer's editor forked into a read-only USFM viewer, with sizes and the seams to make Sefer's editor importable.
+- `spikes/viewer/` — the write-ups of the retired fork of Sefer's editor (sizes, seams). The web app now installs the editor (`@sefer/editor`, `@sefer/text`); `EDITOR-PIECES.md` maps it.
 - `fixtures/` — `hub-scan` output for 15 repos of every shape, and two synthetic repos as served.
 
 ## The Rust workspace
@@ -63,4 +63,4 @@ Will, 2026-10-12: build the agreed core end to end as a proposal the coworker ca
 - **Lint counting:** `hint` findings count under `infos`; only severity-`form` rows are skipped (the form *category* includes some hints and infos, e.g. `delimiter-surplus`, which dominates infos). One line to change if ranking should drop the whole category.
 - **Synthetic repos** require subject Bible *and* USFM chunks — Writer also writes notes and questions in markdown, book by book. A book's fallback title is the manifest's project name, else the book id (Sefer uses either, depending on the call site).
 - **Remaining synthetic warnings are real:** a literal `\n` typed into text (1,571), `\v18` without a space, `\V`.
-- **The viewer** should ship as the spike's build C (onion-only wasm, reading layers only): ~263 KB brotli, no Solid, no Effect. `spikes/viewer/REUSABLE.md` lists eight safe steps to make Sefer's editor importable instead of forked.
+- **The viewer** is Sefer's editor, installed as packages (2026-10-15) and mounted read-only, with the hub's onion-only engine. The fork's reading-only build (~263 KB brotli) is not available from the package yet: an ask in `EDITOR-PIECES.md`.

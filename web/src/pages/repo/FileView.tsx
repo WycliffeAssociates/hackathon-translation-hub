@@ -8,6 +8,7 @@ import type { BookRow, CodeCount } from "../../api/types";
 import { Async, Counts, Sparkline } from "../../ui/bits";
 import type { SourceRef } from "../../viewer/SourceCompare";
 import type { Range, ViewerFinding } from "../../viewer/UsfmViewer";
+import type { AlignedGroup } from "@sefer/editor";
 
 const UsfmViewer = lazy(() => import("../../viewer/UsfmViewer"));
 
@@ -37,6 +38,8 @@ export default function FileView(props: {
   /** The chapter in view, for a second pane that follows it. */
   onChapter?: (label: string) => void;
   onPicked?: (ref: string) => void;
+  /** Panes kept on the same verse (the Checks tab's text and source). */
+  align?: AlignedGroup;
 }) {
   const call = () => ({ path: { owner: props.owner, name: props.name, path: props.path }, query: { source: props.source || undefined } });
   const url = () => urlOf("/v1/repos/{owner}/{name}/file/{path}", call());
@@ -75,6 +78,7 @@ export default function FileView(props: {
                       source={props.compareWith}
                       onChapter={props.onChapter}
                       onPicked={props.onPicked}
+                      align={props.align}
                     />
                   )}
                 </Show>

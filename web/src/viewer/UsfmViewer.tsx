@@ -1,17 +1,30 @@
-// The read-only USFM viewer, imported from the spike (spikes/viewer/src via
-// the `@viewer` alias; see vite.config.ts) rather than copied. The spike's
-// `mountViewer` is Sefer's editor in read-only mode with the engine's
-// diagnostics drawn inline; this component adds the mode toggle, a chapter
-// navigator that follows the scroll (the fork's `watchLocation`), proofreading
-// findings as underlines, "go to this range", and the rail beside the text
-// listing every mark it draws.
+// The read-only USFM viewer: Sefer's editor, installed as a package
+// (`@sefer/editor` and `@sefer/text`, from Sefer by git; see web/package.json)
+// and mounted read-only. The engine is the hub's (src/engine/onion.ts); the
+// package draws its diagnostics inline. This component adds the hub's own UI
+// around it: the mode toggle, a chapter navigator that follows the scroll,
+// proofreading findings as underlines, "go to this range", and the rail
+// beside the text listing every mark it draws. It never touches CodeMirror:
+// everything goes through the package's handle.
 import { Show, createEffect, createMemo, createSignal, on, onCleanup, onMount } from "solid-js";
-import "@viewer/host/tokens.css";
-import "@viewer/editor-fork/editor.css";
-import { bootEngine } from "@viewer/host/engine.onion";
-import { mountViewer, type Shown, type ViewerMount } from "@viewer/viewer/mountViewer";
-import { showCorpusFindings, type CorpusFinding } from "@viewer/editor-fork/recipes/lint";
-import { watchLocation } from "@viewer/editor-fork/recipes/whereAmI";
+import "../engine/tokens.css";
+import "@sefer/editor/editor.css";
+import {
+  anchorFrom,
+  editorPolicy,
+  mountBookEditor,
+  seatBook,
+  type AlignedGroup,
+  type BookEditorMount,
+  type CorpusFinding,
+  type DrawnDiagnostic,
+  type EditorBook,
+} from "@sefer/editor";
+import { makeBook } from "@sefer/text/book";
+import type { Address } from "@sefer/text/location/address";
+import { decode, offsetMap, type Source } from "@sefer/text/source";
+import { Result } from "effect";
+import { bootEngine } from "../engine/onion";
 import type { BookRow, CodeCount, PairedEvidence } from "../api/types";
 import ChapterNav from "./ChapterNav";
 import FindingsRail, { type RailItem } from "./FindingsRail";
@@ -34,83 +47,16 @@ export interface ViewerFinding extends Range {
 
 type Mode = "regular" | "usfm";
 
-/**
- * The engine reads LF text only. Offsets from the server count UTF-16 units in
- * the raw file, so a file with CRs needs its offsets moved back by the CRs
- * before them.
- */
-/**
- * Chapter:verse for an offset into the (LF) text, from its `\c` and `\v`
- * markers: `3:16`, `3` before the chapter's first verse, `intro` before `\c`.
- */
-/**
- * Where verse `c:v` is in the (LF) text: from its `\v` marker to the next
- * `\v`, `\c` or the end. A bridge `3-4` answers 3 and 4. `null` when absent.
- */
-export function verseRange(text: string, chapter: number, verse: number): Range | null {
-  let inChapter = false;
-  let start: number | null = null;
-  // The end stops before the line break and indent that lead to the next marker.
-  const trimmed = (from: number, to: number) => {
-    while (to > from && /\s/.test(text[to - 1]!)) to--;
-    return { from, to };
-  };
-  for (const m of text.matchAll(/\\(c|v)\s+(\d+)(?:-(\d+))?/g)) {
-    if (start !== null) return trimmed(start, m.index);
-    if (m[1] === "c") {
-      inChapter = Number(m[2]) === chapter;
-      continue;
-    }
-    const first = Number(m[2]);
-    const last = m[3] ? Number(m[3]) : first;
-    if (inChapter && first <= verse && verse <= last) start = m.index;
-  }
-  return start === null ? null : trimmed(start, text.length);
-}
-
-function addresses(text: string): (offset: number) => string {
-  const marks: { at: number; c?: string; v?: string }[] = [];
-  for (const m of text.matchAll(/\\(c|v)\s+(\d+[a-z]?(?:-\d+[a-z]?)?)/g)) {
-    marks.push(m[1] === "c" ? { at: m.index, c: m[2] } : { at: m.index, v: m[2] });
-  }
-  return (offset) => {
-    let lo = 0;
-    let hi = marks.length;
-    while (lo < hi) {
-      const mid = (lo + hi) >> 1;
-      if (marks[mid]!.at <= offset) lo = mid + 1;
-      else hi = mid;
-    }
-    let verse: string | undefined;
-    for (let i = lo - 1; i >= 0; i--) {
-      const m = marks[i]!;
-      if (m.v !== undefined) verse ??= m.v;
-      if (m.c !== undefined) return verse ? `${m.c}:${verse}` : m.c;
-    }
-    return "intro";
-  };
-}
+/** `3:16`, `3` for a chapter, `intro` before the first chapter: how the rail names a place. */
+const label = (a: Address | undefined): string => {
+  if (a === undefined || a.kind === "book" || a.kind === "intro") return "intro";
+  if (a.kind === "chapters") return String(a.from);
+  return `${a.from.chapter}:${a.from.verse}`;
+};
 
 /** Format characters (zero-width space, joiners, marks) as `⟨200B⟩`, so a row can show what it is about. */
 const visible = (s: string) =>
   s.replace(/[\n\t]+/g, " ").replace(/\p{Cf}/gu, (c) => `⟨${c.codePointAt(0)!.toString(16).toUpperCase().padStart(4, "0")}⟩`);
-
-function canonical(raw: string): { text: string; at: (offset: number) => number } {
-  if (!raw.includes("\r")) return { text: raw, at: (o) => o };
-  const crs: number[] = [];
-  for (let i = raw.indexOf("\r"); i >= 0; i = raw.indexOf("\r", i + 1)) crs.push(i);
-  const text = raw.replace(/\r\n?/g, "\n");
-  // A lone \r became \n (same length); only \r\n pairs shrink.
-  const removed = crs.filter((i) => raw[i + 1] === "\n");
-  return {
-    text,
-    at: (o) => {
-      let n = 0;
-      while (n < removed.length && removed[n]! < o) n++;
-      return o - n;
-    },
-  };
-}
 
 export default function UsfmViewer(props: {
   text: string;
@@ -137,63 +83,81 @@ export default function UsfmViewer(props: {
   onChapter?: (label: string) => void;
   /** A finding was picked in the rail: its place, `3:15`, for a second pane to light. */
   onPicked?: (ref: string) => void;
+  /** Panes shown side by side, kept on the same verse as either one scrolls (the package's aligned group). */
+  align?: AlignedGroup;
   onReady?: () => void;
 }) {
   let host!: HTMLDivElement;
-  const [mount, setMount] = createSignal<ViewerMount>();
+  const [mount, setMount] = createSignal<BookEditorMount>();
   /** The chapter label in view (`""` in the front matter). */
   const [current, setCurrent] = createSignal("");
   const [mode, setMode] = createSignal<Mode>("regular");
-  createEffect(on(current, (label) => label && props.onChapter?.(label), { defer: true }));
+  createEffect(on(current, (l) => l && props.onChapter?.(l), { defer: true }));
   const [failed, setFailed] = createSignal<string>();
-  const doc = canonical(props.text);
-  const where = addresses(doc.text);
-  const [shown, setShown] = createSignal<readonly Shown[]>([]);
+  // The package's canonical text: LF, no byte-order mark. The server's offsets
+  // count the raw file, so they go through the offset map.
+  const decoded = decode(new TextEncoder().encode(props.text));
+  const source: Source | undefined = Result.isSuccess(decoded) ? decoded.success : undefined;
+  const text = source?.text ?? "";
+  const raw = offsetMap(props.text);
+  let book: EditorBook | undefined;
+  const [shown, setShown] = createSignal<readonly DrawnDiagnostic[]>([]);
   /** Sous Chef's source-compared rows by code and start, to find the evidence behind a drawn mark. */
   const comparedAt = createMemo(() => {
     const by = new Map<string, Compared>();
     for (const f of props.findings) {
       if (f.paired && f.chapter !== undefined) {
-        by.set(`${f.code}@${doc.at(f.from)}`, { code: f.code, chapter: f.chapter, verse: f.verse, paired: f.paired });
+        by.set(`${f.code}@${raw.toCanonical(f.from)}`, { code: f.code, chapter: f.chapter, verse: f.verse, paired: f.paired });
       }
     }
     return by;
   });
-  const items = createMemo<RailItem[]>(() =>
-    shown().map((d) => {
-      const slash = d.source.indexOf("/");
-      const engine = d.source.slice(0, slash);
-      const code = d.source.slice(slash + 1);
+  const items = createMemo<RailItem[]>(() => {
+    const m = mount();
+    return shown().map((d) => {
+      const tag = d.source ?? "";
+      const slash = tag.indexOf("/");
+      const engine = tag.slice(0, slash);
+      const code = tag.slice(slash + 1);
       return {
         compared: engine === "sous" ? comparedAt().get(`${code}@${d.from}`) : undefined,
         from: d.from,
         to: d.to,
         engine: engine === "onion" ? "lint" : engine,
-        code: d.source.slice(slash + 1),
+        code,
         severity: d.severity === "hint" ? ("info" as const) : d.severity,
         message: d.message,
-        ref: where(d.from),
-        context: visible(doc.text.slice(Math.max(0, d.from - 12), d.to + 12)).trim(),
+        ref: label(m?.addressAt(d.from)),
+        context: visible(text.slice(Math.max(0, d.from - 12), d.to + 12)).trim(),
       };
-    }),
-  );
+    });
+  });
 
   onMount(() => {
     let alive = true;
-    let unwatch = () => {};
-    let unlisten = () => {};
+    let detach: (() => void)[] = [];
     onCleanup(() => {
       alive = false;
-      unwatch();
-      unlisten();
+      for (const d of detach) d();
       mount()?.destroy();
+      book?.close();
     });
+    if (source === undefined) {
+      setFailed("the file is not valid UTF-8");
+      return;
+    }
     bootEngine().then(
       (engine) => {
         if (!alive) return;
-        const m = mountViewer({ parent: host, text: doc.text, analyze: engine.memoize(), mode: mode() });
-        unwatch = watchLocation(m.view, (at) => follow(m, at?.label ?? ""));
-        unlisten = m.onDiagnostics(setShown);
+        book = seatBook(makeBook(props.book?.path ?? "book.usfm", source), { analyze: engine.memoize() });
+        const m = mountBookEditor({ parent: host, book, readOnly: true });
+        m.setPolicy(editorPolicy(mode()));
+        detach = [
+          m.onViewport((where, why) => follow(where?.label ?? "", why)),
+          m.onDiagnostics(setShown),
+          ...(props.align ? [props.align.join({ editor: m, book: book.id })] : []),
+        ];
+        setShown(m.diagnostics());
         setMount(m);
         props.onReady?.();
       },
@@ -201,37 +165,30 @@ export default function UsfmViewer(props: {
     );
   });
 
-  createEffect(
-    on([mount, mode], ([m, md]) => {
-      if (!m) return;
-      m.setMode(md);
-      // The text reflows under a still scroller; ask again where we are.
-      requestAnimationFrame(() => m.view.scrollDOM.dispatchEvent(new Event("scroll")));
-    }),
-  );
+  // The package keeps the reader in place across a mode flip and redraws its marks.
+  createEffect(on([mount, mode], ([m, md]) => m?.setPolicy(editorPolicy(md))));
 
   createEffect(() => {
     const m = mount();
-    if (!m) return;
-    const stamp = { revision: 0, length: doc.text.length };
+    if (!m || !book) return;
+    const stamp = book.source().stamp;
     const list: CorpusFinding[] = props.findings.map((f, i) => ({
       id: `${i}`,
       code: f.code,
       severity: f.severity,
       message: f.message,
-      from: doc.at(f.from),
-      to: doc.at(f.to),
+      from: raw.toCanonical(f.from),
+      to: raw.toCanonical(f.to),
       stamp,
     }));
-    showCorpusFindings(m.view, list);
+    m.setHostDiagnostics(list);
   });
 
   createEffect(() => {
     const m = mount();
     const f = props.focus;
     if (!m || !f) return;
-    m.clipTo(null);
-    reveal(m, doc.at(f.from), doc.at(f.to));
+    reveal(m, raw.toCanonical(f.from), raw.toCanonical(f.to));
   });
 
   /** Lint the scan counted that the viewer draws less of (the two engines' policies differ). */
@@ -245,47 +202,52 @@ export default function UsfmViewer(props: {
     });
   };
 
-  /** Select a range, a third of the way down the pane, lit for a moment; the chapter indicator follows. */
-  function reveal(m: ViewerMount, from: number, to: number) {
+  /** Select a range in the middle of the pane, lit for a moment; the chapter indicator follows. */
+  function reveal(m: BookEditorMount, from: number, to: number) {
     pinned = null;
-    m.reveal(from, to);
+    // Select first, then jump (caret, scroll, flash). CodeMirror estimates the
+    // height of text it has not drawn, so a jump deep into a book lands near the
+    // place; once that part is drawn, a second scroll lands on it (the package's
+    // `resume` does the same).
+    m.reveal({ from, to }, { select: true, scroll: "none" });
+    m.jump({ from, to }, "center");
+    requestAnimationFrame(() => m.reveal({ from, to }, { select: true, scroll: "center" }));
+    props.align?.lead(m);
   }
 
-  const labels = () => mount()?.chapters().flatMap((c) => (c.label ? [c.label] : [])) ?? [];
+  const labels = () => {
+    mount();
+    return book?.structure().chapters.flatMap((c) => (c.label ? [c.label] : [])) ?? [];
+  };
 
   // After a jump the indicator says where we asked to go, until the reader
   // scrolls: a short last chapter cannot reach the top of the pane, and the
   // scroll position alone would name the one above it (and "next" would stick).
-  let pinned: { label: string; top: number | null } | null = null;
-  function follow(m: ViewerMount, label: string) {
-    if (pinned) {
-      if (pinned.top === null || Math.abs(m.view.scrollDOM.scrollTop - pinned.top) < 4) return;
+  let pinned: string | null = null;
+  function follow(l: string, why: "user" | "reveal") {
+    if (pinned !== null) {
+      if (why === "reveal") return;
       pinned = null;
     }
-    setCurrent(label);
+    setCurrent(l);
   }
 
-  const goTo = (label: string) => {
+  const goTo = (l: string) => {
     const m = mount();
-    const row = m?.chapters().find((c) => c.label === label);
+    const row = book?.structure().chapters.find((c) => c.label === l);
     if (!m || !row) return;
-    const pin = { label, top: null as number | null };
-    pinned = pin;
-    setCurrent(label);
-    m.scrollTo(row.ordinal);
-    // CodeMirror scrolls on its next measure, and may correct once its height
-    // estimates are replaced by real lines; take the position after that.
-    setTimeout(() => pinned === pin && (pin.top = m.view.scrollDOM.scrollTop), 200);
+    pinned = l;
+    setCurrent(l);
+    m.reveal({ from: anchorFrom(row) }, { scroll: "start" });
+    props.align?.lead(m);
   };
   createEffect(on([mount, () => props.chapter], ([m, ch]) => m && ch && goTo(ch)));
   createEffect(
     on([mount, () => props.verse], ([m, v]) => {
       const [c, n] = (v ?? "").split(":").map(Number);
-      const r = m && c && n ? verseRange(doc.text, c, n) : null;
-      if (m && r) {
-        m.clipTo(null);
-        reveal(m, r.from, r.to);
-      }
+      if (!m || !book || !c || !n) return;
+      pinned = null;
+      m.revealAddress({ kind: "verses", book: book.id, from: { chapter: c, verse: n }, to: { chapter: c, verse: n } }, "center");
     }),
   );
 
@@ -318,8 +280,8 @@ export default function UsfmViewer(props: {
             current={current()}
             book={props.book}
             onStep={step}
-            onPick={(label) => {
-              goTo(label);
+            onPick={(l) => {
+              goTo(l);
               host.focus({ preventScroll: true });
             }}
           />
@@ -329,7 +291,7 @@ export default function UsfmViewer(props: {
       <Show when={failed()}>{(e) => <div class="failure">Viewer failed: {e()}</div>}</Show>
       <div class="viewer-body">
         {/* Focusable, so a click in the text puts the [ ] keys here. `cm-host`
-            is what the fork's editor.css keys its popover and gutter on. */}
+            is what the package's editor.css keys its popover and gutter on. */}
         <div class="viewer-pane cm-host" ref={host} data-mode={mode()} tabIndex={0} aria-label="Book text" />
         <Show when={props.rail !== false && mount()}>
           {(m) => (

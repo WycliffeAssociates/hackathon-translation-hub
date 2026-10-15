@@ -35,8 +35,8 @@ commands; that needs cmake). Docker is optional.
 #    a dump of Forgejo's repository table). It is read-only; never edit it.
 ls dev-data/repositories dev-data/sql
 
-# 2. The web app's dependencies (the viewer is built from spikes/viewer)
-(cd spikes/viewer && pnpm install)
+# 2. The web app's dependencies (the viewer is Sefer's editor, installed from
+#    Sefer by git: needs git credentials for github.com)
 (cd web && pnpm install && pnpm build)
 
 # 3. Check everything end to end: builds the server, runs it on dev-data,

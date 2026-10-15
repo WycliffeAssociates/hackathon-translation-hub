@@ -20,13 +20,12 @@ FROM node:22-bookworm-slim AS web
 RUN npm install -g pnpm@10.18.0
 ENV npm_config_strict_dep_builds=false
 WORKDIR /src
-# The viewer is aliased from the spike, so both trees are needed.
-COPY spikes/viewer/package.json spikes/viewer/pnpm-lock.yaml spikes/viewer/
 COPY web/package.json web/pnpm-lock.yaml web/
+# git: Sefer's editor packages and scripture-kitchen are git dependencies.
+# Sefer's repo is private: the build needs git credentials for github.com
+# (for example a BuildKit secret or a token in the git config) to install them.
 RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates && rm -rf /var/lib/apt/lists/*
-RUN cd spikes/viewer && pnpm install --frozen-lockfile --ignore-workspace
 RUN cd web && pnpm install --frozen-lockfile --ignore-workspace
-COPY spikes/viewer spikes/viewer
 COPY web web
 RUN cd web && pnpm build
 

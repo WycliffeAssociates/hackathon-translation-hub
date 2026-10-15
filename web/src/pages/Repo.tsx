@@ -22,6 +22,7 @@ import Releases from "./repo/Releases";
 import SourcePane from "./repo/SourcePane";
 import { SourcesView } from "./Sources";
 import type { RepoDetail } from "../api/types";
+import type { AlignedGroup } from "@sefer/editor";
 import { me } from "../ui/session";
 import { StarButton } from "../ui/Star";
 
@@ -112,6 +113,13 @@ export default function Repo() {
     return r.books.find((b) => b.book === book)?.path ?? r.books[0]?.path;
   };
   const [sourceShown, setSourceShown] = createSignal(true);
+  // The Checks tab's panes, kept on the same verse: a fresh aligned group per
+  // book. Imported on demand, so this page's chunk carries no editor code; the
+  // viewer loads the same chunk anyway.
+  const [aligned] = createResource(
+    () => (tab() === "checks" ? (shownFile() ?? "") : false),
+    () => import("@sefer/editor").then((m) => m.createAlignedGroup()),
+  );
   // The Files tab's tree, folded or not: this browser's preference.
   const [treeFolded, setTreeFoldedSignal] = createSignal((() => {
     try {
@@ -150,8 +158,9 @@ export default function Repo() {
     const book = corpus?.books.find((b) => b.id === path);
     return corpus?.source && book?.source ? { owner: r.owner, name: r.name, book: book.book } : null;
   };
-  const view = (r: RepoDetail, path: string) => (
+  const view = (r: RepoDetail, path: string, align?: AlignedGroup) => (
     <FileView
+      align={align}
       owner={r.owner}
       name={r.name}
       path={path}
@@ -305,14 +314,22 @@ export default function Repo() {
                         )}
                       </Show>
                     </div>
-                    <div class="viewer-col">{view(r(), path)}</div>
-                    <Show when={sourceShown() && sourceCandidates().length}>
-                      <SourcePane
-                        candidates={sourceCandidates()}
-                        book={r().books.find((b) => b.path === path)?.book ?? ""}
-                        chapter={following()}
-                        verse={pickedVerse()}
-                      />
+                    {/* One aligned group per book: the text and the source stay on the same verse as either scrolls. */}
+                    <Show when={aligned()}>
+                      {(group) => (
+                        <>
+                          <div class="viewer-col">{view(r(), path, group())}</div>
+                          <Show when={sourceShown() && sourceCandidates().length}>
+                            <SourcePane
+                              candidates={sourceCandidates()}
+                              book={r().books.find((b) => b.path === path)?.book ?? ""}
+                              chapter={following()}
+                              verse={pickedVerse()}
+                              align={group()}
+                            />
+                          </Show>
+                        </>
+                      )}
                     </Show>
                   </section>
                 )}

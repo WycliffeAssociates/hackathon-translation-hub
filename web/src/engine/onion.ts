@@ -1,18 +1,23 @@
 /**
- * The viewer's engine, onion-only: the stateless parser wasm (540 KB) instead
- * of the galley handle (1.28 MB, which adds sous/corpus/find/toc/mask/diff).
- * Same `Analyze` contract as engine.galley.ts; the editor cannot tell them apart.
- * Build with ENGINE=onion.
+ * The hub's engine for the viewer, onion-only: the stateless parser wasm
+ * (540 KB) instead of the galley handle (1.28 MB, which adds sous/corpus/find/
+ * toc/mask/diff). The editor package (`@sefer/editor`) takes the engine from
+ * its host: `memoize()` is what `seatBook` gets as `analyze`. Moved here from
+ * the viewer spike (spikes/viewer/src/host/engine.onion.ts) when the hub
+ * installed the package (2026-10-15); the `\s5` policy below is the hub's.
  */
 
 import wasmUrl from "@wycliffeassociates/scripture-kitchen/onion/web/wasm?url";
 import { initSync, parse, setExtensions } from "@wycliffeassociates/scripture-kitchen/onion/web";
 import { deserialize, declaredVersion } from "@wycliffeassociates/scripture-kitchen/reader";
+import type { Analysis } from "@sefer/text/engine/analysis";
 
-import type { Analysis } from "./galley/analysis";
-import type { Engine } from "./engine.galley";
-
-export type { Engine };
+export interface Engine {
+  /** A fresh memoized analyzer, one per seated book (Sefer's `galley.memoize()`). */
+  memoize(): (text: string) => Analysis;
+  readonly wasmBytes: number;
+  readonly bootMs: number;
+}
 
 const PARSE_ALL = { diagnostics: true, toc: true, utf16: true } as const;
 

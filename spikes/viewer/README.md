@@ -1,5 +1,11 @@
 # Spike: Sefer's CodeMirror editor as a read-only USFM viewer
 
+> **Retired 2026-10-15.** The hub now installs Sefer's editor as packages
+> (`@sefer/editor`, `@sefer/text`, from Sefer by git; see `web/package.json`
+> and `EDITOR-PIECES.md`), so the fork and this spike's code are gone. The
+> engine host moved to `web/src/engine/onion.ts`. This write-up, `REUSABLE.md`
+> and `SEAM.md` stay as the record of why; the code is in git at `709b467`.
+
 **Question:** can Sefer's `src/editor` be forked into a standalone, read-only
 USFM viewer for the Translation Hub, and what does it cost to ship?
 

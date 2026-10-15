@@ -11,11 +11,7 @@
     "noEmit": true,
     "strict": true,
     "skipLibCheck": true,
-    "types": ["vite/client", "node"],
-    "paths": {
-      "@viewer/*": ["../spikes/viewer/src/*"],
-      "#core/*": ["../spikes/viewer/src/host/*"]
-    }
+    "types": ["vite/client", "node"]
   },
-  "include": ["src", "vite.config.ts", "../spikes/viewer/src/viewer/virtual.d.ts"]
+  "include": ["src", "vite.config.ts"]
 }

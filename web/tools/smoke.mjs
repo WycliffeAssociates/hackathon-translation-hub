@@ -1,7 +1,7 @@
 // Drive the built app like a user, against a running hub-server.
 // Usage: node tools/smoke.mjs [base-url]     (default http://127.0.0.1:8788)
-// Starts nothing. Playwright is borrowed from Sefer's node_modules (read-only),
-// as spikes/viewer/tools/measure.mjs does. Screenshots go to web/smoke-shots/.
+// Starts nothing. Playwright is borrowed from Sefer's node_modules (read-only).
+// Screenshots go to web/smoke-shots/.
 import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";

@@ -1,4 +1,0 @@
-# pnpm 11+ refuses to install while a dependency build script is unapproved.
-# msgpackr-extract (an optional native speedup Effect pulls in) is skipped on purpose.
-allowBuilds:
-  msgpackr-extract: false
