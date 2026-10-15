@@ -26,6 +26,13 @@ export const nextTag = (tags: readonly string[]) => {
   return `${today}.${n}`;
 };
 
+/**
+ * NLLB translation is hidden for now (Will, 2026-10-15): too slow on WASM
+ * (about a minute a bulletin) to show in a demo. `?nllb=1` on the page shows it.
+ * Next: WebGPU when the browser has it, WASM otherwise.
+ */
+const nllbOn = new URLSearchParams(location.search).get("nllb") === "1";
+
 /** `41-MAT.usfm` → `MAT`. */
 const bookOf = (path: string) => /(?:^|\/)\d*-?([1-3A-Z]{3})\.usfm$/i.exec(path)?.[1]?.toUpperCase() ?? path;
 
@@ -208,6 +215,7 @@ export default function Releases(props: { owner: string; name: string; releases:
                         onInput={(e) => setTranslations(translations().map((x, j) => (j === i ? { ...x, text: e.currentTarget.value } : x)))}
                       />
                       <span class="release-translation-actions">
+                        <Show when={nllbOn}>
                         <button
                           type="button"
                           class="linkish small"
@@ -217,6 +225,7 @@ export default function Releases(props: { owner: string; name: string; releases:
                         >
                           Translate with NLLB
                         </button>
+                        </Show>
                         <button type="button" class="linkish small" onClick={() => setTranslations(translations().filter((_, j) => j !== i))}>
                           Remove
                         </button>
