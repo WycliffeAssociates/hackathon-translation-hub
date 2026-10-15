@@ -382,7 +382,7 @@ fn upstreams_json(book: &str, upstream: &Upstream, date: &str) -> String {
 }
 
 /// `YYYY-MM-DD` (UTC) for unix seconds, without a date crate.
-fn date_of(unix: i64) -> String {
+pub fn date_of(unix: i64) -> String {
     // Howard Hinnant's days-to-civil.
     let z = unix.div_euclid(86_400) + 719_468;
     let era = z.div_euclid(146_097);

@@ -14,6 +14,8 @@
 //! Candidates are anything that implements [`Candidate`], so the store, the
 //! catalog sync and tests can each use their own row type.
 
+pub mod fingerprint;
+
 use serde::{Deserialize, Serialize};
 
 /// The catalog's label for a repo (Port, via `wa_content_metadata.status`).

@@ -109,6 +109,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/languages/{ietf}/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every copy of every book of a language and brand, grouped into versions by
+         *     their words, with the pick and the official copy's state.
+         */
+        get: operations["sources"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/languages/{ietf}/sources/ignore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set a copy aside for one book or every book, or bring it back. Publishers only. */
+        post: operations["set_ignored"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me": {
         parameters: {
             query?: never;
@@ -484,6 +521,36 @@ export interface components {
             usual_ratio?: number | null;
             verses: components["schemas"]["ComparedVerse"][];
         };
+        /**
+         * @description One copy of a book in a language and brand: a Writer project, a
+         *     consolidated repo, or the official one.
+         */
+        BookCopy: {
+            /** @description Upper-case USFM id. */
+            book: string;
+            /** Format: int64 */
+            chapters: number;
+            /**
+             * Format: int64
+             * @description Proofreading findings in this book at the last run.
+             */
+            findings?: number | null;
+            head_sha: string;
+            /** Format: int64 */
+            head_unix: number;
+            name: string;
+            owner: string;
+            /** @description The file in the repo (the stitched file for a Writer project). */
+            path: string;
+            show_on_biel: boolean;
+            /** Format: int64 */
+            source_verses?: number | null;
+            status?: string | null;
+            /** Format: int64 */
+            verses: number;
+            /** @description A Writer project, served stitched. */
+            writer: boolean;
+        };
         /** @description One check's count in one book. */
         BookCount: {
             book: string;
@@ -588,6 +655,12 @@ export interface components {
                 [key: string]: string;
             };
         };
+        Copy: components["schemas"]["BookCopy"] & {
+            /** @description Set aside by a publisher, for this book or for every book. */
+            ignored: boolean;
+            /** @description The copy in the official repo. */
+            official: boolean;
+        };
         CoverageRow: {
             /**
              * Format: int64
@@ -606,6 +679,15 @@ export interface components {
             source: string;
             /** Format: int64 */
             source_verses: number;
+        };
+        /** @description How one copy differs from another, in verses. */
+        Diff: {
+            /** @description Verses this one has and the other lacks. */
+            added: number;
+            /** @description Verses in both, with different words. */
+            changed: number;
+            /** @description Verses the other has and this one lacks. */
+            missing: number;
         };
         Done: {
             /** @description Forgejo's page for what was written. */
@@ -741,6 +823,15 @@ export interface components {
             /** Format: int64 */
             total: number;
         };
+        IgnoreBody: {
+            /** @description A USFM id, or `*` for every book the repo holds. */
+            book: string;
+            /** @description False brings it back. */
+            ignore: boolean;
+            /** @description `owner/name`. */
+            repo: string;
+            resource: string;
+        };
         LanguageDetail: {
             /** @description From the catalog: per version and book, which repo is Official. */
             books: components["schemas"]["BookPick"][];
@@ -767,6 +858,16 @@ export interface components {
              * @description Scanned public repos whose manifest names this language.
              */
             repos: number;
+        };
+        Linked: {
+            commit: string;
+            /** @description It has commits since the pull. */
+            moved: boolean;
+            /** @description The repo the official book was pulled from, `owner/name`. */
+            repo: string;
+            taken_at: string;
+            /** @description Its version now, when it still has the book. */
+            version?: number | null;
         };
         LintRow: {
             /** @description Chapter → `[errors, warnings, infos]`; chapter 0 is before the first `\c`. */
@@ -840,6 +941,18 @@ export interface components {
              *     language and brand's Writer books it would gather, one per book.
              */
             writer_books: components["schemas"]["WriterBook"][];
+        };
+        OfficialBook: {
+            linked?: null | components["schemas"]["Linked"];
+            /**
+             * @description `current` (same words as the repo it follows), `behind` (that repo
+             *     changed since), `edited` (the official copy changed, the repo did not),
+             *     `unlinked` (no record of where it came from).
+             */
+            state: string;
+            /** @description The official copy's version. */
+            version: number;
+            vs_linked?: null | components["schemas"]["Diff"];
         };
         OfficialRepo: {
             /** @description Whether it exists on Forgejo yet. */
@@ -1048,6 +1161,32 @@ export interface components {
             id: string;
             reason: string;
         };
+        SourceBook: {
+            book: string;
+            official?: null | components["schemas"]["OfficialBook"];
+            /**
+             * @description The version the hub would take: the one the official copy follows,
+             *     else the best version not set aside.
+             */
+            pick?: number | null;
+            /**
+             * Format: int64
+             * @description Verses in the gateway source, when one resolves.
+             */
+            source_verses?: number | null;
+            versions: components["schemas"]["Version"][];
+        };
+        Sources: {
+            books: components["schemas"]["SourceBook"][];
+            /** @description Copies read, across every book. */
+            copies: number;
+            language: string;
+            /** @description The official repo has a copy of at least one book. */
+            official_exists: boolean;
+            resource: string;
+            /** @description `TextTranslation/{ietf}_{resource}`, when publishing is configured. */
+            target?: string | null;
+        };
         /** @description What the hub serves in place of a Writer repo's chunk files. */
         SyntheticInfo: {
             /** @description Chapters that have at least one chunk. */
@@ -1124,6 +1263,21 @@ export interface components {
             target_len: number;
             /** Format: int32 */
             verse: number;
+        };
+        /** @description Copies with the same words in every verse. */
+        Version: {
+            /** Format: int64 */
+            chapters: number;
+            /** @description Every member is set aside. */
+            ignored: boolean;
+            /**
+             * @description Best first: Primary and on BIEL, then Primary, Active, unlisted; then
+             *     the most verses, the newest.
+             */
+            members: components["schemas"]["Copy"][];
+            /** @description Verses with text. */
+            verses: number;
+            vs_pick?: null | components["schemas"]["Diff"];
         };
         /** @description Saves by one author in one week. */
         WeekSaves: {
@@ -1310,6 +1464,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LanguageProgress"];
+                };
+            };
+        };
+    };
+    sources: {
+        parameters: {
+            query: {
+                /** @description The brand (resource code): `reg`, `ulb`. */
+                resource: string;
+            };
+            header?: never;
+            path: {
+                ietf: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Sources"];
+                };
+            };
+        };
+    };
+    set_ignored: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ietf: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IgnoreBody"];
+            };
+        };
+        responses: {
+            /** @description Whether the copy is now set aside */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": boolean;
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
                 };
             };
         };

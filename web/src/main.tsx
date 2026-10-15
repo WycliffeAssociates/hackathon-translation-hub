@@ -16,6 +16,7 @@ import { TourOutlet } from "./tour/TourOutlet";
 const Repo = lazy(() => import("./pages/Repo"));
 // Chart candidates (Observable Plot), loaded on demand.
 const Viz = lazy(() => import("./pages/Viz"));
+const Sources = lazy(() => import("./pages/Sources"));
 
 function Layout(props: RouteSectionProps) {
   const navigate = useNavigate();
@@ -65,6 +66,7 @@ render(
       <Route path="/" component={Home} />
       <Route path="/repos/:owner/:name" component={Repo} />
       <Route path="/languages/:ietf" component={Language} />
+      <Route path="/languages/:ietf/sources" component={Sources} />
       <Route path="/search" component={Search} />
       <Route path="/biel" component={Biel} />
       <Route path="/checks" component={Checks} />

@@ -48,7 +48,10 @@ export default function Language() {
             <For each={groupBy(l().repos, (r: RepoSummary) => r.resource ?? "unknown")}>
               {([resource, repos]) => (
                 <section class="group">
-                  <h3>{resource} <span class="count">{repos.length}</span></h3>
+                  <h3>
+                    {resource} <span class="count">{repos.length}</span>{" "}
+                    <A class="small" href={`/languages/${l().ietf}/sources?resource=${encodeURIComponent(resource)}`}>Sources by book</A>
+                  </h3>
                   <ul class="feed"><For each={repos}>{(r) => <RepoRow repo={r} />}</For></ul>
                 </section>
               )}

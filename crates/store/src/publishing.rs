@@ -225,3 +225,114 @@ pub fn writer_books(conn: &Connection, language: &str, resource: &str) -> Result
     }
     Ok(out)
 }
+
+// --- sources by book (migration 0006) ---------------------------------------
+
+/// One copy of a book in a language and brand: a Writer project, a
+/// consolidated repo, or the official one.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct BookCopy {
+    pub owner: String,
+    pub name: String,
+    /// Upper-case USFM id.
+    pub book: String,
+    /// The file in the repo (the stitched file for a Writer project).
+    pub path: String,
+    pub chapters: i64,
+    pub verses: i64,
+    pub source_verses: Option<i64>,
+    pub head_sha: String,
+    pub head_unix: i64,
+    pub status: Option<String>,
+    pub show_on_biel: bool,
+    /// A Writer project, served stitched.
+    pub writer: bool,
+    /// Proofreading findings in this book at the last run.
+    pub findings: Option<i64>,
+}
+
+/// Every public copy of every book of one language and brand, by book.
+pub fn book_copies(conn: &Connection, language: &str, resource: &str) -> Result<Vec<BookCopy>> {
+    let mut stmt = conn.prepare(
+        "SELECT r.owner, r.name, b.book, b.path, b.chapters, b.verses, b.source_verses,
+                r.head_sha, coalesce(r.head_unix, 0),
+                (SELECT c.status FROM catalog_content c WHERE c.owner = r.owner AND c.name = r.name
+                 ORDER BY CASE c.status WHEN 'Primary' THEN 0 WHEN 'Active' THEN 1 ELSE 2 END LIMIT 1),
+                coalesce((SELECT max(c.show_on_biel) FROM catalog_content c
+                          WHERE c.owner = r.owner AND c.name = r.name), 0),
+                r.synthetic IS NOT NULL,
+                (SELECT json_extract(p.by_book, '$.' || b.book) FROM proof p WHERE p.repo_id = r.id)
+         FROM repo r JOIN repo_book b ON b.repo_id = r.id
+         WHERE r.language = ?1 AND r.resource = ?2 AND r.head_sha IS NOT NULL
+           AND r.is_archived = 0 AND b.book != ''
+         ORDER BY b.book, r.owner, r.name",
+    )?;
+    let rows = stmt.query_map(
+        params![language.to_lowercase(), resource.to_lowercase()],
+        |r| {
+            Ok(BookCopy {
+                owner: r.get(0)?,
+                name: r.get(1)?,
+                book: r.get(2)?,
+                path: r.get(3)?,
+                chapters: r.get(4)?,
+                verses: r.get(5)?,
+                source_verses: r.get(6)?,
+                head_sha: r.get(7)?,
+                head_unix: r.get(8)?,
+                status: r.get(9)?,
+                show_on_biel: r.get::<_, i64>(10)? != 0,
+                writer: r.get::<_, i64>(11)? != 0,
+                findings: r.get(12)?,
+            })
+        },
+    )?;
+    Ok(rows.collect::<rusqlite::Result<_>>()?)
+}
+
+/// The copies set aside in a language and brand: `(book or '*', owner/name)`.
+pub fn ignored(conn: &Connection, language: &str, resource: &str) -> Result<Vec<(String, String)>> {
+    let mut stmt =
+        conn.prepare("SELECT book, repo FROM source_ignore WHERE language = ?1 AND resource = ?2")?;
+    let rows = stmt.query_map(
+        params![language.to_lowercase(), resource.to_lowercase()],
+        |r| Ok((r.get(0)?, r.get(1)?)),
+    )?;
+    Ok(rows.collect::<rusqlite::Result<_>>()?)
+}
+
+impl Store {
+    /// Set a copy aside (`ignore`), or bring it back. `book` may be `*`.
+    pub fn set_ignored(
+        &self,
+        language: &str,
+        resource: &str,
+        book: &str,
+        repo: &str,
+        username: &str,
+        ignore: bool,
+    ) -> Result<()> {
+        let (l, r, b, o) = (
+            language.to_lowercase(),
+            resource.to_lowercase(),
+            book.to_uppercase(),
+            repo.to_lowercase(),
+        );
+        let w = self.writer();
+        if ignore {
+            w.execute(
+                "INSERT OR REPLACE INTO source_ignore (language, resource, book, repo, username, at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                params![l, r, b, o, username, now_unix()],
+            )?;
+        } else {
+            // Bringing a copy back also lifts a "for every book" set-aside:
+            // the page shows one Bring back, whichever way it was set.
+            w.execute(
+                "DELETE FROM source_ignore WHERE language = ?1 AND resource = ?2 AND book IN (?3, '*') AND repo = ?4",
+                params![l, r, b, o],
+            )?;
+        }
+        Ok(())
+    }
+}

@@ -477,3 +477,37 @@ button.primary:disabled { opacity: .5; cursor: progress; }
 .tour-modal::backdrop { background: rgb(0 0 0 / .4); }
 .tour-modal h2 { margin-top: 0; }
 .tour-modal form { display: flex; justify-content: flex-end; margin-top: 1rem; }
+
+/* --- sources by book (pages/Sources.tsx): rows that open, no chips --- */
+.lede-quiet { color: var(--muted); max-width: 70ch; margin: .2rem 0 0; }
+.sources-summary { max-width: 75ch; }
+.sources-books { list-style: none; padding: 0; margin: 1rem 0; border-top: 1px solid var(--rule); }
+.sources-book { border-bottom: 1px solid var(--rule); }
+.sources-row { display: grid; grid-template-columns: 3.5rem minmax(0, 1.4fr) 7rem minmax(0, 1fr) minmax(0, 1.2fr); gap: .8rem; align-items: baseline; width: 100%; text-align: left; border: 0; border-radius: 0; background: none; padding: .55rem .4rem; }
+.sources-row:hover, .sources-book.open > .sources-row { background: var(--paper-2); }
+.sources-row:focus-visible { outline: 2px solid var(--lapis); outline-offset: -2px; }
+.sources-id { font-weight: 700; }
+.sources-pick, .sources-count, .sources-state { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sources-verses { font-variant-numeric: tabular-nums; }
+.official-state.behind { color: var(--draft); }
+.official-state.edited { color: var(--conflict); }
+.official-state.current { color: var(--official); }
+.sources-versions { padding: .2rem .4rem 1rem 4.3rem; }
+.sources-version { padding: .5rem 0; }
+.sources-version + .sources-version { border-top: 1px dashed var(--rule); }
+.sources-version.set { opacity: .6; }
+.sources-version-head { margin: 0 0 .3rem; font-size: .92rem; }
+.sources-members { list-style: none; padding: 0; margin: 0; display: grid; gap: .25rem; }
+.sources-members li { display: flex; flex-wrap: wrap; gap: .3rem 1rem; align-items: baseline; font-size: .9rem; }
+.sources-members li.set { text-decoration: line-through; text-decoration-color: var(--muted); }
+.sources-member { display: inline-flex; gap: .45rem; align-items: baseline; }
+.sources-member-actions { display: inline-flex; gap: .8rem; margin-left: auto; }
+.sources-actions { display: flex; align-items: center; gap: 1rem; margin: .6rem 0 0; }
+@media (max-width: 760px) {
+  .sources-row { grid-template-columns: 3rem minmax(0, 1fr) 5rem; }
+  .sources-count, .sources-state { grid-column: 2 / -1; }
+  .sources-versions { padding-left: .4rem; }
+}
+.repo-name { white-space: nowrap; }
+.repo-owner { color: var(--ink); }
+a:hover .repo-owner { text-decoration: underline; }

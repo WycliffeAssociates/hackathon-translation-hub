@@ -226,6 +226,103 @@
         }
       }
     },
+    "/v1/languages/{ietf}/sources": {
+      "get": {
+        "tags": [],
+        "summary": "Every copy of every book of a language and brand, grouped into versions by\ntheir words, with the pick and the official copy's state.",
+        "operationId": "sources",
+        "parameters": [
+          {
+            "name": "ietf",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "resource",
+            "in": "query",
+            "description": "The brand (resource code): `reg`, `ulb`.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Sources"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/languages/{ietf}/sources/ignore": {
+      "post": {
+        "tags": [],
+        "summary": "Set a copy aside for one book or every book, or bring it back. Publishers only.",
+        "operationId": "set_ignored",
+        "parameters": [
+          {
+            "name": "ietf",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IgnoreBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Whether the copy is now set aside",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/me": {
       "get": {
         "tags": [],
@@ -1363,6 +1460,81 @@
           }
         }
       },
+      "BookCopy": {
+        "type": "object",
+        "description": "One copy of a book in a language and brand: a Writer project, a\nconsolidated repo, or the official one.",
+        "required": [
+          "owner",
+          "name",
+          "book",
+          "path",
+          "chapters",
+          "verses",
+          "head_sha",
+          "head_unix",
+          "show_on_biel",
+          "writer"
+        ],
+        "properties": {
+          "book": {
+            "type": "string",
+            "description": "Upper-case USFM id."
+          },
+          "chapters": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "findings": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Proofreading findings in this book at the last run."
+          },
+          "head_sha": {
+            "type": "string"
+          },
+          "head_unix": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string",
+            "description": "The file in the repo (the stitched file for a Writer project)."
+          },
+          "show_on_biel": {
+            "type": "boolean"
+          },
+          "source_verses": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "verses": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "writer": {
+            "type": "boolean",
+            "description": "A Writer project, served stitched."
+          }
+        }
+      },
       "BookCount": {
         "type": "object",
         "description": "One check's count in one book.",
@@ -1698,6 +1870,30 @@
           }
         }
       },
+      "Copy": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BookCopy"
+          },
+          {
+            "type": "object",
+            "required": [
+              "ignored",
+              "official"
+            ],
+            "properties": {
+              "ignored": {
+                "type": "boolean",
+                "description": "Set aside by a publisher, for this book or for every book."
+              },
+              "official": {
+                "type": "boolean",
+                "description": "The copy in the official repo."
+              }
+            }
+          }
+        ]
+      },
       "CoverageRow": {
         "type": "object",
         "required": [
@@ -1743,6 +1939,32 @@
           "source_verses": {
             "type": "integer",
             "format": "int64"
+          }
+        }
+      },
+      "Diff": {
+        "type": "object",
+        "description": "How one copy differs from another, in verses.",
+        "required": [
+          "changed",
+          "added",
+          "missing"
+        ],
+        "properties": {
+          "added": {
+            "type": "integer",
+            "description": "Verses this one has and the other lacks.",
+            "minimum": 0
+          },
+          "changed": {
+            "type": "integer",
+            "description": "Verses in both, with different words.",
+            "minimum": 0
+          },
+          "missing": {
+            "type": "integer",
+            "description": "Verses the other has and this one lacks.",
+            "minimum": 0
           }
         }
       },
@@ -2017,6 +2239,32 @@
           }
         }
       },
+      "IgnoreBody": {
+        "type": "object",
+        "required": [
+          "resource",
+          "book",
+          "repo",
+          "ignore"
+        ],
+        "properties": {
+          "book": {
+            "type": "string",
+            "description": "A USFM id, or `*` for every book the repo holds."
+          },
+          "ignore": {
+            "type": "boolean",
+            "description": "False brings it back."
+          },
+          "repo": {
+            "type": "string",
+            "description": "`owner/name`."
+          },
+          "resource": {
+            "type": "string"
+          }
+        }
+      },
       "LanguageDetail": {
         "type": "object",
         "required": [
@@ -2133,6 +2381,39 @@
             "type": "integer",
             "format": "int64",
             "description": "Scanned public repos whose manifest names this language."
+          }
+        }
+      },
+      "Linked": {
+        "type": "object",
+        "required": [
+          "repo",
+          "commit",
+          "taken_at",
+          "moved"
+        ],
+        "properties": {
+          "commit": {
+            "type": "string"
+          },
+          "moved": {
+            "type": "boolean",
+            "description": "It has commits since the pull."
+          },
+          "repo": {
+            "type": "string",
+            "description": "The repo the official book was pulled from, `owner/name`."
+          },
+          "taken_at": {
+            "type": "string"
+          },
+          "version": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Its version now, when it still has the book.",
+            "minimum": 0
           }
         }
       },
@@ -2370,6 +2651,45 @@
               "$ref": "#/components/schemas/WriterBook"
             },
             "description": "Consolidate is offered (a Writer project, no official repo yet): the\nlanguage and brand's Writer books it would gather, one per book."
+          }
+        }
+      },
+      "OfficialBook": {
+        "type": "object",
+        "required": [
+          "version",
+          "state"
+        ],
+        "properties": {
+          "linked": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Linked"
+              }
+            ]
+          },
+          "state": {
+            "type": "string",
+            "description": "`current` (same words as the repo it follows), `behind` (that repo\nchanged since), `edited` (the official copy changed, the repo did not),\n`unlinked` (no record of where it came from)."
+          },
+          "version": {
+            "type": "integer",
+            "description": "The official copy's version.",
+            "minimum": 0
+          },
+          "vs_linked": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Diff",
+                "description": "The followed repo's copy against the official one, when they differ."
+              }
+            ]
           }
         }
       },
@@ -2998,6 +3318,90 @@
           }
         }
       },
+      "SourceBook": {
+        "type": "object",
+        "required": [
+          "book",
+          "versions"
+        ],
+        "properties": {
+          "book": {
+            "type": "string"
+          },
+          "official": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OfficialBook"
+              }
+            ]
+          },
+          "pick": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "The version the hub would take: the one the official copy follows,\nelse the best version not set aside.",
+            "minimum": 0
+          },
+          "source_verses": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Verses in the gateway source, when one resolves."
+          },
+          "versions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Version"
+            }
+          }
+        }
+      },
+      "Sources": {
+        "type": "object",
+        "required": [
+          "language",
+          "resource",
+          "official_exists",
+          "copies",
+          "books"
+        ],
+        "properties": {
+          "books": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceBook"
+            }
+          },
+          "copies": {
+            "type": "integer",
+            "description": "Copies read, across every book.",
+            "minimum": 0
+          },
+          "language": {
+            "type": "string"
+          },
+          "official_exists": {
+            "type": "boolean",
+            "description": "The official repo has a copy of at least one book."
+          },
+          "resource": {
+            "type": "string"
+          },
+          "target": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`TextTranslation/{ietf}_{resource}`, when publishing is configured."
+          }
+        }
+      },
       "SyntheticInfo": {
         "type": "object",
         "description": "What the hub serves in place of a Writer repo's chunk files.",
@@ -3183,6 +3587,49 @@
             "type": "integer",
             "format": "int32",
             "minimum": 0
+          }
+        }
+      },
+      "Version": {
+        "type": "object",
+        "description": "Copies with the same words in every verse.",
+        "required": [
+          "verses",
+          "chapters",
+          "members",
+          "ignored"
+        ],
+        "properties": {
+          "chapters": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "ignored": {
+            "type": "boolean",
+            "description": "Every member is set aside."
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Copy"
+            },
+            "description": "Best first: Primary and on BIEL, then Primary, Active, unlisted; then\nthe most verses, the newest."
+          },
+          "verses": {
+            "type": "integer",
+            "description": "Verses with text.",
+            "minimum": 0
+          },
+          "vs_pick": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Diff",
+                "description": "Against the book's pick; absent for the pick itself."
+              }
+            ]
           }
         }
       },
