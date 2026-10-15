@@ -107,7 +107,9 @@ Will clicked through Joe's hub (cloned to `../translation-hub`, run in Docker on
 - **Quieter**: PRODUCT.md (who, why, how it should feel), neutral surfaces, one type family, status as a dot and a word, zero counts hidden.
 - dev-data grew to 3,542 repos (2,889 Writer projects): every language with all 66 books, and the 14 with the most duplicate copies (Swati, Galician, Oxchuc Tzeltal with 6 owners, …), for the by-book cases.
 
-Still open from this round: who may create the official repo stays "the robot writes, the publishers team decides" (Will agreed; site admins can always write); private org memberships do not count toward Your work.
+Second pass the same day (Will, walking Oxchuc Tzeltal and pt-br): **published** is a pointer per language and resource (migration 0009), either the official org's repo or an existing repo blessed as is; the language page leads with it; sources compare every copy with the published copy and say what each published book **tracks**, with a verse diff; a distinct text is a **variant** (version is kept for releases); Releases on a repo that is not published offers "make this the published one" and "copy it into the official org" (what Adopt was). Tracking means watched and reported, not pulled automatically (see below).
+
+Still open from this round: who may create the official repo stays "the robot writes, the publishers team decides" (Will agreed; site admins can always write); private org memberships do not count toward Your work; revisortseltal's Tzeltal repos (the catalog's Primary for several books) were not in the pull, so their links 404 until they are pulled; whether a tracked book may be pulled automatically when the published copy has not been edited (Will to decide; the hub only reports today).
 
 ## Charts: candidates to keep or cut (`/viz`, 2026-10-14)
 
