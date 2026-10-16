@@ -287,7 +287,7 @@ export function SourcesView(props: { ietf: string; resource: string }) {
                   const differing = () => others().filter((v) => v.vs_reference && !v.ignored);
                   const tracks = () => b.published?.linked?.repo;
                   return (
-                    <li class="sources-book" classList={{ open: open().has(b.book) }}>
+                    <li class="sources-book" classList={{ open: open().has(b.book) }} data-tour={`book-${b.book}`}>
                       <button type="button" class="sources-row" aria-expanded={open().has(b.book)} onClick={() => toggle(b.book)}>
                         <span class="mono sources-id">{b.book}</span>
                         <span class="sources-pick">

@@ -88,7 +88,9 @@ export function TourOutlet() {
       else {
         if (!scrolled) {
           scrolled = true;
-          element.scrollIntoView({ block: "center", inline: "nearest" });
+          // A tall anchor (a whole list) shows from its top, not its middle.
+          const tall = element.getBoundingClientRect().height > window.innerHeight * 0.5;
+          element.scrollIntoView({ block: tall ? "start" : "center", inline: "nearest" });
         }
         const r = element.getBoundingClientRect();
         const held = box();
@@ -119,6 +121,13 @@ export function TourOutlet() {
 
   /** Below the anchor when there is room, else above; or to its right. */
   const cardStyle = (held: Box): Record<string, string> => {
+    // An anchor taller than half the screen leaves no room above or below:
+    // the card sits inside the screen, at its right edge.
+    if (held.height > window.innerHeight * 0.5)
+      return {
+        top: `${Math.min(Math.max(CARD_GAP + 48, held.top + CARD_GAP), window.innerHeight * 0.5)}px`,
+        right: `${CARD_GAP * 2}px`,
+      };
     if (step()?.side === "right")
       return {
         top: `${Math.max(CARD_GAP, held.top)}px`,

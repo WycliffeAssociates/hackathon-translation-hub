@@ -43,6 +43,8 @@ function Layout(props: RouteSectionProps) {
           <A href="/biel" activeClass="on">BIEL conflicts</A>
           <A href="/checks" activeClass="on">Checks</A>
           <A href="/status" activeClass="on">Status</A>
+          {/* The visible start of the demo tour (src/tour/tours/demo.tsx). */}
+          <A href="/?tour=demo">Tour</A>
         </nav>
         <ThemeToggle />
         <SessionCorner />
