@@ -51,6 +51,7 @@ const SESSION_SECS: i64 = 7 * 24 * 3600;
     paths(me, official, adopt, pull, publish_release, consolidate, assemble),
     components(schemas(
         MeResponse,
+        Links,
         Me,
         Official,
         OfficialRepo,
@@ -304,6 +305,15 @@ async fn logout(State(s): State<AppState>, headers: HeaderMap) -> Result<Respons
     Ok(res)
 }
 
+/// Where the web app links out to.
+#[derive(Serialize, ToSchema, Clone, Debug)]
+pub struct Links {
+    /// WACS as a browser reaches it (`HUB_BASE_URL`).
+    pub wacs_url: String,
+    /// Sefer on the Web (`HUB_SEFER_URL`).
+    pub sefer_url: String,
+}
+
 #[derive(Serialize, ToSchema)]
 pub struct MeResponse {
     /// Whether this hub can sign people in and publish at all.
@@ -312,6 +322,8 @@ pub struct MeResponse {
     pub official_org: Option<String>,
     /// The signed-in person, or null.
     pub me: Option<Me>,
+    /// Where "Open in WACS" and "Open in Sefer" go.
+    pub links: Links,
 }
 
 /// Who is signed in.
@@ -321,6 +333,7 @@ async fn me(State(s): State<AppState>, headers: HeaderMap) -> Json<MeResponse> {
         publishing: s.publish.is_some(),
         official_org: s.publish.as_ref().map(|p| p.config.official_org.clone()),
         me: current(&s, &headers).await,
+        links: (*s.links).clone(),
     })
 }
 

@@ -3211,6 +3211,24 @@
           }
         }
       },
+      "Links": {
+        "type": "object",
+        "description": "Where the web app links out to.",
+        "required": [
+          "wacs_url",
+          "sefer_url"
+        ],
+        "properties": {
+          "sefer_url": {
+            "type": "string",
+            "description": "Sefer on the Web (`HUB_SEFER_URL`)."
+          },
+          "wacs_url": {
+            "type": "string",
+            "description": "WACS as a browser reaches it (`HUB_BASE_URL`)."
+          }
+        }
+      },
       "LintRow": {
         "type": "object",
         "required": [
@@ -3364,9 +3382,14 @@
       "MeResponse": {
         "type": "object",
         "required": [
-          "publishing"
+          "publishing",
+          "links"
         ],
         "properties": {
+          "links": {
+            "$ref": "#/components/schemas/Links",
+            "description": "Where \"Open in WACS\" and \"Open in Sefer\" go."
+          },
           "me": {
             "oneOf": [
               {

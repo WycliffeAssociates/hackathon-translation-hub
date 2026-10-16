@@ -7,6 +7,8 @@ reasoned about but has not run against the real thing.
 
 ## Will's scope (2026-10-12): agreed, build it
 
+- Verse fingerprints (`crates/domain/src/fingerprint.rs`) split USFM with a hand-rolled scanner, picked for speed over every copy per request; a glued `\v 5\v 6` on wacsdev panicked it (fixed, d996f35). Move it onto scripture-kitchen's USFM parser (the onion) so there is one reading of USFM.
+
 | Item | State | Where / notes |
 |---|---|---|
 | Text file tree of a repo | ✅ verified | `GET /v1/repos/{o}/{n}/tree`, `/file/{path}`; web repo page |

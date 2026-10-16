@@ -84,6 +84,7 @@ Configuration is environment variables, all optional in development:
 | `HUB_LOG_FORMAT` | `json` | `pretty` for humans |
 | `RUST_LOG` | hub crates `info` | standard filter |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | — | export spans over OTLP/HTTP (build `--features otel`) |
+| `HUB_SEFER_URL` | `https://sefer-dev.bttdev.org` | Sefer on the Web, for "Open in Sefer" (with `HUB_BASE_URL` for "Open in WACS", served in `/v1/me`) |
 | `HUB_FORGEJO_URL`, `HUB_FORGEJO_TOKEN` | — | publishing (proposal): Forgejo's API and the service account; both set turns sign-in and writes on |
 | `HUB_FORGEJO_PUBLIC_URL` | `HUB_FORGEJO_URL` | Forgejo as a browser reaches it (the sign-in page) |
 | `HUB_OFFICIAL_ORG`, `HUB_PUBLISHERS_TEAM` | `TextTranslation`, `publishers` | the only owner the hub writes to; the team whose members may publish (`admins`: Forgejo site admins instead) |

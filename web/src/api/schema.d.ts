@@ -1112,6 +1112,13 @@ export interface components {
             /** @description Its variant now, when it still has the book. */
             version?: number | null;
         };
+        /** @description Where the web app links out to. */
+        Links: {
+            /** @description Sefer on the Web (`HUB_SEFER_URL`). */
+            sefer_url: string;
+            /** @description WACS as a browser reaches it (`HUB_BASE_URL`). */
+            wacs_url: string;
+        };
         LintRow: {
             /** @description Chapter → `[errors, warnings, infos]`; chapter 0 is before the first `\c`. */
             by_chapter: {
@@ -1160,6 +1167,8 @@ export interface components {
             username: string;
         };
         MeResponse: {
+            /** @description Where "Open in WACS" and "Open in Sefer" go. */
+            links: components["schemas"]["Links"];
             me?: null | components["schemas"]["Me"];
             /** @description The official org (`TextTranslation`), when publishing is on. */
             official_org?: string | null;

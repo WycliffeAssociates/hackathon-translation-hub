@@ -24,6 +24,9 @@ pub struct AppState {
     pub scanner: Arc<Scanner>,
     /// Sign-in and writes to the official org, when configured.
     pub publish: Option<Arc<crate::publish::Publisher>>,
+    /// Where the web app's "Open in WACS" and "Open in Sefer" links go
+    /// (`HUB_BASE_URL`, `HUB_SEFER_URL`), so one image serves any WACS.
+    pub links: Arc<crate::publish::Links>,
 }
 
 /// The whole contract: the read API plus sign-in and publishing.

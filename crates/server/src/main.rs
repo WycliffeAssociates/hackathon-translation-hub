@@ -97,6 +97,10 @@ async fn main() {
         store,
         scanner,
         publish,
+        links: Arc::new(publish::Links {
+            wacs_url: config.base_url.trim_end_matches('/').to_owned(),
+            sefer_url: config.sefer_url.trim_end_matches('/').to_owned(),
+        }),
     });
     if let Some(dir) = &config.web_dir {
         // The web app is a single page: unknown paths get index.html.

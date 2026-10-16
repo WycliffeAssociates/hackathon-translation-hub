@@ -9,7 +9,7 @@ import { A, useParams, useSearchParams } from "@solidjs/router";
 import { For, Match, Show, Switch, createMemo, createResource, createSignal } from "solid-js";
 import { api, startPageView } from "../api/client";
 import type { CodeCount } from "../api/types";
-import { Async, Counts, FORGEJO, StatusChip, seferLink, ago, checkKey, dateOf } from "../ui/bits";
+import { Async, Counts, StatusChip, seferLink, wacsLink, ago, checkKey, dateOf } from "../ui/bits";
 import FileTree from "./repo/FileTree";
 import FileView from "./repo/FileView";
 import History from "./repo/History";
@@ -209,7 +209,7 @@ export default function Repo() {
                 <For each={r().catalog}>{(c) => <StatusChip status={c.status} />}</For>
               </Show>
               <Show when={r().show_on_biel}><span class="tag biel">shown on BIEL</span></Show>
-              <a href={`${FORGEJO}/${r().owner}/${r().name}`} target="_blank" rel="noopener">Open in WACS ↗</a>
+              <a href={wacsLink(r().owner, r().name)} target="_blank" rel="noopener">Open in WACS ↗</a>
               <a href={seferLink(r().owner, r().name)} target="_blank" rel="noopener">Open in Sefer ↗</a>
             </p>
             <Show when={r().scan_error}><div class="failure">Scan failed: {r().scan_error}</div></Show>

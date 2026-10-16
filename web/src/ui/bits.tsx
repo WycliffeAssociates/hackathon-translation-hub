@@ -1,6 +1,7 @@
 // Small shared view pieces. Nothing here fetches.
 import { For, Match, Show, Switch, type Accessor, type JSX, type Resource } from "solid-js";
 import { A } from "@solidjs/router";
+import { me } from "./session";
 import type { ApiError } from "../api/client";
 
 /** Loading, failure, or the value of a resource. Keeps the old value while it refetches. */
@@ -69,17 +70,22 @@ export const ago = (unix: number | null | undefined): string => {
 
 export const dateOf = (unix: number | null | undefined) => (unix ? new Date(unix * 1000).toISOString().slice(0, 16).replace("T", " ") : "");
 
-export const FORGEJO = "https://content.bibletranslationtools.org";
+/*
+ * Where "Open in WACS" and "Open in Sefer" go comes from the server
+ * (`HUB_BASE_URL`, `HUB_SEFER_URL` through /v1/me), so one build serves any
+ * WACS. These are the fallbacks until /v1/me has answered.
+ */
+const links = () => me()?.links ?? { wacs_url: "https://content.bibletranslationtools.org", sefer_url: "https://sefer-dev.bttdev.org" };
+export const wacsLink = (owner: string, name: string): string => `${links().wacs_url}/${owner}/${name}`;
 
 /**
- * Sefer on the Web (the r-links dev preview for now). A share link
- * `/r/<owner>/<repo>?host=<cloud>` opens the repo there; the book path and
- * `at=` are optional (Sefer `src/app/ui/landing/OpenByLink.tsx`, branch
- * r-links). `host` is where Sefer reads the repo, the same WACS as FORGEJO.
+ * Sefer on the Web. A share link `/r/<owner>/<repo>?host=<cloud>` opens the
+ * repo there; the book path and `at=` are optional (Sefer
+ * `src/app/ui/landing/OpenByLink.tsx`, branch r-links). `host` is where Sefer
+ * reads the repo: the same WACS as wacsLink.
  */
-export const SEFER = "https://r-links-sefer-web-dev.wycliffe-associates-account.workers.dev";
 export const seferLink = (owner: string, name: string): string =>
-  `${SEFER}/r/${encodeURIComponent(owner)}/${encodeURIComponent(name)}?host=${new URL(FORGEJO).host}`;
+  `${links().sefer_url}/r/${encodeURIComponent(owner)}/${encodeURIComponent(name)}?host=${new URL(links().wacs_url).host}`;
 
 export const repoHref = (owner: string, name: string) => `/repos/${owner}/${name}`;
 

@@ -15,6 +15,8 @@ pub struct Config {
     pub forgejo: ForgejoSource,
     /// `HUB_BASE_URL`: the public WACS URL, for clone links.
     pub base_url: String,
+    /// `HUB_SEFER_URL`: Sefer on the Web, for the "Open in Sefer" link.
+    pub sefer_url: String,
     /// `HUB_LISTEN`.
     pub listen: SocketAddr,
     /// `HUB_POLL_SECS`: how often the soft poll looks for changed repos.
@@ -141,6 +143,7 @@ impl Config {
             forgejo,
             base_url: var("HUB_BASE_URL")
                 .unwrap_or("https://content.bibletranslationtools.org".into()),
+            sefer_url: var("HUB_SEFER_URL").unwrap_or("https://sefer-dev.bttdev.org".into()),
             listen,
             poll_every: secs("HUB_POLL_SECS", 300),
             catalog_every: secs("HUB_CATALOG_SECS", 3600),
