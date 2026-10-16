@@ -70,8 +70,11 @@ fn number(rest: &str) -> Option<(u16, &str)> {
     let t = rest.trim_start();
     let end = t.find(|c: char| !c.is_ascii_digit()).unwrap_or(t.len());
     let n = t[..end].parse().ok()?;
-    // Skip a range's tail (`-2`, `a`) up to the verse text.
-    let tail = t[end..].find(char::is_whitespace).unwrap_or(t.len() - end);
+    // Skip a range's tail (`-2`, `a`) up to the verse text, but never past
+    // the next marker: WACS has `\v 5\v 6 …` (an empty verse 5).
+    let tail = t[end..]
+        .find(|c: char| c.is_whitespace() || c == '\\')
+        .unwrap_or(t.len() - end);
     Some((n, &t[end + tail..]))
 }
 
@@ -126,7 +129,8 @@ pub fn verse_words(usfm: &str) -> BTreeMap<(u16, u16), String> {
     let mut current: Option<((u16, u16), usize)> = None;
     let mut flush = |current: &mut Option<((u16, u16), usize)>, end: usize| {
         if let Some((key, start)) = current.take() {
-            verses.insert(key, words(&usfm[start..end]));
+            // A verse that ends where it starts (or before) is empty, not a panic.
+            verses.insert(key, words(usfm.get(start..end).unwrap_or("")));
         }
     };
     let mut at = 0;
@@ -166,6 +170,18 @@ pub fn verse_words(usfm: &str) -> BTreeMap<(u16, u16), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // Why: a verse marker glued to the next one (`\v 5\v 6`, found on WACS in
+    // gux-x-gourmantche) made the splitter skip past the next marker and slice
+    // backwards, a panic that took down the whole Sources page.
+    #[test]
+    fn a_verse_glued_to_the_next_is_empty() {
+        let v = verse_words("\\c 1\n\\v 5\\v 6 Ni yaa\n\\v 7-8a\\v 9 bi");
+        assert_eq!(v[&(1, 5)], "");
+        assert_eq!(v[&(1, 6)], "Ni yaa");
+        assert_eq!(v[&(1, 7)], "");
+        assert_eq!(v[&(1, 9)], "bi");
+    }
 
     // Why: "the same text" must survive what re-stitching and tools change
     // (markers, spacing, headings) and still catch one changed word, or the
